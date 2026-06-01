@@ -1248,6 +1248,16 @@ body {
   font-weight: 600;
 }
 
+.home-periodo-filter select {
+  min-width: 5.5rem;
+  border: 1px solid #d7def8;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #1c2b75;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
 .hidden {
   display: none !important;
 }

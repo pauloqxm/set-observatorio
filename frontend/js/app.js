@@ -71,6 +71,8 @@ const state = {
   /** Linhas da aba perfil_social (carga auxiliar ao visitar Programas para KPIs por tema). */
   dadosPerfilParaProgramas: [],
   programaSelecionado: "",
+  /** Página inicial: { ano, mes } ou null para usar o período mais recente da base. */
+  homeReferencia: null,
   charts: { grafico1: null, grafico2: null, seriesKpiBar1: null, seriesKpiBar2: null }
 };
 
@@ -94,6 +96,9 @@ const els = {
   filtroProgramaTop: document.getElementById("filtroProgramaTop"),
   filtroProgramaWrap: document.getElementById("filtroProgramaWrap"),
   filtroPrograma: document.getElementById("filtroPrograma"),
+  homePeriodoFiltroTop: document.getElementById("homePeriodoFiltroTop"),
+  homeFiltroAno: document.getElementById("homeFiltroAno"),
+  homeFiltroMes: document.getElementById("homeFiltroMes"),
   sidebar: document.getElementById("sidebar"),
   menuToggle: document.getElementById("menuToggle"),
   menuEdgeOpen: document.getElementById("menuEdgeOpen"),
@@ -246,6 +251,169 @@ function formatAnoExibicao(raw) {
 }
 
 const MESES_ABREV_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_NOME_PT = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro"
+];
+
+const MESES_TEXTO_PARA_NUM = {
+  janeiro: 1,
+  fevereiro: 2,
+  marco: 3,
+  abril: 4,
+  maio: 5,
+  junho: 6,
+  julho: 7,
+  agosto: 8,
+  setembro: 9,
+  outubro: 10,
+  novembro: 11,
+  dezembro: 12
+};
+
+function parseIndicadorMesNumero(raw) {
+  if (raw == null || raw === "") return null;
+  if (isNumericLike(raw)) {
+    const n = Math.trunc(toNumber(raw));
+    if (n >= 1 && n <= 12) return n;
+  }
+  const t = normalizeTextForCompare(String(raw));
+  if (!t) return null;
+  for (const [nome, num] of Object.entries(MESES_TEXTO_PARA_NUM)) {
+    if (t === nome || t.startsWith(nome.slice(0, 3))) return num;
+  }
+  return null;
+}
+
+function parseIndicadorAnoNumero(raw) {
+  if (raw == null || raw === "") return null;
+  const y = formatAnoExibicao(raw);
+  if (y && /^\d{4}$/.test(y)) return Number(y);
+  return null;
+}
+
+/** Período mensal da linha (aba indicadores): ano + mês ou null se não identificável. */
+function parseIndicadorRowPeriod(row) {
+  let year = parseIndicadorAnoNumero(row.ano);
+  let month = parseIndicadorMesNumero(row.mes);
+
+  if (row.periodo) {
+    const text = String(row.periodo).trim();
+    const iso = text.match(/^(\d{4})-(\d{2})/);
+    if (iso) {
+      year = year || Number(iso[1]);
+      month = month || Number(iso[2]);
+    } else {
+      const br = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (br) {
+        year = year || Number(br[3]);
+        month = month || Number(br[2]);
+      } else {
+        const d = new Date(text);
+        if (!Number.isNaN(d.getTime())) {
+          year = year || d.getFullYear();
+          month = month || d.getMonth() + 1;
+        }
+      }
+    }
+  }
+
+  if (year && month >= 1 && month <= 12) {
+    return { year, month, sortKey: year * 100 + month };
+  }
+  if (year && !month) {
+    return { year, month: null, sortKey: year * 100 };
+  }
+  return null;
+}
+
+function listIndicadorMonthlyPeriods(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    const p = parseIndicadorRowPeriod(row);
+    if (!p || p.month == null) continue;
+    const key = `${p.year}-${p.month}`;
+    if (!map.has(key)) map.set(key, p);
+  }
+  return [...map.values()].sort((a, b) => a.sortKey - b.sortKey);
+}
+
+function getLatestIndicadorPeriod(rows) {
+  const list = listIndicadorMonthlyPeriods(rows);
+  return list.length ? list[list.length - 1] : null;
+}
+
+function resolveHomeReferencia(rows) {
+  const latest = getLatestIndicadorPeriod(rows);
+  const ref = state.homeReferencia;
+  if (ref && ref.ano != null && ref.mes != null) {
+    const periods = listIndicadorMonthlyPeriods(rows);
+    const ok = periods.some((p) => p.year === ref.ano && p.month === ref.mes);
+    if (ok) return { year: ref.ano, month: ref.mes };
+  }
+  if (latest) return { year: latest.year, month: latest.month };
+  return { year: null, month: null };
+}
+
+function filterRowsByIndicadorPeriod(rows, year, month) {
+  if (year == null || month == null) return rows;
+  return rows.filter((row) => {
+    const p = parseIndicadorRowPeriod(row);
+    if (!p) return true;
+    if (p.month == null) return p.year === year;
+    return p.year === year && p.month === month;
+  });
+}
+
+function formatHomePeriodoLabel(year, month) {
+  if (!year || !month) return "";
+  return `${MESES_NOME_PT[month - 1]} de ${year}`;
+}
+
+function formatIndicadorRowMeta(row) {
+  const p = parseIndicadorRowPeriod(row);
+  if (p && p.month) return formatHomePeriodoLabel(p.year, p.month);
+  const mesFmt = row.mes != null && String(row.mes).trim() !== "" ? String(row.mes).trim() : "";
+  const anoFmt = formatAnoExibicao(row.ano);
+  if (mesFmt && anoFmt) return `${mesFmt} · ${anoFmt}`;
+  return (
+    row.periodo ||
+    (anoFmt ? formatAnoExibicao(row.ano) : "") ||
+    row.fonte ||
+    "Valor informado na base"
+  );
+}
+
+function indicadorRowLabelKey(row, labelCol) {
+  return normalizeTextForCompare(
+    String(row[labelCol] || row.indicador || row.tema || row.categoria || "")
+  );
+}
+
+function dedupeIndicadorRowsByLabel(rows, labelCol) {
+  const byLabel = new Map();
+  for (const row of rows) {
+    const key = indicadorRowLabelKey(row, labelCol);
+    if (!key) continue;
+    const existing = byLabel.get(key);
+    const v = getRowNumericValor(row);
+    const ev = existing ? getRowNumericValor(existing) : null;
+    if (!existing || (v != null && (ev == null || Math.abs(v) > Math.abs(ev)))) {
+      byLabel.set(key, row);
+    }
+  }
+  return [...byLabel.values()];
+}
 
 /** Ex.: 2026-04-01 → Abr/2026 (para blocos de Análises). */
 function formatPeriodoAnalise(raw) {
@@ -1052,11 +1220,7 @@ function buildIndicadoresDestaqueCards(rows) {
       const label = String(row[labelCol] || row.indicador || def.fallbackLabel);
       const value =
         hasValor && isNumericLike(row.valor) ? formatCellValue(row.valor, "valor", row) : "—";
-      const meta =
-        row.periodo ||
-        row.fonte ||
-        (row.ano != null && row.ano !== "" ? formatAnoExibicao(row.ano) : "") ||
-        "Valor na base";
+      const meta = formatIndicadorRowMeta(row) || row.fonte || "Valor na base";
       return {
         label,
         value,
@@ -1078,17 +1242,34 @@ function buildIndicadoresDestaqueCards(rows) {
 }
 
 function buildIndicadoresDemaisCards(rows) {
-  let cards = buildKpiCards(rows);
-  cards = cards.filter((card) => !HOME_KPI_OCULTOS.has(normalizeTextForCompare(card.label)));
-  cards = cards.filter((card) => !labelMatchesHomeDestaque(normalizeTextForCompare(card.label)));
-  cards = cards.filter((card) => {
-    const n = normalizeTextForCompare(String(card.label || ""));
-    if (n.includes("populacao") && (n.includes("ocupad") || n.includes("ocup")) && !n.includes("desempreg")) {
-      return false;
-    }
-    return true;
-  });
-  return cards;
+  if (!rows.length) return [];
+  const cols = Object.keys(rows[0]);
+  const labelCol = detectLabelColumn(cols);
+  if (!cols.includes("valor")) return [];
+
+  const candidates = rows.filter((row) => isNumericLike(row.valor));
+  const deduped = dedupeIndicadorRowsByLabel(candidates, labelCol);
+
+  let cards = deduped
+    .map((row) => ({
+      label: row[labelCol] || normalizeCardTitle(row.categoria || "Indicador"),
+      value: formatCellValue(row.valor, "valor", row),
+      meta: formatIndicadorRowMeta(row),
+      sortVal: Math.abs(toNumber(row.valor))
+    }))
+    .filter((card) => !HOME_KPI_OCULTOS.has(normalizeTextForCompare(card.label)))
+    .filter((card) => !labelMatchesHomeDestaque(normalizeTextForCompare(card.label)))
+    .filter((card) => {
+      const n = normalizeTextForCompare(String(card.label || ""));
+      if (n.includes("populacao") && (n.includes("ocupad") || n.includes("ocup")) && !n.includes("desempreg")) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => b.sortVal - a.sortVal)
+    .slice(0, 6);
+
+  return cards.map(({ sortVal, ...card }) => card);
 }
 
 /** Séries para o gráfico horizontal estilo «saldo por atividade» (página inicial). */
@@ -1323,8 +1504,11 @@ function applyPageSubtitle() {
   }
 
   if (state.abaAtual === "indicadores") {
-    els.descricaoPagina.textContent =
-      "Destaques do mercado de trabalho, demais indicadores e saldo por setor (CAGED).";
+    const ref = resolveHomeReferencia(state.dadosAba);
+    const periodoTxt = formatHomePeriodoLabel(ref.year, ref.month);
+    els.descricaoPagina.textContent = periodoTxt
+      ? `Destaques do mercado de trabalho, demais indicadores e saldo por setor (CAGED) — referência ${periodoTxt}.`
+      : "Destaques do mercado de trabalho, demais indicadores e saldo por setor (CAGED).";
     return;
   }
 
@@ -1445,9 +1629,14 @@ function renderKpis() {
   }
 
   if (state.abaAtual === "indicadores") {
+    const ref = resolveHomeReferencia(state.dadosAba);
+    const periodoLabel = formatHomePeriodoLabel(ref.year, ref.month);
     const destaque = buildIndicadoresDestaqueCards(rows);
     const demais = buildIndicadoresDemaisCards(rows);
     const saldoAtividadeHtml = renderSaldoPorAtividadeHtml(rows);
+    const demaisSubtitle = periodoLabel
+      ? `Principais valores em destaque — ${periodoLabel}`
+      : "Principais valores em destaque na base";
     els.kpis.className = "kpi-home sec sec-blue";
     els.kpis.innerHTML = `
       <div class="kpi-home__block kpi-home__block--destaque">
@@ -1455,7 +1644,7 @@ function renderKpis() {
           <span class="kpi-home__heading-icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
           <div>
             <h3 class="kpi-home__title">Mercado de trabalho em foco</h3>
-            <p class="kpi-home__subtitle">Taxas de desemprego no Ceará e no Brasil</p>
+            <p class="kpi-home__subtitle">Taxas de desemprego no Ceará e no Brasil${periodoLabel ? ` · ${escapeHtml(periodoLabel)}` : ""}</p>
           </div>
         </div>
         <div class="kpis kpis--home-destaque">
@@ -1477,7 +1666,7 @@ function renderKpis() {
           <span class="kpi-home__heading-icon kpi-home__heading-icon--sec" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
           <div>
             <h3 class="kpi-home__title">Demais indicadores</h3>
-            <p class="kpi-home__subtitle">Principais valores em destaque na base</p>
+            <p class="kpi-home__subtitle">${escapeHtml(demaisSubtitle)}</p>
           </div>
         </div>
         <div class="kpis kpis--home-demais">
@@ -2088,6 +2277,47 @@ function renderGroupedSection() {
   `).join("");
 }
 
+function syncHomePeriodoFiltroUi() {
+  const isHome = state.abaAtual === "indicadores";
+  if (els.homePeriodoFiltroTop) {
+    els.homePeriodoFiltroTop.classList.toggle("hidden", !isHome);
+  }
+  if (!isHome || !els.homeFiltroAno || !els.homeFiltroMes) return;
+
+  const periods = listIndicadorMonthlyPeriods(state.dadosAba);
+  if (!periods.length) {
+    els.homeFiltroAno.innerHTML = "";
+    els.homeFiltroMes.innerHTML = "";
+    return;
+  }
+
+  const ref = resolveHomeReferencia(state.dadosAba);
+  const years = [...new Set(periods.map((p) => p.year))].sort((a, b) => a - b);
+  els.homeFiltroAno.innerHTML = years
+    .map((y) => `<option value="${y}">${y}</option>`)
+    .join("");
+  if (ref.year != null) els.homeFiltroAno.value = String(ref.year);
+
+  const yearSel = Number(els.homeFiltroAno.value) || ref.year;
+  const monthsInYear = periods.filter((p) => p.year === yearSel);
+  els.homeFiltroMes.innerHTML = monthsInYear
+    .map((p) => `<option value="${p.month}">${MESES_NOME_PT[p.month - 1]}</option>`)
+    .join("");
+  const mesOk = monthsInYear.some((p) => p.month === ref.month);
+  const mesVal = mesOk ? ref.month : monthsInYear[monthsInYear.length - 1]?.month;
+  if (mesVal != null) els.homeFiltroMes.value = String(mesVal);
+
+  if (
+    ref.year != null &&
+    ref.month != null &&
+    (state.homeReferencia == null ||
+      state.homeReferencia.ano !== ref.year ||
+      state.homeReferencia.mes !== ref.month)
+  ) {
+    state.homeReferencia = { ano: ref.year, mes: ref.month };
+  }
+}
+
 function applyViewFilters() {
   let rows = [...state.dadosAba];
 
@@ -2114,6 +2344,12 @@ function applyViewFilters() {
 
   if (state.programaSelecionado) {
     rows = rows.filter((item) => item.programa === state.programaSelecionado);
+  }
+
+  if (state.abaAtual === "indicadores") {
+    syncHomePeriodoFiltroUi();
+    const ref = resolveHomeReferencia(state.dadosAba);
+    rows = filterRowsByIndicadorPeriod(rows, ref.year, ref.month);
   }
 
   state.dadosFiltrados = rows;
@@ -2191,6 +2427,9 @@ async function loadAba(sheetName) {
     state.dadosFiltrados = [];
     state.dadosPerfilParaProgramas = [];
     state.programaSelecionado = "";
+    if (sheetName === "indicadores") {
+      state.homeReferencia = null;
+    }
 
     if (sheetName === "programas" && state.abas.includes("perfil_social")) {
       try {
@@ -2233,6 +2472,24 @@ async function init() {
       state.programaSelecionado = els.filtroPrograma.value;
       renderAll();
     });
+    if (els.homeFiltroAno) {
+      els.homeFiltroAno.addEventListener("change", () => {
+        const ano = Number(els.homeFiltroAno.value);
+        const periods = listIndicadorMonthlyPeriods(state.dadosAba).filter((p) => p.year === ano);
+        const latestMes = periods.length ? periods[periods.length - 1].month : null;
+        state.homeReferencia = { ano, mes: latestMes };
+        renderAll();
+      });
+    }
+    if (els.homeFiltroMes) {
+      els.homeFiltroMes.addEventListener("change", () => {
+        state.homeReferencia = {
+          ano: Number(els.homeFiltroAno?.value),
+          mes: Number(els.homeFiltroMes.value)
+        };
+        renderAll();
+      });
+    }
     els.menuToggle.addEventListener("click", toggleMenu);
     if (els.menuEdgeOpen) {
       els.menuEdgeOpen.addEventListener("click", () => openMenu());
