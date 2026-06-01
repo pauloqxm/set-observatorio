@@ -223,11 +223,21 @@ body {
   gap: 12px;
 }
 
+.page-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.page-status-line {
+  margin: 0;
+  align-self: flex-start;
+}
+
 .header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 14px 18px;
   background: linear-gradient(135deg, #ffffff 0%, #f8faff 48%, #f4f7ff 100%);
   border: 1px solid rgba(74, 89, 255, 0.14);
