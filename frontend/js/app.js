@@ -1467,7 +1467,7 @@ function applyPageSubtitle() {
 
   if (state.abaAtual === "mapa_regioes") {
     els.descricaoPagina.textContent =
-      "Mapa do Ceará com CAGED (estoque, admissões, desligamentos, saldos) e limite por município; filtros por mês/ano, região administrativa e município; pode sobrepor a Região no GeoJSON.";
+      "Painel interativo de monitoramento do mercado formal de trabalho cearense, com dados do CAGED desagregados por município — estoque de empregos, admissões, desligamentos e saldo líquido. Permite filtragem por competência (mês/ano), região administrativa e município, com visualização georreferenciada sobre o mapa do Ceará.";
     if (els.statusPagina) els.statusPagina.textContent = "Mapa + planilha CAGED";
     return;
   }
