@@ -2380,8 +2380,8 @@ function applyViewFilters() {
     rows = rows.filter((item) => item.programa === state.programaSelecionado);
   }
 
+  syncHomePeriodoFiltroUi();
   if (state.abaAtual === "indicadores") {
-    syncHomePeriodoFiltroUi();
     const ref = resolveHomeReferencia(state.dadosAba);
     rows = filterRowsByIndicadorPeriod(rows, ref.year, ref.month);
   }
