@@ -178,19 +178,6 @@ body {
   text-align: center;
 }
 
-.menu-item.report-btn {
-  margin-top: 8px;
-  background: #1b2aa1;
-  border-color: #1b2aa1;
-  color: #fff;
-  font-weight: 700;
-}
-
-.menu-item.report-btn:hover {
-  background: #2438d0;
-  border-color: #2438d0;
-}
-
 .menu-group {
   display: flex;
   flex-direction: column;
@@ -300,10 +287,6 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-
-.header-actions .page-export-btn {
-  flex-shrink: 0;
 }
 
 .pill {
@@ -453,32 +436,6 @@ body {
   flex-direction: column;
   gap: 22px;
   padding: 4px 2px;
-}
-
-.kpi-home__export-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #1a237e;
-  background: #fff;
-  border: 2px solid #4a59ff;
-  border-radius: 12px;
-  box-shadow: 3px 4px 0 #c8d0ff;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.kpi-home__export-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 4px 6px 0 #aeb8ff;
-}
-
-.kpi-home__export-btn:active {
-  transform: translateY(1px);
-  box-shadow: 2px 2px 0 #aeb8ff;
 }
 
 .kpi-home__block {
@@ -3154,24 +3111,12 @@ td {
   overflow: visible;
 }
 
-/* Rótulo «Análise visual» só envolve o texto (evita faixa amarela a largura total em captura/PDF) */
+/* Rótulo «Análise visual» só envolve o texto (evita faixa amarela a largura total) */
 #labelGraficos.section-label {
   display: inline-flex;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
-}
-
-/* Agrupa rótulo + gráficos na exportação PDF (proporção única) */
-.pdf-charts-capture-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  box-sizing: border-box;
-  background: #ffffff;
 }
 
 .section-kpis-header {
@@ -3206,19 +3151,6 @@ td {
 .sec-red {
   border: 2px solid #ff6b6b;
   box-shadow: 8px 10px 0 #f05f5f;
-}
-
-body.layout-expanded .app-layout {
-  max-width: 98vw;
-  grid-template-columns: 1fr;
-}
-
-body.layout-expanded .sidebar {
-  display: none;
-}
-
-body.layout-expanded .app-layout > .content {
-  margin-left: 0 !important;
 }
 
 /* Desktop: menu lateral em painel fixo (recolhe como no mobile, ao clicar no sanduíche) */
@@ -3391,10 +3323,6 @@ body.layout-expanded .app-layout > .content {
   .menu-item--within-group-active {
     box-shadow: inset 0 0 0 2px rgba(242, 93, 83, 0.45);
   }
-
-  .menu-item.report-btn {
-    background: #1b2aa1;
-  }
 }
 
 @media (max-width: 900px) {
@@ -3426,7 +3354,7 @@ body.layout-expanded .app-layout > .content {
 }
 
 @media (min-width: 1025px) {
-  body.sidebar-open:not(.layout-expanded) .site-footer__wrapper {
+  body.sidebar-open .site-footer__wrapper {
     margin-left: 296px;
   }
 }
@@ -3545,115 +3473,4 @@ body.layout-expanded .app-layout > .content {
   .site-footer__content {
     grid-template-columns: 1fr;
   }
-}
-
-/* Modal relatório PDF */
-.modal-relatorio {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.modal-relatorio.hidden {
-  display: none;
-}
-
-.modal-relatorio__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  cursor: pointer;
-}
-
-.modal-relatorio__box {
-  position: relative;
-  width: min(400px, 100%);
-  background: #fff;
-  border: 2px solid var(--blue);
-  border-radius: 18px;
-  box-shadow: 8px 10px 0 #3343dc;
-  padding: 20px 22px 18px;
-  z-index: 1;
-}
-
-.modal-relatorio__title {
-  margin: 0 0 8px;
-  font-size: 1.08rem;
-  font-weight: 800;
-  color: #0a1248;
-}
-
-.modal-relatorio__hint {
-  margin: 0 0 16px;
-  font-size: 0.85rem;
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-.modal-relatorio__opts {
-  border: none;
-  padding: 0;
-  margin: 0 0 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.modal-relatorio__label {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 0.9rem;
-  color: #1f2937;
-  cursor: pointer;
-}
-
-.modal-relatorio__label input {
-  margin-top: 3px;
-  accent-color: var(--blue);
-}
-
-.modal-relatorio__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.modal-relatorio__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  border-radius: 12px;
-  cursor: pointer;
-  border: 2px solid transparent;
-}
-
-.modal-relatorio__btn--ghost {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #334155;
-}
-
-.modal-relatorio__btn--primary {
-  background: #fff;
-  border-color: var(--blue);
-  color: #1a237e;
-  box-shadow: 3px 4px 0 #c8d0ff;
-}
-
-.modal-relatorio__btn--primary:hover {
-  transform: translateY(-1px);
-}
-
-.modal-relatorio__btn--primary:active {
-  transform: translateY(1px);
-  box-shadow: 2px 2px 0 #aeb8ff;
 }

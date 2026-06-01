@@ -10,8 +10,6 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <div id="menuOverlay" class="menu-overlay"></div>
@@ -55,10 +53,6 @@
           </div>
         </div>
         <div class="header-actions">
-          <button type="button" class="kpi-home__export-btn page-export-btn" id="btnKpiHomePng" hidden>
-            <i class="fa-solid fa-image" aria-hidden="true"></i>
-            <span>Baixar bloco (PNG)</span>
-          </button>
           <div class="pill pill--page-meta" id="statusPagina">Inicializando</div>
         </div>
       </header>
@@ -1236,31 +1230,6 @@
       </div>
     </div>
   </footer>
-
-  <div id="modalRelatorio" class="modal-relatorio hidden" aria-hidden="true" role="dialog" aria-labelledby="modalRelatorioTitulo">
-    <div class="modal-relatorio__backdrop"></div>
-    <div class="modal-relatorio__box">
-      <h3 id="modalRelatorioTitulo" class="modal-relatorio__title">Gerar relatório PDF</h3>
-      <p class="modal-relatorio__hint">Conteúdo como na página (textos, imagens e gráficos), formato A4.</p>
-      <fieldset class="modal-relatorio__opts">
-        <label class="modal-relatorio__label">
-          <input type="radio" name="relatorioEscopo" value="atual" checked />
-          <span>Só a página atual (aba aberta)</span>
-        </label>
-        <label class="modal-relatorio__label">
-          <input type="radio" name="relatorioEscopo" value="todas" />
-          <span>Todas as abas (relatório completo)</span>
-        </label>
-      </fieldset>
-      <div class="modal-relatorio__actions">
-        <button type="button" class="modal-relatorio__btn modal-relatorio__btn--ghost" id="btnRelatorioCancelar">Cancelar</button>
-        <button type="button" class="modal-relatorio__btn modal-relatorio__btn--primary" id="btnRelatorioGerar">
-          <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
-          Gerar PDF
-        </button>
-      </div>
-    </div>
-  </div>
 
   <script src="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
   <script src="/static/js/map-ce-regioes.js"></script>

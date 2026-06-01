@@ -81,9 +81,6 @@ const els = {
   statusPagina: document.getElementById("statusPagina"),
   labelKpis: document.getElementById("labelKpis"),
   sectionKpisHeader: document.getElementById("sectionKpisHeader"),
-  btnKpiHomePng: document.getElementById("btnKpiHomePng"),
-  /** Coluna principal (header + KPIs + gráficos + agrupamentos) — mesmo recorte visual da página. */
-  contentMain: document.querySelector("main.app-layout > section.content"),
   secaoMapaCe: document.getElementById("secaoMapaCe"),
   mapCeRegioes: document.getElementById("mapCeRegioes"),
   mapCeLegend: document.getElementById("mapCeLegend"),
@@ -103,20 +100,8 @@ const els = {
   secaoAgrupamentos: document.getElementById("secaoAgrupamentos"),
   tituloAgrupamentos: document.getElementById("tituloAgrupamentos"),
   agrupamentosGrid: document.getElementById("agrupamentosGrid"),
-  menuOverlay: document.getElementById("menuOverlay"),
-  modalRelatorio: document.getElementById("modalRelatorio"),
-  btnRelatorioCancelar: document.getElementById("btnRelatorioCancelar"),
-  btnRelatorioGerar: document.getElementById("btnRelatorioGerar")
+  menuOverlay: document.getElementById("menuOverlay")
 };
-
-/** PDF A4 (mm) */
-const PDF_PAGE_W = 210;
-const PDF_PAGE_H = 297;
-const PDF_MARGIN_X = 12;
-const PDF_MARGIN_TOP = 12;
-const PDF_MARGIN_BOTTOM = 14;
-const PDF_CONTENT_W = PDF_PAGE_W - 2 * PDF_MARGIN_X;
-const PDF_SECTION_GAP_MM = 3;
 
 /** GeoJSON servido em /static (frontend/geo/). */
 const CE_REGIOES_GEO_URL = "/static/geo/ce_regioes.geojson";
@@ -124,427 +109,6 @@ const CE_REGIOES_GEO_URL = "/static/geo/ce_regioes.geojson";
 function isMunicipalMapPage(sheetName = state.abaAtual) {
   return sheetName === "mapa_regioes" || sheetName === "perfil_municipal";
 }
-
-function pdfDelay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function pdfWaitForChartsAndLayout() {
-  await pdfDelay(80);
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-  Object.values(state.charts).forEach((ch) => {
-    try {
-      if (ch && typeof ch.resize === "function") ch.resize();
-    } catch (_) {}
-  });
-  if (isMunicipalMapPage() && window.ceRegioesMapApi) {
-    try {
-      window.ceRegioesMapApi.resize();
-    } catch (_) {}
-    await pdfDelay(350);
-  }
-  await pdfDelay(500);
-}
-
-/**
- * Converte cada instância ApexCharts de state.charts em uma <img> raster temporária,
- * para que html2canvas capture o conteúdo corretamente (SVG não é renderizado pelo html2canvas).
- * Retorna um array de objetos para restauração posterior.
- */
-async function pdfRasterizeApexCharts() {
-  const restores = [];
-  for (const ch of Object.values(state.charts)) {
-    if (!ch || typeof ch.dataURI !== "function") continue;
-    try {
-      const { imgURI } = await ch.dataURI();
-      if (!imgURI) continue;
-      const container = ch.el;
-      if (!container) continue;
-      const apexCanvas = container.querySelector(".apexcharts-canvas");
-      if (!apexCanvas) continue;
-      const img = document.createElement("img");
-      img.src = imgURI;
-      img.style.cssText = `display:block;width:${apexCanvas.offsetWidth}px;height:${apexCanvas.offsetHeight}px;`;
-      img.className = "pdf-apex-raster";
-      apexCanvas.parentNode.insertBefore(img, apexCanvas);
-      apexCanvas.style.visibility = "hidden";
-      apexCanvas.style.position = "absolute";
-      restores.push({ apexCanvas, img });
-    } catch (_) {}
-  }
-  return restores;
-}
-
-function pdfRestoreApexCharts(restores) {
-  for (const { apexCanvas, img } of restores) {
-    try {
-      apexCanvas.style.visibility = "";
-      apexCanvas.style.position = "";
-      if (img.parentNode) img.parentNode.removeChild(img);
-    } catch (_) {}
-  }
-}
-
-/**
- * Captura o canvas WebGL do MapLibre como <img> raster para que html2canvas
- * consiga renderizá-lo (WebGL não é capturável diretamente pelo html2canvas).
- * Requer preserveDrawingBuffer: true na criação do mapa (já configurado).
- */
-function pdfRasterizeMapCanvas() {
-  const mapContainer = document.getElementById("mapCeRegioes");
-  if (!mapContainer) return null;
-  const glCanvas = mapContainer.querySelector("canvas");
-  if (!glCanvas) return null;
-  let dataUrl;
-  try {
-    dataUrl = glCanvas.toDataURL("image/png");
-  } catch (_) {
-    return null;
-  }
-  const img = document.createElement("img");
-  img.src = dataUrl;
-  img.className = "pdf-map-raster";
-  img.style.cssText = [
-    "position:absolute",
-    "top:0",
-    "left:0",
-    `width:${glCanvas.offsetWidth}px`,
-    `height:${glCanvas.offsetHeight}px`,
-    "z-index:10",
-    "pointer-events:none",
-    "display:block"
-  ].join(";");
-  const prevPosition = mapContainer.style.position;
-  if (!prevPosition || prevPosition === "static") {
-    mapContainer.style.position = "relative";
-  }
-  mapContainer.appendChild(img);
-  return { mapContainer, img, prevPosition };
-}
-
-function pdfRestoreMapCanvas(restore) {
-  if (!restore) return;
-  try {
-    const { mapContainer, img, prevPosition } = restore;
-    if (img.parentNode) img.parentNode.removeChild(img);
-    mapContainer.style.position = prevPosition || "";
-  } catch (_) {}
-}
-
-function pdfShouldCapture(el) {
-  if (!el) return false;
-  const st = window.getComputedStyle(el);
-  if (st.display === "none" || st.visibility === "hidden" || Number(st.opacity) === 0) return false;
-  const r = el.getBoundingClientRect();
-  return r.width >= 4 && r.height >= 4;
-}
-
-/**
- * Ordem das abas no PDF = hierarquia do menu: topo visível, depois filhos de cada grupo.
- * Ex.: indicadores → analises → mapa_regioes; autonomo_detalhado → autonomo_perfil → autonomo_indicadores.
- */
-function pdfOrderedSheetNames() {
-  const abas = state.abas || [];
-  const ordered = [];
-  const seen = new Set();
-
-  const topLevel = abas.filter(
-    (name) => !HIDDEN_MENU_ITEMS.has(name) && !NESTED_MENU_ITEMS.has(name)
-  );
-
-  for (const name of topLevel) {
-    if (!abas.includes(name) || seen.has(name)) continue;
-    ordered.push(name);
-    seen.add(name);
-    const kids = MENU_GROUP_CHILDREN[name] || [];
-    for (const kid of kids) {
-      if (abas.includes(kid) && !seen.has(kid)) {
-        ordered.push(kid);
-        seen.add(kid);
-      }
-    }
-  }
-
-  for (const name of abas) {
-    if (name === "perfil_social" || HIDDEN_MENU_ITEMS.has(name)) continue;
-    if (!seen.has(name)) {
-      ordered.push(name);
-      seen.add(name);
-    }
-  }
-
-  return ordered;
-}
-
-/** Um único tile para rótulo amarelo + painel de gráficos (proporção coerente no A4). */
-async function pdfCaptureChartsSectionCanvas() {
-  if (!els.labelGraficos || !els.painelGraficos) return null;
-  if (els.painelGraficos.style.display === "none") return null;
-  if (!pdfShouldCapture(els.painelGraficos)) return null;
-
-  const label = els.labelGraficos;
-  const painel = els.painelGraficos;
-  const parent = label.parentNode;
-  if (!parent || painel.parentNode !== parent) return null;
-
-  const wrap = document.createElement("div");
-  wrap.className = "pdf-charts-capture-wrap";
-  wrap.setAttribute("aria-hidden", "true");
-
-  parent.insertBefore(wrap, label);
-  wrap.appendChild(label);
-  wrap.appendChild(painel);
-
-  window.scrollTo(0, 0);
-  await pdfDelay(100);
-  Object.values(state.charts).forEach((ch) => {
-    try {
-      if (ch && typeof ch.resize === "function") ch.resize();
-    } catch (_) {}
-  });
-  await pdfDelay(200);
-
-  const restores = await pdfRasterizeApexCharts();
-  let canvas = null;
-  try {
-    canvas = await pdfHtmlToCanvasCharts(wrap);
-  } finally {
-    pdfRestoreApexCharts(restores);
-    parent.insertBefore(label, wrap);
-    parent.insertBefore(painel, label.nextSibling);
-    parent.removeChild(wrap);
-  }
-
-  return canvas;
-}
-
-function pdfHtmlToCanvasCharts(el) {
-  if (!pdfShouldCapture(el)) return Promise.resolve(null);
-  const scale = Math.min(1.65, Math.max(1.15, (window.devicePixelRatio || 1) * 0.82));
-  return html2canvas(el, {
-    scale,
-    useCORS: true,
-    allowTaint: true,
-    logging: false,
-    backgroundColor: "#ffffff",
-    scrollX: -window.scrollX,
-    scrollY: -window.scrollY
-  });
-}
-
-/** Descriptores: elemento simples ou bloco «charts» unificado. */
-function pdfCollectCaptureDescriptors() {
-  const list = [];
-  const header = document.querySelector(".content > .header");
-  if (pdfShouldCapture(header)) list.push({ kind: "el", el: header });
-
-  const filtro = document.getElementById("filtroProgramaTop");
-  if (filtro && !filtro.classList.contains("hidden") && pdfShouldCapture(filtro)) {
-    list.push({ kind: "el", el: filtro });
-  }
-
-  if (state.abaAtual !== "analises" && !isMunicipalMapPage()) {
-    if (els.sectionKpisHeader && pdfShouldCapture(els.sectionKpisHeader)) {
-      list.push({ kind: "el", el: els.sectionKpisHeader });
-    }
-    if (els.kpis && pdfShouldCapture(els.kpis)) list.push({ kind: "el", el: els.kpis });
-  }
-
-  if (
-    isMunicipalMapPage() &&
-    els.secaoMapaCe &&
-    els.secaoMapaCe.style.display !== "none" &&
-    !els.secaoMapaCe.hidden &&
-    pdfShouldCapture(els.secaoMapaCe)
-  ) {
-    list.push({ kind: "el", el: els.secaoMapaCe });
-  }
-
-  if (els.painelGraficos && els.painelGraficos.style.display !== "none" && pdfShouldCapture(els.painelGraficos)) {
-    list.push({ kind: "charts" });
-  }
-
-  if (els.secaoAgrupamentos && els.secaoAgrupamentos.style.display !== "none" && pdfShouldCapture(els.secaoAgrupamentos)) {
-    list.push({ kind: "el", el: els.secaoAgrupamentos });
-  }
-
-  return list;
-}
-
-/** Corta um canvas alto em faixas que cabem na página A4. */
-function pdfAddCanvasSlices(doc, canvas, startYMm) {
-  const pageH = doc.internal.pageSize.getHeight();
-  const imgTotalHmm = (PDF_CONTENT_W * canvas.height) / canvas.width;
-  let offsetPx = 0;
-  let yMm = startYMm;
-  const footerReserve = PDF_MARGIN_BOTTOM + 8;
-
-  while (offsetPx < canvas.height) {
-    let availMm = pageH - yMm - footerReserve;
-    if (availMm < 10) {
-      doc.addPage();
-      yMm = PDF_MARGIN_TOP;
-      availMm = pageH - yMm - footerReserve;
-    }
-    const remainingPx = canvas.height - offsetPx;
-    const slicePx = Math.min(
-      remainingPx,
-      Math.max(1, Math.floor((availMm / imgTotalHmm) * canvas.height))
-    );
-    const sliceHmm = (slicePx / canvas.height) * imgTotalHmm;
-
-    const sliceCv = document.createElement("canvas");
-    sliceCv.width = canvas.width;
-    sliceCv.height = slicePx;
-    sliceCv.getContext("2d").drawImage(canvas, 0, offsetPx, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
-
-    doc.addImage(sliceCv.toDataURL("image/png"), "PNG", PDF_MARGIN_X, yMm, PDF_CONTENT_W, sliceHmm);
-    offsetPx += slicePx;
-    yMm += sliceHmm;
-  }
-  return yMm;
-}
-
-async function pdfHtmlToCanvas(el) {
-  if (!pdfShouldCapture(el)) return null;
-  const chartRestores = await pdfRasterizeApexCharts();
-  const mapRestore = pdfRasterizeMapCanvas();
-  const scale = Math.min(2, Math.max(1.5, window.devicePixelRatio || 1));
-  let canvas = null;
-  try {
-    canvas = await html2canvas(el, {
-      scale,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-      scrollX: -window.scrollX,
-      scrollY: -window.scrollY
-    });
-  } finally {
-    pdfRestoreMapCanvas(mapRestore);
-    pdfRestoreApexCharts(chartRestores);
-  }
-  return canvas;
-}
-
-function pdfAddFooters(doc) {
-  const n = doc.getNumberOfPages();
-  const h = doc.internal.pageSize.getHeight();
-  for (let p = 1; p <= n; p++) {
-    doc.setPage(p);
-    doc.setTextColor(95, 106, 143);
-    doc.setFontSize(7.5);
-    doc.text("Informacoes conforme a base do painel — Portal Empregos.", PDF_MARGIN_X, h - 7);
-    doc.text(`${p} / ${n}`, PDF_PAGE_W - PDF_MARGIN_X - 16, h - 7);
-  }
-}
-
-function slugifyFilePart(text) {
-  return String(text || "aba")
-    .replace(/[/\\?%*:|"<>]/g, "_")
-    .replace(/\s+/g, "_")
-    .slice(0, 80);
-}
-
-async function runPdfExport(scope) {
-  if (typeof html2canvas !== "function") {
-    alert("html2canvas indisponivel. Recarregue a pagina.");
-    return;
-  }
-  if (!window.jspdf?.jsPDF) {
-    alert("jsPDF indisponivel. Recarregue a pagina.");
-    return;
-  }
-  if (!state.abas.length) {
-    alert("Nao ha abas disponiveis.");
-    return;
-  }
-
-  const sheetInicio = state.abaAtual;
-  const programaInicio = state.programaSelecionado || "";
-  const prevExpanded = document.body.classList.contains("layout-expanded");
-  const statusPrev = els.statusPagina.textContent;
-
-  const targetSheets =
-    scope === "all" ? pdfOrderedSheetNames().filter((name) => name !== "perfil_social") : [sheetInicio];
-
-  try {
-    setExpandedLayout(true);
-    els.statusPagina.textContent = "Gerando PDF…";
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    let firstSheet = true;
-
-    for (let i = 0; i < targetSheets.length; i++) {
-      const sheetName = targetSheets[i];
-      if (state.abaAtual !== sheetName) {
-        await loadAba(sheetName);
-      } else {
-        renderAll();
-      }
-      await pdfWaitForChartsAndLayout();
-      window.scrollTo(0, 0);
-
-      if (!firstSheet) doc.addPage();
-      firstSheet = false;
-
-      let yCursor = PDF_MARGIN_TOP;
-      const descriptors = pdfCollectCaptureDescriptors();
-
-      if (!descriptors.length) {
-        doc.setFontSize(10);
-        doc.setTextColor(80, 88, 110);
-        doc.text("Sem blocos visiveis para esta aba.", PDF_MARGIN_X, yCursor + 10);
-        yCursor += 24;
-      }
-
-      for (const desc of descriptors) {
-        let canvas = null;
-        if (desc.kind === "charts") canvas = await pdfCaptureChartsSectionCanvas();
-        else canvas = await pdfHtmlToCanvas(desc.el);
-        if (!canvas) continue;
-        if (yCursor > PDF_MARGIN_TOP + 1) yCursor += PDF_SECTION_GAP_MM;
-        yCursor = pdfAddCanvasSlices(doc, canvas, yCursor);
-      }
-    }
-
-    pdfAddFooters(doc);
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const fname =
-      scope === "all"
-        ? `relatorio_todas_abas_${dateStr}.pdf`
-        : `relatorio_${slugifyFilePart(sheetInicio)}_${dateStr}.pdf`;
-    doc.save(fname);
-  } catch (err) {
-    console.error(err);
-    alert("Falha ao gerar o PDF. Verifique o console ou tente outra aba.");
-  } finally {
-    if (state.abaAtual !== sheetInicio) {
-      await loadAba(sheetInicio);
-    }
-    state.programaSelecionado = programaInicio;
-    if (els.filtroPrograma) els.filtroPrograma.value = programaInicio;
-    renderAll();
-    setExpandedLayout(prevExpanded);
-    applySidebarModeForViewport();
-    if (els.statusPagina) els.statusPagina.textContent = statusPrev;
-  }
-}
-
-function openRelatorioModal() {
-  if (!els.modalRelatorio) return;
-  els.modalRelatorio.classList.remove("hidden");
-  els.modalRelatorio.setAttribute("aria-hidden", "false");
-}
-
-function closeRelatorioModal() {
-  if (!els.modalRelatorio) return;
-  els.modalRelatorio.classList.add("hidden");
-  els.modalRelatorio.setAttribute("aria-hidden", "true");
-}
-
 
 function isMobileSidebarViewport() {
   return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1024px)").matches;
@@ -603,66 +167,6 @@ function toggleMenu() {
   } else {
     openMenu();
   }
-}
-
-async function downloadPageBlockAsPng() {
-  if (typeof html2canvas !== "function") {
-    alert("Biblioteca de exportação indisponível. Recarregue a página.");
-    return;
-  }
-  const root = els.contentMain || document.querySelector("main.app-layout > section.content");
-  if (!root) {
-    alert("Área da página indisponível para exportar.");
-    return;
-  }
-  const statusPrev = els.statusPagina ? els.statusPagina.textContent : "";
-  if (els.statusPagina) els.statusPagina.textContent = "Gerando PNG…";
-  try {
-    await pdfWaitForChartsAndLayout();
-    const chartRestores = await pdfRasterizeApexCharts();
-    const mapRestore = pdfRasterizeMapCanvas();
-    const scale = Math.min(2.25, Math.max(1.75, (window.devicePixelRatio || 1) * 1.1));
-    let canvas = null;
-    try {
-      canvas = await html2canvas(root, {
-        scale,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        scrollX: -window.scrollX,
-        scrollY: -window.scrollY,
-        onclone(clonedDoc) {
-          const hideIds = ["btnKpiHomePng"];
-          hideIds.forEach((id) => {
-            const node = clonedDoc.getElementById(id);
-            if (node) node.remove();
-          });
-        }
-      });
-    } finally {
-      pdfRestoreMapCanvas(mapRestore);
-      pdfRestoreApexCharts(chartRestores);
-    }
-    if (!canvas) return;
-    const a = document.createElement("a");
-    const part = slugifyFilePart(state.abaAtual || "pagina");
-    a.href = canvas.toDataURL("image/png");
-    a.download = `painel-empregos_${part}_${new Date().toISOString().slice(0, 10)}.png`;
-    a.rel = "noopener";
-    a.click();
-  } catch (err) {
-    console.error(err);
-    alert("Não foi possível gerar a imagem.");
-  } finally {
-    if (els.statusPagina) els.statusPagina.textContent = statusPrev;
-  }
-}
-
-/** Só para exportação PDF (área útil máxima); não persistir no utilizador. */
-function setExpandedLayout(isExpanded) {
-  document.body.classList.toggle("layout-expanded", isExpanded);
-  if (isExpanded) closeMenu();
 }
 
 /** Inteiros pt-BR só com pontos de milhar (ex.: 5.368, 1.469.712). */
@@ -1025,7 +529,7 @@ function programasCardPresentation(rows) {
   return { title: first.programa || "Sem programa", eyebrow: "PROGRAMA" };
 }
 
-/** Coluna usada para blocos inferiores / PDF conforme a aba. */
+/** Coluna usada para blocos inferiores conforme a aba. */
 function resolveGroupKeyColumn(sheetName, columns) {
   const configured = GROUP_BY_SHEET[sheetName];
   if (configured && columns.includes(configured)) return configured;
@@ -1230,25 +734,9 @@ function renderMenu() {
   </div>`;
   });
 
-  els.menuAbas.innerHTML =
-    blocks.join("") +
-    `
-    <button type="button" class="menu-item report-btn" data-action="report">
-      <i class="fa-solid fa-file-pdf"></i>
-      <span>Gerar Relatórios</span>
-    </button>
-  `;
+  els.menuAbas.innerHTML = blocks.join("");
 
   els.menuAbas.querySelectorAll(".menu-item").forEach((btn) => {
-    if (btn.dataset.action === "report") {
-      btn.addEventListener("click", () => {
-        openRelatorioModal();
-        if (window.innerWidth <= 1024) {
-          closeMenu();
-        }
-      });
-      return;
-    }
     btn.addEventListener("click", () => {
       loadAba(btn.dataset.aba);
       if (window.innerWidth <= 1024) {
@@ -2635,10 +2123,6 @@ function setDestaqueSectionsVisibility() {
   const hide = state.abaAtual === "analises" || isMunicipalMapPage();
   if (els.sectionKpisHeader) els.sectionKpisHeader.style.display = hide ? "none" : "";
   if (els.kpis) els.kpis.style.display = hide ? "none" : "";
-  if (els.btnKpiHomePng) {
-    els.btnKpiHomePng.hidden = false;
-    els.btnKpiHomePng.setAttribute("aria-hidden", "false");
-  }
 }
 
 /** Páginas municipais: subpáginas sob Página Inicial. */
@@ -2749,37 +2233,14 @@ async function init() {
       state.programaSelecionado = els.filtroPrograma.value;
       renderAll();
     });
-    if (els.btnKpiHomePng) {
-      els.btnKpiHomePng.addEventListener("click", (e) => {
-        e.preventDefault();
-        downloadPageBlockAsPng();
-      });
-    }
     els.menuToggle.addEventListener("click", toggleMenu);
     if (els.menuEdgeOpen) {
       els.menuEdgeOpen.addEventListener("click", () => openMenu());
     }
     els.menuOverlay.addEventListener("click", closeMenu);
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeMenu();
-        closeRelatorioModal();
-      }
+      if (event.key === "Escape") closeMenu();
     });
-    if (els.btnRelatorioCancelar) {
-      els.btnRelatorioCancelar.addEventListener("click", () => closeRelatorioModal());
-    }
-    els.modalRelatorio?.querySelector(".modal-relatorio__backdrop")?.addEventListener("click", () => closeRelatorioModal());
-    if (els.btnRelatorioGerar) {
-      els.btnRelatorioGerar.addEventListener("click", async () => {
-        const modo =
-          els.modalRelatorio?.querySelector('input[name="relatorioEscopo"]:checked')?.value === "todas"
-            ? "all"
-            : "current";
-        closeRelatorioModal();
-        await runPdfExport(modo);
-      });
-    }
     applySidebarModeForViewport();
     window.addEventListener("resize", () => {
       applySidebarModeForViewport();
