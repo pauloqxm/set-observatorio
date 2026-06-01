@@ -76,6 +76,9 @@ const state = {
   charts: { grafico1: null, grafico2: null, seriesKpiBar1: null, seriesKpiBar2: null }
 };
 
+/** Evita que listeners de change dos selects gravem mês errado durante repopulação programática. */
+let homePeriodoUiSync = false;
+
 const els = {
   menuAbas: document.getElementById("menuAbas"),
   tituloPagina: document.getElementById("tituloPagina"),
@@ -283,11 +286,17 @@ const MESES_TEXTO_PARA_NUM = {
 
 function parseIndicadorMesNumero(raw) {
   if (raw == null || raw === "") return null;
+  const text = String(raw).trim();
+  const excelMonth = text.match(/^(\d{1,2})(?:[,.]\d+)?$/);
+  if (excelMonth) {
+    const n = Number(excelMonth[1]);
+    if (n >= 1 && n <= 12) return n;
+  }
   if (isNumericLike(raw)) {
     const n = Math.trunc(toNumber(raw));
     if (n >= 1 && n <= 12) return n;
   }
-  const t = normalizeTextForCompare(String(raw));
+  const t = normalizeTextForCompare(text);
   if (!t) return null;
   for (const [nome, num] of Object.entries(MESES_TEXTO_PARA_NUM)) {
     if (t === nome || t.startsWith(nome.slice(0, 3))) return num;
@@ -306,6 +315,9 @@ function parseIndicadorAnoNumero(raw) {
 function parseIndicadorRowPeriod(row) {
   let year = parseIndicadorAnoNumero(row.ano);
   let month = parseIndicadorMesNumero(row.mes);
+  if (!month && row.periodo) {
+    month = parseIndicadorMesNumero(row.periodo);
+  }
 
   if (row.periodo) {
     const text = String(row.periodo).trim();
@@ -354,10 +366,10 @@ function getLatestIndicadorPeriod(rows) {
 }
 
 function resolveHomeReferencia(rows) {
-  const latest = getLatestIndicadorPeriod(rows);
+  const periods = listIndicadorMonthlyPeriods(rows);
+  const latest = periods.length ? periods[periods.length - 1] : null;
   const ref = state.homeReferencia;
   if (ref && ref.ano != null && ref.mes != null) {
-    const periods = listIndicadorMonthlyPeriods(rows);
     const ok = periods.some((p) => p.year === ref.ano && p.month === ref.mes);
     if (ok) return { year: ref.ano, month: ref.mes };
   }
@@ -2293,28 +2305,30 @@ function syncHomePeriodoFiltroUi() {
 
   const ref = resolveHomeReferencia(state.dadosAba);
   const years = [...new Set(periods.map((p) => p.year))].sort((a, b) => a - b);
-  els.homeFiltroAno.innerHTML = years
-    .map((y) => `<option value="${y}">${y}</option>`)
-    .join("");
-  if (ref.year != null) els.homeFiltroAno.value = String(ref.year);
+  const yearTarget = ref.year != null && years.includes(ref.year) ? ref.year : years[years.length - 1];
+  const monthsInYear = periods.filter((p) => p.year === yearTarget);
+  const latestInYear = monthsInYear.length ? monthsInYear[monthsInYear.length - 1] : null;
+  const mesTarget =
+    ref.year === yearTarget && monthsInYear.some((p) => p.month === ref.month)
+      ? ref.month
+      : latestInYear?.month ?? null;
 
-  const yearSel = Number(els.homeFiltroAno.value) || ref.year;
-  const monthsInYear = periods.filter((p) => p.year === yearSel);
-  els.homeFiltroMes.innerHTML = monthsInYear
-    .map((p) => `<option value="${p.month}">${MESES_NOME_PT[p.month - 1]}</option>`)
-    .join("");
-  const mesOk = monthsInYear.some((p) => p.month === ref.month);
-  const mesVal = mesOk ? ref.month : monthsInYear[monthsInYear.length - 1]?.month;
-  if (mesVal != null) els.homeFiltroMes.value = String(mesVal);
+  homePeriodoUiSync = true;
+  try {
+    els.homeFiltroAno.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join("");
+    els.homeFiltroAno.value = String(yearTarget);
+    els.homeFiltroMes.innerHTML = monthsInYear
+      .map((p) => `<option value="${p.month}">${MESES_NOME_PT[p.month - 1]}</option>`)
+      .join("");
+    if (mesTarget != null) els.homeFiltroMes.value = String(mesTarget);
 
-  if (
-    ref.year != null &&
-    ref.month != null &&
-    (state.homeReferencia == null ||
-      state.homeReferencia.ano !== ref.year ||
-      state.homeReferencia.mes !== ref.month)
-  ) {
-    state.homeReferencia = { ano: ref.year, mes: ref.month };
+    const anoSel = Number(els.homeFiltroAno.value);
+    const mesSel = Number(els.homeFiltroMes.value);
+    if (Number.isFinite(anoSel) && Number.isFinite(mesSel)) {
+      state.homeReferencia = { ano: anoSel, mes: mesSel };
+    }
+  } finally {
+    homePeriodoUiSync = false;
   }
 }
 
@@ -2474,6 +2488,7 @@ async function init() {
     });
     if (els.homeFiltroAno) {
       els.homeFiltroAno.addEventListener("change", () => {
+        if (homePeriodoUiSync) return;
         const ano = Number(els.homeFiltroAno.value);
         const periods = listIndicadorMonthlyPeriods(state.dadosAba).filter((p) => p.year === ano);
         const latestMes = periods.length ? periods[periods.length - 1].month : null;
@@ -2483,6 +2498,7 @@ async function init() {
     }
     if (els.homeFiltroMes) {
       els.homeFiltroMes.addEventListener("change", () => {
+        if (homePeriodoUiSync) return;
         state.homeReferencia = {
           ano: Number(els.homeFiltroAno?.value),
           mes: Number(els.homeFiltroMes.value)
