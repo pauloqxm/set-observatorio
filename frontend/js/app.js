@@ -43,6 +43,22 @@ const VIRTUAL_SHEETS = ["perfil_municipal"];
 /** Linhas da aba indicadores ocultadas do ranking geral (mantidas só na base). */
 const HOME_KPI_OCULTOS = new Set(["servicos", "industria", "comercio"]);
 
+/** Cards fixos em «Demais indicadores»; setores ficam só no gráfico de saldo por atividade. */
+const HOME_KPI_DEMAIS_DEF = [
+  {
+    fallbackLabel: "Total empregos carteira",
+    test(n) {
+      return n.includes("empregos") && n.includes("carteira");
+    }
+  },
+  {
+    fallbackLabel: "Saldo postos formais",
+    test(n) {
+      return n.includes("saldo") && n.includes("postos") && (n.includes("formais") || n.includes("formal"));
+    }
+  }
+];
+
 /** KPIs prioritários da página inicial (texto da planilha sem acentos após normalize). */
 const HOME_KPI_DESTAQUE_DEF = [
   {
@@ -1257,31 +1273,35 @@ function buildIndicadoresDemaisCards(rows) {
   if (!rows.length) return [];
   const cols = Object.keys(rows[0]);
   const labelCol = detectLabelColumn(cols);
-  if (!cols.includes("valor")) return [];
+  const hasValor = cols.includes("valor");
+  const used = new Set();
 
-  const candidates = rows.filter((row) => isNumericLike(row.valor));
-  const deduped = dedupeIndicadorRowsByLabel(candidates, labelCol);
-
-  let cards = deduped
-    .map((row) => ({
-      label: row[labelCol] || normalizeCardTitle(row.categoria || "Indicador"),
-      value: formatCellValue(row.valor, "valor", row),
-      meta: formatIndicadorRowMeta(row),
-      sortVal: Math.abs(toNumber(row.valor))
-    }))
-    .filter((card) => !HOME_KPI_OCULTOS.has(normalizeTextForCompare(card.label)))
-    .filter((card) => !labelMatchesHomeDestaque(normalizeTextForCompare(card.label)))
-    .filter((card) => {
-      const n = normalizeTextForCompare(String(card.label || ""));
-      if (n.includes("populacao") && (n.includes("ocupad") || n.includes("ocup")) && !n.includes("desempreg")) {
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => b.sortVal - a.sortVal)
-    .slice(0, 6);
-
-  return cards.map(({ sortVal, ...card }) => card);
+  return HOME_KPI_DEMAIS_DEF.map((def) => {
+    const idx = rows.findIndex((row, i) => {
+      if (used.has(i)) return false;
+      const lab = normalizeTextForCompare(String(row[labelCol] || row.indicador || row.tema || row.categoria || ""));
+      return def.test(lab);
+    });
+    if (idx >= 0) {
+      used.add(idx);
+      const row = rows[idx];
+      const label = String(row[labelCol] || row.indicador || def.fallbackLabel);
+      const value =
+        hasValor && isNumericLike(row.valor) ? formatCellValue(row.valor, "valor", row) : "—";
+      return {
+        label,
+        value,
+        meta: formatIndicadorRowMeta(row) || "Valor na base",
+        missing: false
+      };
+    }
+    return {
+      label: def.fallbackLabel,
+      value: "—",
+      meta: "Indicador nao encontrado na base",
+      missing: true
+    };
+  });
 }
 
 /** Séries para o gráfico horizontal estilo «saldo por atividade» (página inicial). */
@@ -1687,7 +1707,7 @@ function renderKpis() {
               ? demais
                   .map(
                     (card) => `
-            <div class="card card--home-demais">
+            <div class="card card--home-demais${card.missing ? " card--home-missing" : ""}">
               <div class="card__ico card__ico--sm" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></div>
               <span class="label">${escapeHtml(card.label)}</span>
               <span class="value">${escapeHtml(String(card.value))}</span>
