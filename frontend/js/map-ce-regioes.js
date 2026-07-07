@@ -25,14 +25,23 @@ const CE_INTERMEDIACAO_CSV_URL =
 const CE_INTERMEDIACAO_INDICADOR_TO_KEY = {
   "Atendimentos": "intermediacao_atendimentos",
   "Autônomos": "intermediacao_autonomos",
+  "Autonomos": "intermediacao_autonomos",
+  "Autónomos": "intermediacao_autonomos",
   "Cadastros": "intermediacao_cadastros",
+  "Cadastro": "intermediacao_cadastros",
   "Colocados": "intermediacao_colocados",
+  "Colocado": "intermediacao_colocados",
   "Egressos": "intermediacao_egressos",
+  "Egresso": "intermediacao_egressos",
   "Empresas": "intermediacao_empresas",
+  "Empresa": "intermediacao_empresas",
   "Encaminhados": "intermediacao_encaminhados",
+  "Encaminhado": "intermediacao_encaminhados",
   "PCD": "intermediacao_pcd",
   "Vagas": "intermediacao_vagas",
+  "Vaga": "intermediacao_vagas",
   "Visitas": "intermediacao_visitas",
+  "Visita": "intermediacao_visitas",
 };
 const CE_INTERMEDIACAO_LAYER_KEYS = Object.values(CE_INTERMEDIACAO_INDICADOR_TO_KEY);
 
@@ -1734,7 +1743,13 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
     const record = {};
     headers.forEach((h, idx) => { if (h) record[h] = (cells[idx] || "").trim(); });
 
-    const indicador = ceGetCellByKeys(record, ["indicador"]);
+    const indicadorRaw = ceGetCellByKeys(record, ["indicador"]).trim();
+    /* Tenta match exato primeiro, depois capitalizado para tolerância a grafia */
+    const indicador = CE_INTERMEDIACAO_INDICADOR_TO_KEY[indicadorRaw]
+      ? indicadorRaw
+      : Object.keys(CE_INTERMEDIACAO_INDICADOR_TO_KEY).find(
+          (k) => k.toLowerCase() === indicadorRaw.toLowerCase()
+        ) || indicadorRaw;
     const layerKey = CE_INTERMEDIACAO_INDICADOR_TO_KEY[indicador];
     if (!layerKey) continue;
 
@@ -1745,7 +1760,8 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
     if (codIbge == null) continue;
 
     const mesAno = ceBuildIntermedicaoMesAno(record);
-    const real   = ceParseNumberPt(ceGetCellByKeys(record, ["real"]));
+    /* Suporta "Real.", "Real. (I)", "Real (I)" e variantes após normalização */
+    const real   = ceParseNumberPt(ceGetCellByKeys(record, ["real", "reali"]));
 
     byLayer[layerKey].push({
       codigo: codIbge,
