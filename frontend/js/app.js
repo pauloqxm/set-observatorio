@@ -2465,8 +2465,8 @@ function syncCeRegioesMapSection() {
 
   syncProfileLayerSelectForMode(state.abaAtual);
 
-  if (typeof window.ceRegioesMapApi?.setPageMode === "function") {
-    window.ceRegioesMapApi.setPageMode(show ? state.abaAtual : null);
+  if (typeof window.ceRegioesMapApi?.setPageMode === "function" && show) {
+    window.ceRegioesMapApi.setPageMode(state.abaAtual);
   }
 
   if (!show) return;

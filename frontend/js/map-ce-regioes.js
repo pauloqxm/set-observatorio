@@ -1111,8 +1111,14 @@ function ceBuildProfileLayerCsvUrl(layerKey) {
 
 function ceGetSelectedProfileLayerKey() {
   const el = document.getElementById("mapProfileLayerStyle");
-  const v = el?.value || CE_PROFILE_LAYER_KEYS[0];
-  return CE_PROFILE_LAYER_CONFIG[v] ? v : CE_PROFILE_LAYER_KEYS[0];
+  let v = el?.value || CE_PROFILE_LAYER_KEYS[0];
+  if (!CE_PROFILE_LAYER_CONFIG[v]) v = CE_PROFILE_LAYER_KEYS[0];
+  const isIntermediacao =
+    ceIsIntermediacaoMode() || cePendingPageMode === "series_historicas";
+  if (isIntermediacao && !v.startsWith("intermediacao_")) {
+    return CE_INTERMEDIACAO_LAYER_KEYS[0];
+  }
+  return v;
 }
 
 function ceGetActiveProfileLayerConfig() {
@@ -2619,7 +2625,10 @@ function ceIsPlanejamentoOverlayOn() {
 
 function ceIsPerfilMunicipalMode() {
   const root = document.getElementById("secaoMapaCe");
-  return root?.classList.contains("section-map-ce--perfil") === true;
+  if (root?.classList.contains("section-map-ce--perfil")) return true;
+  if (root?.classList.contains("section-map-ce--intermediacao")) return true;
+  if (cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode)) return true;
+  return false;
 }
 
 function ceIsIntermediacaoMode() {
@@ -2675,6 +2684,47 @@ function ceGetSelectedLayerMode() {
   return CE_GRADUATED_METRICS.includes(v) ? v : "estoque";
 }
 
+/** Atualiza apenas o preenchimento graduado no modo perfil/intermediação. */
+function ceApplyProfileMapFillPaint() {
+  const map = ceMapRuntime.map;
+  if (!map?.getLayer("ce-regioes-fill")) return false;
+
+  const profileCfg = ceGetActiveProfileLayerConfig();
+  const profileStats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_PROFILE_LAYER_PROP, {
+    fixedLastThreshold: profileCfg?.fixedLastThreshold,
+  });
+  const activeIdx = ceMapRuntime.activeLegendClass;
+
+  map.setPaintProperty(
+    "ce-regioes-fill",
+    "fill-color",
+    ceBuildNumericFillExpr(
+      CE_PROFILE_LAYER_PROP,
+      profileStats?.thresholds || [],
+      profileCfg?.colors || CE_ESTOQUE_COLORS,
+      activeIdx
+    )
+  );
+  map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.82);
+  return true;
+}
+
+/** Reaplica visualização após setData — o paint pode ficar preso na paleta CAGED no primeiro carregamento. */
+function ceScheduleMapVisualizationRefresh() {
+  ceApplyVisualization();
+  const map = ceMapRuntime.map;
+  if (!map) return;
+  requestAnimationFrame(() => {
+    ceApplyVisualization();
+    try {
+      map.triggerRepaint();
+    } catch (_) {}
+  });
+  map.once("idle", () => {
+    ceApplyVisualization();
+  });
+}
+
 function ceApplyVisualization() {
   const map = ceMapRuntime.map;
   if (!map || !map.getSource("ce-regioes")) return;
@@ -2683,23 +2733,11 @@ function ceApplyVisualization() {
   const cfg = CE_METRIC_CONFIG[mode];
   const st = ceMapRuntime.layerStats[mode] || { thresholds: [], min: 0, max: 0 };
   const isPerfil = ceIsPerfilMunicipalMode();
-  const profileCfg = isPerfil ? ceGetActiveProfileLayerConfig() : null;
-  const profileStats = isPerfil
-    ? ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_PROFILE_LAYER_PROP, {
-        fixedLastThreshold: profileCfg?.fixedLastThreshold,
-      })
-    : null;
-
   const activeIdx = ceMapRuntime.activeLegendClass;
 
   try {
     if (isPerfil) {
-      map.setPaintProperty(
-        "ce-regioes-fill",
-        "fill-color",
-        ceBuildNumericFillExpr(CE_PROFILE_LAYER_PROP, profileStats?.thresholds || [], profileCfg?.colors || CE_ESTOQUE_COLORS, activeIdx)
-      );
-      map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.82);
+      ceApplyProfileMapFillPaint();
     } else {
       map.setPaintProperty(
         "ce-regioes-fill",
@@ -6115,7 +6153,7 @@ function ceApplyMapFilters() {
     ceMapRuntime.currentMergedGeoJson = mergedProfile;
     try {
       map.getSource("ce-regioes").setData(mergedProfile);
-      ceApplyVisualization();
+      ceScheduleMapVisualizationRefresh();
     } catch (e) {
       console.warn("Atualizar mapa Perfil Municipal:", e);
     }
@@ -6725,9 +6763,29 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           data: planejamentoFc,
         });
 
-        const mode0 = ceGetSelectedLayerMode();
-        const cfg0 = CE_METRIC_CONFIG[mode0];
-        const initialFill = ceBuildNumericFillExpr(cfg0.prop, thresholds, cfg0.colors);
+        const profileModeInit =
+          ceIsPerfilMunicipalMode() ||
+          (cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode));
+        if (profileModeInit) {
+          const initSheet =
+            cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode)
+              ? cePendingPageMode
+              : ceIsIntermediacaoMode()
+                ? "series_historicas"
+                : "perfil_municipal";
+          ceSyncProfileLayerSelectForPage(initSheet);
+        }
+        let initialFill;
+        let initialFillOpacity = 0.78;
+        if (profileModeInit) {
+          const profileCfg = ceGetActiveProfileLayerConfig();
+          initialFill = ceBuildNumericFillExpr(CE_PROFILE_LAYER_PROP, [], profileCfg.colors);
+          initialFillOpacity = 0.82;
+        } else {
+          const mode0 = ceGetSelectedLayerMode();
+          const cfg0 = CE_METRIC_CONFIG[mode0];
+          initialFill = ceBuildNumericFillExpr(cfg0.prop, thresholds, cfg0.colors);
+        }
 
         map.addLayer({
           id: "ce-regioes-fill",
@@ -6735,7 +6793,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           source: "ce-regioes",
           paint: {
             "fill-color": initialFill,
-            "fill-opacity": 0.78,
+            "fill-opacity": initialFillOpacity,
             "fill-outline-color": "rgba(0, 60, 40, 0.35)",
           },
         });
@@ -7079,7 +7137,10 @@ function ceResizeRegioesMap() {
 
 function ceSetPageMode(sheetName) {
   if (!sheetName) {
-    cePendingPageMode = null;
+    /* Não limpa o modo pendente enquanto o mapa ainda está inicializando — evita paint CAGED preso. */
+    if (ceMapRuntime.map?.getSource?.("ce-regioes")) {
+      cePendingPageMode = null;
+    }
     return;
   }
   cePendingPageMode = sheetName;
