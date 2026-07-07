@@ -1656,7 +1656,31 @@ function ceNormalizePostoCodigo(raw) {
   return Number.isFinite(n) && n > 0 ? String(n) : s;
 }
 
-/** Constrói Map<cod_posto normalizado → cod_ibge (número 6 dígitos)> a partir das unidades IDT. */
+/**
+ * Constrói Map<cod_posto normalizado → cod_ibge (número 6 dígitos)> lendo
+ * diretamente o texto CSV das unidades IDT — sem depender do filtro de
+ * coordenadas de ceParseIdtUnidadesCsv, garantindo que todos os postos
+ * (inclusive sem lat/lon válido) entrem no mapa de lookup.
+ */
+function ceBuildPostoToIbgeMapFromCsv(text) {
+  const m = new Map();
+  const rawText = String(text || "").replace(/^\uFEFF/, "");
+  const lines = rawText.split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return m;
+  const headers = ceParseCsvLine(lines[0]).map((h) => ceNormalizeKey(h));
+  for (let i = 1; i < lines.length; i++) {
+    const cells = ceParseCsvLine(lines[i]);
+    if (!cells.length) continue;
+    const record = {};
+    headers.forEach((h, idx) => { if (h) record[h] = (cells[idx] || "").trim(); });
+    const codPosto = ceNormalizePostoCodigo(ceGetCellByKeys(record, ["codposto"]));
+    const codIbge  = ceNormalizeCsvCodigoMunicipio(ceGetCellByKeys(record, ["codibge"]));
+    if (codPosto && codIbge != null) m.set(codPosto, codIbge);
+  }
+  return m;
+}
+
+/** @deprecated Use ceBuildPostoToIbgeMapFromCsv em vez desta função. */
 function ceBuildPostoToIbgeMap(unidadesGeoJson) {
   const m = new Map();
   for (const f of unidadesGeoJson?.features || []) {
@@ -6233,8 +6257,8 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               ceParseProfileLayerCsvRows(layerKey, text || ""),
             ])
           );
-          /* Parseia o CSV de intermediação (Cod_posto → cod_ibge via unidades IDT) */
-          const postoCodIbgeMap = ceBuildPostoToIbgeMap(ceMapRuntime.unidadesGeoJson);
+          /* Parseia o CSV de intermediação (Cod_posto → cod_ibge via CSV bruto das unidades IDT) */
+          const postoCodIbgeMap = ceBuildPostoToIbgeMapFromCsv(idtCsvRes || "");
           Object.assign(
             ceMapRuntime.profileRowsByLayer,
             ceParseIntermedicaoCsv(intermediacaoRes || "", postoCodIbgeMap)
