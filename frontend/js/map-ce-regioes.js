@@ -2267,7 +2267,9 @@ function ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel) {
     const rows = ceMapRuntime.profileRowsByLayer[layerKey] || [];
     const filtered = ceGetFilteredRows(rows, mesSel, munSel, regSel, anoSel);
     filteredByLayer[layerKey] = filtered;
-    const sumAllPeriods = layerKey === "ceara_cred";
+    const sumAllPeriods =
+      layerKey === "ceara_cred" ||
+      CE_PROFILE_LAYER_CONFIG[layerKey]?.parseMode === "intermediacao";
     aggByLayer[layerKey] = ceAggregateProfileByCodigo(filtered, { sumAllPeriods });
   }
   return { aggByLayer, filteredByLayer };
@@ -2779,9 +2781,14 @@ function ceUpdateProfileKpis(metricsByLayer) {
       valueEl.textContent = ceFormatProfileMetricValue(metric.total ?? 0, layerKey);
     }
     if (pctEl) {
-      pctEl.textContent = CE_PROFILE_LAYER_CONFIG[layerKey]?.hidePctKpi
-        ? "média no recorte"
-        : ceFormatPercentPt(metric.pct);
+      const layerCfgPct = CE_PROFILE_LAYER_CONFIG[layerKey];
+      if (layerCfgPct?.parseMode === "intermediacao") {
+        pctEl.textContent = "total no recorte";
+      } else if (layerCfgPct?.hidePctKpi) {
+        pctEl.textContent = "média no recorte";
+      } else {
+        pctEl.textContent = ceFormatPercentPt(metric.pct);
+      }
     }
   }
 
@@ -5598,6 +5605,14 @@ function ceSyncTemporalFiltersForCurrentMode() {
     Array.from(anoEl.options).forEach((opt) => {
       opt.selected = prevAno.has(opt.value);
     });
+    // Para camadas de intermediação sem ano previamente selecionado, auto-seleciona o mais recente
+    const activeLayerKey = ceGetSelectedProfileLayerKey();
+    if (CE_PROFILE_LAYER_CONFIG[activeLayerKey]?.parseMode === "intermediacao") {
+      const anySelected = Array.from(anoEl.options).some((o) => o.selected);
+      if (!anySelected && anoEl.options.length > 0) {
+        anoEl.options[anoEl.options.length - 1].selected = true;
+      }
+    }
   }
 
   const appliedAno = new Set(Array.from(anoEl?.selectedOptions || []).map((o) => o.value));
@@ -5682,8 +5697,10 @@ function ceApplyMapFilters() {
     const filteredProfile = ceGetFilteredRows(profileRows, mesSel, munSel, regSel, anoSel);
     const profileLayerKey = ceGetSelectedProfileLayerKey();
     const sumCearaCredOnMap = profileLayerKey === "ceara_cred";
+    const isIntermedicaoOnMap =
+      CE_PROFILE_LAYER_CONFIG[profileLayerKey]?.parseMode === "intermediacao";
     const aggProfile = ceAggregateProfileByCodigo(filteredProfile, {
-      sumAllPeriods: sumCearaCredOnMap,
+      sumAllPeriods: sumCearaCredOnMap || isIntermedicaoOnMap,
     });
     ceMapRuntime.profileLastAggByCodigo = aggProfile;
     const mergedProfile = ceMergeProfileIntoGeojson(ceMapRuntime.geoJsonBase, aggProfile);
