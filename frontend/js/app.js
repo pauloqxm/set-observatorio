@@ -38,7 +38,7 @@ const GROUP_BY_SHEET = {
   config: "chave"
 };
 
-const VIRTUAL_SHEETS = ["perfil_municipal"];
+const VIRTUAL_SHEETS = ["perfil_municipal", "series_historicas"];
 
 /** Linhas da aba indicadores ocultadas do ranking geral (mantidas só na base). */
 const HOME_KPI_OCULTOS = new Set(["servicos", "industria", "comercio"]);
@@ -2464,6 +2464,10 @@ function syncCeRegioesMapSection() {
   }
 
   syncProfileLayerSelectForMode(state.abaAtual);
+
+  if (typeof window.ceRegioesMapApi?.setPageMode === "function") {
+    window.ceRegioesMapApi.setPageMode(show ? state.abaAtual : null);
+  }
 
   if (!show) return;
   if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;

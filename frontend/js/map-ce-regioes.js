@@ -2627,6 +2627,42 @@ function ceIsIntermediacaoMode() {
   return root?.classList.contains("section-map-ce--intermediacao") === true;
 }
 
+function ceIsProfileMapPageMode(sheetName) {
+  return sheetName === "perfil_municipal" || sheetName === "series_historicas";
+}
+
+/** Modo de página pendente — aplicado assim que o mapa terminar de carregar. */
+let cePendingPageMode = null;
+
+function ceApplyPageModeClasses(sheetName) {
+  const root = document.getElementById("secaoMapaCe");
+  if (!root) return;
+  const isIntermediacao = sheetName === "series_historicas";
+  const isPerfilMode = ceIsProfileMapPageMode(sheetName);
+  root.classList.toggle("section-map-ce--perfil", isPerfilMode);
+  root.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
+}
+
+function ceSyncProfileLayerSelectForPage(sheetName) {
+  const sel = document.getElementById("mapProfileLayerStyle");
+  if (!sel) return;
+  const allowed = sheetName === "series_historicas" ? new Set(CE_INTERMEDIACAO_LAYER_KEYS) : null;
+  for (const opt of sel.options) {
+    const isIntLayer = opt.value.startsWith("intermediacao_");
+    if (allowed) {
+      opt.hidden = !allowed.has(opt.value);
+    } else if (sheetName === "perfil_municipal") {
+      opt.hidden = isIntLayer;
+    }
+  }
+  if (allowed && !allowed.has(sel.value)) {
+    sel.value = CE_INTERMEDIACAO_LAYER_KEYS[0];
+  } else if (sheetName === "perfil_municipal" && sel.value.startsWith("intermediacao_")) {
+    const first = Array.from(sel.options).find((o) => !o.hidden);
+    if (first) sel.value = first.value;
+  }
+}
+
 function ceGetIdtLayerId(map) {
   if (map?.getLayer("ce-idt-unidades-symbol")) return "ce-idt-unidades-symbol";
   if (map?.getLayer("ce-idt-unidades-circle")) return "ce-idt-unidades-circle";
@@ -6504,6 +6540,7 @@ function ceDestroyMap() {
   };
   ceMapRuntime.profilePibLineChart = null;
   ceMapRuntime.intermediacaoLineChart = null;
+  cePendingPageMode = null;
   ceMapRuntime.unidadesGeoJson = { type: "FeatureCollection", features: [] };
   ceMapRuntime.sedeLabelMarkers.forEach((m) => m.remove());
   ceMapRuntime.sedeLabelMarkers = [];
@@ -6811,10 +6848,10 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
 
         ceBuildSedeLabelMarkers(map, sedesFc);
 
-        if (ceIsPerfilMunicipalMode()) {
-          /* Modo perfil/intermediação: executa o fluxo completo igual ao setPageMode()
-             para garantir estado correto independentemente da ordem de navegação. */
-          ceSetPageMode();
+        if (cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode)) {
+          ceSetPageMode(cePendingPageMode);
+        } else if (ceIsPerfilMunicipalMode()) {
+          ceSetPageMode(ceIsIntermediacaoMode() ? "series_historicas" : "perfil_municipal");
         } else {
           ceSyncTemporalFiltersForCurrentMode();
           ceApplyVisualization();
@@ -7040,7 +7077,21 @@ function ceResizeRegioesMap() {
   });
 }
 
-function ceSetPageMode() {
+function ceSetPageMode(sheetName) {
+  if (!sheetName) {
+    cePendingPageMode = null;
+    return;
+  }
+  cePendingPageMode = sheetName;
+
+  if (ceIsProfileMapPageMode(sheetName)) {
+    ceApplyPageModeClasses(sheetName);
+    ceSyncProfileLayerSelectForPage(sheetName);
+  }
+
+  const map = ceMapRuntime.map;
+  if (!map?.getSource?.("ce-regioes")) return;
+
   ceSyncProfileLayerUi();
   ceSyncTemporalFiltersForCurrentMode();
   ceApplyMapFilters();
