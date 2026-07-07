@@ -1015,6 +1015,17 @@ function ceParseNumberPt(raw) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+/** Parseia percentuais da planilha (ex.: "95,5%", "95.5", "0,955"). */
+function ceParsePercentPt(raw) {
+  const t = String(raw ?? "").trim();
+  if (!t) return NaN;
+  const hasSymbol = t.includes("%");
+  const n = ceParseNumberPt(t.replace("%", "").trim());
+  if (!Number.isFinite(n)) return NaN;
+  if (!hasSymbol && n > 0 && n <= 1) return n * 100;
+  return n;
+}
+
 /** Valores com ponto decimal internacional (ex.: PIB 3483.92). */
 function ceParseDecimalFlexible(raw) {
   const t = String(raw ?? "").trim();
@@ -1753,7 +1764,11 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
   const lines = rawText.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return byLayer;
 
-  const headers = ceParseCsvLine(lines[0]).map((h) => ceNormalizeKey(h));
+  const headers = ceParseCsvLine(lines[0]).map((h) => {
+    const raw = String(h || "").trim();
+    if (raw === "%") return "pct";
+    return ceNormalizeKey(h);
+  });
 
   for (let i = 1; i < lines.length; i++) {
     const cells = ceParseCsvLine(lines[i]);
@@ -1777,9 +1792,10 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
     if (codIbge == null) continue;
 
     const mesAno = ceBuildIntermedicaoMesAno(record);
-    /* Coluna H: Prev. (previsão) · coluna I: Real. */
+    /* Coluna H: Prev. · coluna I: Real. · coluna J: % */
     const real = ceParseNumberPt(ceGetCellByKeys(record, ["real", "reali"]));
     const prev = ceParseNumberPt(ceGetCellByKeys(record, ["prev"]));
+    const pctMeta = ceParsePercentPt(ceGetCellByKeys(record, ["pct", "percentual", "perc"]));
 
     byLayer[layerKey].push({
       codigo: codIbge,
@@ -1788,6 +1804,7 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
       mesAnoKey: ceMesAnoKey(mesAno),
       pessoas: Number.isFinite(real) ? real : 0,
       previsao: Number.isFinite(prev) ? prev : 0,
+      pctMeta: Number.isFinite(pctMeta) ? pctMeta : null,
       raw: record,
     });
   }
@@ -2704,6 +2721,30 @@ function ceUpdateMapKpis(totals) {
   set("mapKpiSaldos", totals.saldos);
 }
 
+function ceSumIntermediacaoKpiFromRows(rows) {
+  let total = 0;
+  let totalPrev = 0;
+  let pctWeighted = 0;
+  let prevForPct = 0;
+  for (const row of rows) {
+    const real = Number(row.pessoas) || 0;
+    const prev = Number(row.previsao) || 0;
+    total += real;
+    totalPrev += prev;
+    if (Number.isFinite(row.pctMeta) && prev > 0) {
+      pctWeighted += row.pctMeta * prev;
+      prevForPct += prev;
+    }
+  }
+  let pct = null;
+  if (prevForPct > 0) {
+    pct = pctWeighted / prevForPct;
+  } else if (totalPrev > 0) {
+    pct = (total / totalPrev) * 100;
+  }
+  return { total, pct };
+}
+
 function ceComputeProfileKpiMetricsFromAgg(aggByLayer, filteredByLayer, munSel, regSel) {
   const metrics = {};
   let totalGeral = 0;
@@ -2817,6 +2858,13 @@ function ceComputeProfileKpiMetricsFromAgg(aggByLayer, filteredByLayer, munSel, 
       continue;
     }
 
+    if (layerCfg?.parseMode === "intermediacao") {
+      const intRows = filteredByLayer?.[layerKey] || [];
+      const { total, pct } = ceSumIntermediacaoKpiFromRows(intRows);
+      metrics[layerKey] = { total, pct };
+      continue;
+    }
+
     const values = entries.map((entry) => Number(entry?.pessoas) || 0).filter((n) => Number.isFinite(n));
     let total = 0;
     if (layerCfg?.kpiAgg === "avg") {
@@ -2849,7 +2897,11 @@ function ceUpdateProfileKpis(metricsByLayer) {
     if (pctEl) {
       const layerCfgPct = CE_PROFILE_LAYER_CONFIG[layerKey];
       if (layerCfgPct?.parseMode === "intermediacao") {
-        pctEl.textContent = "total no recorte";
+        const pctTxt =
+          metric.pct != null && Number.isFinite(metric.pct)
+            ? ceFormatPercentPt(metric.pct)
+            : "—";
+        pctEl.textContent = `total no recorte · ${pctTxt}`;
       } else if (layerCfgPct?.hidePctKpi) {
         pctEl.textContent = "média no recorte";
       } else {
