@@ -1546,17 +1546,19 @@ function ceAggregateProfileByCodigo(rows, options = {}) {
   return agg;
 }
 
-function ceMergeProfileIntoGeojson(geojson, aggByCod) {
+function ceMergeProfileIntoGeojson(geojson, aggByCod, options = {}) {
+  const { nullifyZero = false } = options;
   return {
     type: "FeatureCollection",
     features: (geojson.features || []).map((f) => {
       const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
       const agg = cod != null ? aggByCod.get(cod) : null;
+      const val = agg ? agg.pessoas : null;
       return {
         ...f,
         properties: {
           ...(f.properties || {}),
-          [CE_PROFILE_LAYER_PROP]: agg ? agg.pessoas : null,
+          [CE_PROFILE_LAYER_PROP]: nullifyZero && val === 0 ? null : val,
         },
       };
     }),
@@ -5727,7 +5729,11 @@ function ceApplyMapFilters() {
       sumAllPeriods: sumCearaCredOnMap || isIntermedicaoOnMap,
     });
     ceMapRuntime.profileLastAggByCodigo = aggProfile;
-    const mergedProfile = ceMergeProfileIntoGeojson(ceMapRuntime.geoJsonBase, aggProfile);
+    const mergedProfile = ceMergeProfileIntoGeojson(
+      ceMapRuntime.geoJsonBase,
+      aggProfile,
+      { nullifyZero: isIntermedicaoOnMap }
+    );
     ceMapRuntime.currentMergedGeoJson = mergedProfile;
     try {
       map.getSource("ce-regioes").setData(mergedProfile);
