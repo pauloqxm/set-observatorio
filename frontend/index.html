@@ -154,6 +154,16 @@
                   <option value="empresas_vinculos">Empresas por vínculos</option>
                   <option value="vinculo_escolaridade">Vínculo por escolaridade</option>
                   <option value="vinculo_sexo">Vínculo por sexo</option>
+                  <option value="intermediacao_atendimentos">Atendimentos</option>
+                  <option value="intermediacao_autonomos">Autônomos</option>
+                  <option value="intermediacao_cadastros">Cadastros</option>
+                  <option value="intermediacao_colocados">Colocados</option>
+                  <option value="intermediacao_egressos">Egressos</option>
+                  <option value="intermediacao_empresas">Empresas (IDT)</option>
+                  <option value="intermediacao_encaminhados">Encaminhados</option>
+                  <option value="intermediacao_pcd">PCD</option>
+                  <option value="intermediacao_vagas">Vagas</option>
+                  <option value="intermediacao_visitas">Visitas</option>
                 </select>
               </div>
               <div class="map-ce-layer-row__toggle-wrap">
@@ -684,6 +694,106 @@
                     <span class="map-ce-kpi-card__label">Total de vínculos</span>
                     <div class="map-ce-kpi-card__metrics">
                       <strong class="map-ce-kpi-card__value" id="mapKpiProfileVinculoSexo_total">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="atendimentos">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-handshake"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Atendimentos</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntAtendimentos">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntAtendimentosPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="autonomos">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-briefcase"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Autônomos</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntAutonomos">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntAutonomosPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="cadastros">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-clipboard-list"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Cadastros</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntCadastros">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntCadastrosPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="colocados">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-user-check"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Colocados</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntColocados">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntColocadosPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="egressos">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-door-open"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Egressos</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntEgressos">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntEgressosPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="empresas">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Empresas</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntEmpresas">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntEmpresasPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="encaminhados">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-arrow-right-from-bracket"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Encaminhados</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntEncaminhados">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntEncaminhadosPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="pcd">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-wheelchair"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">PCD</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntPcd">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntPcdPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="vagas">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-rectangle-list"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Vagas</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntVagas">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntVagasPct">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--intermediacao" data-int-key="visitas">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-shoe-prints"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Visitas</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="mapKpiIntVisitas">—</strong>
+                      <span class="map-ce-kpi-card__meta" id="mapKpiIntVisitasPct">—</span>
                     </div>
                   </div>
                 </article>

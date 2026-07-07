@@ -2401,7 +2401,19 @@ function setDestaqueSectionsVisibility() {
  * Adicionar novas camadas para series_historicas quando solicitado.
  */
 const PROFILE_LAYERS_BY_MODE = {
-  series_historicas: new Set(["servidores_municipais"]),
+  series_historicas: new Set([
+    "servidores_municipais",
+    "intermediacao_atendimentos",
+    "intermediacao_autonomos",
+    "intermediacao_cadastros",
+    "intermediacao_colocados",
+    "intermediacao_egressos",
+    "intermediacao_empresas",
+    "intermediacao_encaminhados",
+    "intermediacao_pcd",
+    "intermediacao_vagas",
+    "intermediacao_visitas",
+  ]),
 };
 
 /** Filtra as opções visíveis do select de camada municipal conforme o modo atual. */

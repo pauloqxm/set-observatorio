@@ -20,6 +20,22 @@ const CE_IDT_UNIDADES_CSV_URL =
 const CE_IDT_POINT_ICON_URL = "/static/assets/pino-unidade.png";
 const CE_IDT_POINT_ICON_ID = "ce-idt-pin";
 
+const CE_INTERMEDIACAO_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyc8fEsbFl47mk9a0w6iN3FXJQgSjkxURmb8R0_RzuhUuRde2NTxK_tbS5ZlWq7w84IAm3tHaRCpKn/pub?gid=0&single=true&output=csv";
+const CE_INTERMEDIACAO_INDICADOR_TO_KEY = {
+  "Atendimentos": "intermediacao_atendimentos",
+  "Autônomos": "intermediacao_autonomos",
+  "Cadastros": "intermediacao_cadastros",
+  "Colocados": "intermediacao_colocados",
+  "Egressos": "intermediacao_egressos",
+  "Empresas": "intermediacao_empresas",
+  "Encaminhados": "intermediacao_encaminhados",
+  "PCD": "intermediacao_pcd",
+  "Vagas": "intermediacao_vagas",
+  "Visitas": "intermediacao_visitas",
+};
+const CE_INTERMEDIACAO_LAYER_KEYS = Object.values(CE_INTERMEDIACAO_INDICADOR_TO_KEY);
+
 /** Evita cache HTTP antigo em CSV/planilhas publicadas. */
 const CE_FETCH_NO_CACHE = { cache: "no-store" };
 
@@ -251,6 +267,116 @@ const CE_PROFILE_LAYER_CONFIG = {
     popupFields: [
       { label: "Total", key: "total", format: "int", metric: true },
       { label: "Referência", key: "referencia", format: "text" },
+    ],
+  },
+  intermediacao_atendimentos: {
+    parseMode: "intermediacao", indicador: "Atendimentos",
+    label: "Atendimentos", legendTitle: "Atendimentos",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#dbeafe", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e3a8a"],
+    popupFields: [
+      { label: "Atendimentos (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_autonomos: {
+    parseMode: "intermediacao", indicador: "Autônomos",
+    label: "Autônomos", legendTitle: "Autônomos",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#ccfbf1", "#5eead4", "#14b8a6", "#0f766e", "#134e4a"],
+    popupFields: [
+      { label: "Autônomos (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_cadastros: {
+    parseMode: "intermediacao", indicador: "Cadastros",
+    label: "Cadastros", legendTitle: "Cadastros",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#dcfce7", "#86efac", "#22c55e", "#15803d", "#14532d"],
+    popupFields: [
+      { label: "Cadastros (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_colocados: {
+    parseMode: "intermediacao", indicador: "Colocados",
+    label: "Colocados", legendTitle: "Colocados",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#ecfccb", "#bef264", "#84cc16", "#4d7c0f", "#365314"],
+    popupFields: [
+      { label: "Colocados (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_egressos: {
+    parseMode: "intermediacao", indicador: "Egressos",
+    label: "Egressos", legendTitle: "Egressos",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#fef9c3", "#fde047", "#eab308", "#a16207", "#713f12"],
+    popupFields: [
+      { label: "Egressos (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_empresas: {
+    parseMode: "intermediacao", indicador: "Empresas",
+    label: "Empresas", legendTitle: "Empresas",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#ffedd5", "#fdba74", "#f97316", "#c2410c", "#7c2d12"],
+    popupFields: [
+      { label: "Empresas (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_encaminhados: {
+    parseMode: "intermediacao", indicador: "Encaminhados",
+    label: "Encaminhados", legendTitle: "Encaminhados",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#4a044e"],
+    popupFields: [
+      { label: "Encaminhados (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_pcd: {
+    parseMode: "intermediacao", indicador: "PCD",
+    label: "PCD", legendTitle: "PCD",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#fce7f3", "#f9a8d4", "#ec4899", "#be185d", "#831843"],
+    popupFields: [
+      { label: "PCD (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_vagas: {
+    parseMode: "intermediacao", indicador: "Vagas",
+    label: "Vagas", legendTitle: "Vagas",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#e0e7ff", "#a5b4fc", "#6366f1", "#4338ca", "#312e81"],
+    popupFields: [
+      { label: "Vagas (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
+    ],
+  },
+  intermediacao_visitas: {
+    parseMode: "intermediacao", indicador: "Visitas",
+    label: "Visitas", legendTitle: "Visitas",
+    valueFormat: "int", hidePctKpi: true, excludeFromTotal: true,
+    colors: ["#e0f2fe", "#7dd3fc", "#0ea5e9", "#0369a1", "#0c4a6e"],
+    popupFields: [
+      { label: "Visitas (Real)", key: "real", format: "int" },
+      { label: "Referência", key: "referencia", format: "text" },
+      { label: "Posto", key: "nomedaposto", format: "text" },
     ],
   },
 };
@@ -486,6 +612,16 @@ const CE_PROFILE_KPI_IDS = {
   aposentados: "mapKpiProfileAposentados",
   emprego: "mapKpiProfileEmprego",
   pib_per_capta: "mapKpiProfilePibPerCapta",
+  intermediacao_atendimentos: "mapKpiIntAtendimentos",
+  intermediacao_autonomos: "mapKpiIntAutonomos",
+  intermediacao_cadastros: "mapKpiIntCadastros",
+  intermediacao_colocados: "mapKpiIntColocados",
+  intermediacao_egressos: "mapKpiIntEgressos",
+  intermediacao_empresas: "mapKpiIntEmpresas",
+  intermediacao_encaminhados: "mapKpiIntEncaminhados",
+  intermediacao_pcd: "mapKpiIntPcd",
+  intermediacao_vagas: "mapKpiIntVagas",
+  intermediacao_visitas: "mapKpiIntVisitas",
 };
 const CE_PROFILE_KPI_PCT_IDS = {
   servidores_municipais: "mapKpiProfileServidoresPct",
@@ -495,6 +631,16 @@ const CE_PROFILE_KPI_PCT_IDS = {
   aposentados: "mapKpiProfileAposentadosPct",
   emprego: "mapKpiProfileEmpregoPct",
   pib_per_capta: "mapKpiProfilePibPerCaptaPct",
+  intermediacao_atendimentos: "mapKpiIntAtendimentosPct",
+  intermediacao_autonomos: "mapKpiIntAutonomosPct",
+  intermediacao_cadastros: "mapKpiIntCadastrosPct",
+  intermediacao_colocados: "mapKpiIntColocadosPct",
+  intermediacao_egressos: "mapKpiIntEgressosPct",
+  intermediacao_empresas: "mapKpiIntEmpresasPct",
+  intermediacao_encaminhados: "mapKpiIntEncaminhadosPct",
+  intermediacao_pcd: "mapKpiIntPcdPct",
+  intermediacao_vagas: "mapKpiIntVagasPct",
+  intermediacao_visitas: "mapKpiIntVisitasPct",
 };
 const CE_PROFILE_TOTAL_KPI_ID = "mapKpiProfileTotal";
 const CE_PROFILE_TOTAL_KPI_PCT_ID = "mapKpiProfileTotalPct";
@@ -921,7 +1067,8 @@ function ceGetCellByKeys(record, keys) {
 
 function ceBuildProfileLayerCsvUrl(layerKey) {
   const cfg = CE_PROFILE_LAYER_CONFIG[layerKey];
-  return cfg ? `${CE_PROFILE_LAYER_SOURCE_BASE_URL}${cfg.gid}` : "";
+  if (!cfg || !cfg.gid) return "";
+  return `${CE_PROFILE_LAYER_SOURCE_BASE_URL}${cfg.gid}`;
 }
 
 function ceGetSelectedProfileLayerKey() {
@@ -1497,6 +1644,64 @@ function ceParseIdtUnidadesCsv(text) {
   }
 
   return { type: "FeatureCollection", features };
+}
+
+/** Constrói Map<cod_posto (string) → cod_ibge (número 6 dígitos)> a partir das unidades IDT. */
+function ceBuildPostoToIbgeMap(unidadesGeoJson) {
+  const m = new Map();
+  for (const f of unidadesGeoJson?.features || []) {
+    const p = f.properties || {};
+    const codPosto = String(p.cod_posto || "").trim();
+    const codIbge = ceNormalizeCsvCodigoMunicipio(p.cod_ibge);
+    if (codPosto && codIbge != null) m.set(codPosto, codIbge);
+  }
+  return m;
+}
+
+/**
+ * Parseia o CSV de intermediação e distribui as linhas por camada (indicador).
+ * Retorna um objeto { "intermediacao_atendimentos": rows[], ... }
+ * Cada row segue o formato padrão: { codigo, municipio, mesAno, mesAnoKey, pessoas, raw }
+ */
+function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
+  const byLayer = Object.fromEntries(CE_INTERMEDIACAO_LAYER_KEYS.map((k) => [k, []]));
+  const rawText = String(text || "").replace(/^\uFEFF/, "");
+  const lines = rawText.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return byLayer;
+
+  const headers = ceParseCsvLine(lines[0]).map((h) => ceNormalizeKey(h));
+
+  for (let i = 1; i < lines.length; i++) {
+    const cells = ceParseCsvLine(lines[i]);
+    if (!cells.length) continue;
+    const record = {};
+    headers.forEach((h, idx) => { if (h) record[h] = (cells[idx] || "").trim(); });
+
+    const indicador = ceGetCellByKeys(record, ["indicador"]);
+    const layerKey = CE_INTERMEDIACAO_INDICADOR_TO_KEY[indicador];
+    if (!layerKey) continue;
+
+    const codPosto = ceGetCellByKeys(record, ["codposto"]);
+    const codIbge = postoCodIbgeMap?.get(codPosto);
+    if (codIbge == null) continue;
+
+    const mesNo = ceGetCellByKeys(record, ["mesn"]);
+    const ano = ceGetCellByKeys(record, ["ano"]);
+    let mesAno = ceGetCellByKeys(record, ["referencia"]);
+    if (!mesAno && mesNo && ano) mesAno = `${mesNo}/${ano}`;
+
+    const real = ceParseNumberPt(ceGetCellByKeys(record, ["real"]));
+
+    byLayer[layerKey].push({
+      codigo: codIbge,
+      municipio: ceGetCellByKeys(record, ["nomedaposto"]),
+      mesAno,
+      mesAnoKey: ceMesAnoKey(mesAno),
+      pessoas: Number.isFinite(real) ? real : 0,
+      raw: record,
+    });
+  }
+  return byLayer;
 }
 
 function ceGeoCodiToCodigoMunicipio(geoCodi) {
@@ -4388,6 +4593,10 @@ function ceSyncProfileLayerUi() {
   const isEmpresasVinculos = layerKey === "empresas_vinculos";
   const isVinculoEscolaridade = layerKey === "vinculo_escolaridade";
   const isVinculoSexo = layerKey === "vinculo_sexo";
+  const isIntermediacao = CE_PROFILE_LAYER_CONFIG[layerKey]?.parseMode === "intermediacao";
+  /* data-int-layer: sufixo do layerKey (ex: "atendimentos") usado pelo CSS para mostrar o KPI correto */
+  const intMatch = layerKey.match(/^intermediacao_(.+)$/);
+  root.dataset.intLayer = intMatch ? intMatch[1] : "";
   const isStandard =
     !isPib &&
     !isCearaCred &&
@@ -4395,6 +4604,7 @@ function ceSyncProfileLayerUi() {
     !isEmpresaGrupamento &&
     !isEmpresasVinculos &&
     !isVinculoEscolaridade &&
+    !isIntermediacao &&
     !isVinculoSexo;
   const isWide = ceIsProfileWideYearLayer(layerKey);
   root.classList.toggle("section-map-ce--pib-layer", isPib);
@@ -5933,20 +6143,24 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         ceInitPlanejamentoPalette(planejamentoFc);
 
         try {
-          const profileFetches = CE_PROFILE_LAYER_KEYS.map((layerKey) =>
-            fetch(ceBuildProfileLayerCsvUrl(layerKey), CE_FETCH_NO_CACHE)
-              .then((r) => (r.ok ? r.text() : ""))
-              .then((text) => [layerKey, text])
-              .catch(() => [layerKey, ""])
-          );
+          /* Exclui camadas de intermediação do loop de profile — são carregadas via CSV dedicado */
+          const profileFetches = CE_PROFILE_LAYER_KEYS
+            .filter((key) => CE_PROFILE_LAYER_CONFIG[key]?.parseMode !== "intermediacao")
+            .map((layerKey) =>
+              fetch(ceBuildProfileLayerCsvUrl(layerKey), CE_FETCH_NO_CACHE)
+                .then((r) => (r.ok ? r.text() : ""))
+                .then((text) => [layerKey, text])
+                .catch(() => [layerKey, ""])
+            );
 
-          const [geoRes, csvRes, idtCsvRes, ...profileEntries] = await Promise.all([
+          const [geoRes, csvRes, idtCsvRes, intermediacaoRes, ...profileEntries] = await Promise.all([
             fetch(geoUrl).then((r) => {
               if (!r.ok) throw new Error("GeoJSON");
               return r.json();
             }),
             fetch(CE_CAGED_CSV_URL, CE_FETCH_NO_CACHE).then((r) => (r.ok ? r.text() : "")),
             fetch(CE_IDT_UNIDADES_CSV_URL, CE_FETCH_NO_CACHE).then((r) => (r.ok ? r.text() : "")),
+            fetch(CE_INTERMEDIACAO_CSV_URL, CE_FETCH_NO_CACHE).then((r) => (r.ok ? r.text() : "")).catch(() => ""),
             ...profileFetches,
           ]);
 
@@ -5972,6 +6186,12 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               layerKey,
               ceParseProfileLayerCsvRows(layerKey, text || ""),
             ])
+          );
+          /* Parseia o CSV de intermediação (Cod_posto → cod_ibge via unidades IDT) */
+          const postoCodIbgeMap = ceBuildPostoToIbgeMap(ceMapRuntime.unidadesGeoJson);
+          Object.assign(
+            ceMapRuntime.profileRowsByLayer,
+            ceParseIntermedicaoCsv(intermediacaoRes || "", postoCodIbgeMap)
           );
           ceUpdateMapReferenceMesAno();
           ceMapRuntime.geoJsonBase = geoRes;

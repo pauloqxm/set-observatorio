@@ -1561,9 +1561,9 @@ td {
 }
 
 /* ── Modo Intermediação ───────────────────────────────────────────────────────
-   Baseado no Perfil Municipal: exibe apenas Servidores municipais.
-   KPI cards de outras camadas (PIB, BF, BPC, MEI, aposentados, emprego, etc.)
-   ficam ocultos até serem habilitados com novas orientações.
+   Baseado no Perfil Municipal. Oculta KPI cards do perfil-padrão (BF, BPC…)
+   e das demais camadas especiais. Exibe apenas o card do indicador ativo
+   via data-int-layer no elemento raiz (atribuído por ceSyncProfileLayerUi).
    ─────────────────────────────────────────────────────────────────────────── */
 .section-map-ce--intermediacao .map-ce-kpi-card--pib,
 .section-map-ce--intermediacao .map-ce-kpi-card--ceara-cred,
@@ -1574,6 +1574,25 @@ td {
 .section-map-ce--intermediacao .map-ce-kpi-card--vinculo-sexo,
 .section-map-ce--intermediacao .map-ce-kpi-card--total {
   display: none !important;
+}
+
+/* Todos os cards de intermediação ficam ocultos por padrão */
+.section-map-ce--perfil .map-ce-kpi-card--intermediacao {
+  display: none;
+}
+
+/* Mostra apenas o card do indicador ativo (controlado pelo data-int-layer do JS) */
+.section-map-ce--intermediacao[data-int-layer="atendimentos"]  [data-int-key="atendimentos"],
+.section-map-ce--intermediacao[data-int-layer="autonomos"]     [data-int-key="autonomos"],
+.section-map-ce--intermediacao[data-int-layer="cadastros"]     [data-int-key="cadastros"],
+.section-map-ce--intermediacao[data-int-layer="colocados"]     [data-int-key="colocados"],
+.section-map-ce--intermediacao[data-int-layer="egressos"]      [data-int-key="egressos"],
+.section-map-ce--intermediacao[data-int-layer="empresas"]      [data-int-key="empresas"],
+.section-map-ce--intermediacao[data-int-layer="encaminhados"]  [data-int-key="encaminhados"],
+.section-map-ce--intermediacao[data-int-layer="pcd"]           [data-int-key="pcd"],
+.section-map-ce--intermediacao[data-int-layer="vagas"]         [data-int-key="vagas"],
+.section-map-ce--intermediacao[data-int-layer="visitas"]       [data-int-key="visitas"] {
+  display: flex !important;
 }
 
 .map-ce-kpis-bar.map-ce-kpis-bar--profile .map-ce-kpi-card--ceara-cred {
