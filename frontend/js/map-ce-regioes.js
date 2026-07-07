@@ -399,6 +399,13 @@ const CE_PROFILE_LAYER_CONFIG = {
   },
 };
 
+/** Metadados das séries do gráfico mensal de intermediação. */
+const CE_INTERMEDIACAO_LINE_METRICS = CE_INTERMEDIACAO_LAYER_KEYS.map((key) => ({
+  key,
+  label: CE_PROFILE_LAYER_CONFIG[key]?.label || key,
+  color: CE_PROFILE_LAYER_CONFIG[key]?.colors?.[3] || "#1d4ed8",
+}));
+
 /** Faixas de vínculos (aba empresas_vinculos). */
 const CE_EMPRESAS_VINCULOS_METRICS = [
   { key: "de1a4", label: "De 1 a 4", kpiLabel: "De 1 a 4" },
@@ -791,6 +798,8 @@ const ceMapRuntime = {
   profilePibLineChart: null,
   /** @type {any} */
   profileCearaCredLineChart: null,
+  /** @type {any} */
+  intermediacaoLineChart: null,
   /** @type {Record<string, { thresholds: number[], min: number, max: number }>} */
   layerStats: {},
   /** @type {Map<string, string>} */
@@ -2592,6 +2601,11 @@ function ceIsPlanejamentoOverlayOn() {
 function ceIsPerfilMunicipalMode() {
   const root = document.getElementById("secaoMapaCe");
   return root?.classList.contains("section-map-ce--perfil") === true;
+}
+
+function ceIsIntermediacaoMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--intermediacao") === true;
 }
 
 function ceGetIdtLayerId(map) {
@@ -4639,6 +4653,211 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
   requestAnimationFrame(renderChart);
 }
 
+function ceDestroyIntermediacaoLineChart() {
+  const c = ceMapRuntime.intermediacaoLineChart;
+  if (c) {
+    try {
+      c.destroy();
+    } catch (_) {}
+    ceMapRuntime.intermediacaoLineChart = null;
+  }
+}
+
+function ceRenderIntermediacaoLineMetricFilters() {
+  const wrap = document.getElementById("mapIntermediacaoLineMetricFilters");
+  if (!wrap) return;
+  const prev = new Set(
+    Array.from(wrap.querySelectorAll('input[name="intermediacaoLineMetric"]:checked')).map((el) => el.value)
+  );
+  const hadSelection = prev.size > 0;
+  const activeKey = ceGetSelectedProfileLayerKey();
+  wrap.innerHTML = "";
+  for (const def of CE_INTERMEDIACAO_LINE_METRICS) {
+    const label = document.createElement("label");
+    label.className = "map-ce-chip";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = "intermediacaoLineMetric";
+    input.value = def.key;
+    input.checked = hadSelection ? prev.has(def.key) : def.key === activeKey;
+    label.appendChild(input);
+    const span = document.createElement("span");
+    span.textContent = def.label;
+    label.appendChild(span);
+    wrap.appendChild(label);
+  }
+}
+
+function ceGetIntermediacaoLineSelectedMetrics() {
+  return new Set(
+    Array.from(document.querySelectorAll('input[name="intermediacaoLineMetric"]:checked')).map((el) => el.value)
+  );
+}
+
+function ceBuildIntermediacaoMonthlyLineSeries(munSel, regSel, anoSel, metricKeys) {
+  if (!metricKeys.size) {
+    return { categories: [], series: [], hasRows: false };
+  }
+
+  const monthRanks = new Map();
+  /** @type {Map<string, Map<string, number>>} */
+  const byMetricMonth = new Map();
+
+  for (const layerKey of CE_INTERMEDIACAO_LAYER_KEYS) {
+    if (!metricKeys.has(layerKey)) continue;
+    const rows = ceMapRuntime.profileRowsByLayer[layerKey] || [];
+    const filtered = ceGetFilteredRows(rows, new Set(), munSel, regSel, anoSel);
+    const monthMap = new Map();
+    for (const row of filtered) {
+      const key = ceRowMesAnoKey(row);
+      if (!key) continue;
+      monthRanks.set(key, ceMesAnoKeyRank(key));
+      monthMap.set(key, (monthMap.get(key) || 0) + (Number(row.pessoas) || 0));
+    }
+    byMetricMonth.set(layerKey, monthMap);
+  }
+
+  const sortedKeys = [...monthRanks.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([key]) => key);
+  const categories = sortedKeys.map((key) => ceFormatMesAnoFromKey(key));
+
+  const series = CE_INTERMEDIACAO_LINE_METRICS
+    .filter((def) => metricKeys.has(def.key))
+    .map((def) => ({
+      name: def.label,
+      data: sortedKeys.map((key) => {
+        const v = Number(byMetricMonth.get(def.key)?.get(key));
+        return Number.isFinite(v) ? v : 0;
+      }),
+      _color: def.color,
+      _key: def.key,
+    }));
+
+  const hasRows = series.some((s) => s.data.some((v) => Number(v) > 0));
+  return { categories, series, hasRows };
+}
+
+function ceBuildIntermediacaoLineApexConfig(categories, seriesMeta) {
+  return {
+    chart: {
+      type: "line",
+      height: 460,
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#065f46",
+      animations: { speed: 320 },
+    },
+    series: seriesMeta.map((s) => ({ name: s.name, data: s.data })),
+    colors: seriesMeta.map((s) => s._color),
+    xaxis: {
+      categories,
+      title: { text: "Mês de referência", style: { fontSize: "12px", fontWeight: 600, color: "#475569" } },
+      labels: {
+        rotate: categories.length > 8 ? -35 : 0,
+        rotateAlways: false,
+        hideOverlappingLabels: true,
+        style: { fontSize: "11px", colors: "#475569" },
+      },
+    },
+    yaxis: {
+      title: { text: "Real (total no mês)", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
+      labels: {
+        formatter: (val) => ceFormatIntPt(Number(val)),
+        style: { fontSize: "11px", colors: "#047857" },
+      },
+      min: 0,
+    },
+    stroke: { curve: "smooth", width: 3 },
+    markers: { size: 4, strokeWidth: 2, hover: { size: 6 } },
+    legend: {
+      show: true,
+      position: "top",
+      horizontalAlign: "left",
+      fontSize: "12px",
+      fontWeight: 600,
+      markers: { width: 10, height: 10, radius: 3 },
+      onItemClick: { toggleDataSeries: true },
+      onItemHover: { highlightDataSeries: true },
+    },
+    grid: {
+      borderColor: "#d1fae5",
+      strokeDashArray: 4,
+      padding: { left: 8, right: 12, top: 10, bottom: 4 },
+    },
+    tooltip: {
+      shared: true,
+      intersect: false,
+      y: {
+        formatter: (val) => ceFormatIntPt(Number(val)),
+      },
+    },
+  };
+}
+
+function ceRefreshIntermediacaoLineChart() {
+  const { munSel, regSel, anoEl } = ceGetMapFilterMunRegSets();
+  const anoSel = new Set(Array.from(anoEl?.selectedOptions || []).map((o) => o.value));
+  ceUpdateIntermediacaoLineChart(munSel, regSel, anoSel);
+}
+
+function ceUpdateIntermediacaoLineChart(munSel, regSel, anoSel) {
+  if (typeof ApexCharts === "undefined") return;
+  if (!ceIsIntermediacaoMode()) {
+    ceDestroyIntermediacaoLineChart();
+    return;
+  }
+
+  const el = document.getElementById("mapIntermediacaoLineChart");
+  const emptyEl = document.getElementById("mapIntermediacaoLineEmpty");
+  if (!el) return;
+
+  ceRenderIntermediacaoLineMetricFilters();
+  const selMetrics = ceGetIntermediacaoLineSelectedMetrics();
+  const { categories, series, hasRows } = ceBuildIntermediacaoMonthlyLineSeries(
+    munSel,
+    regSel,
+    anoSel,
+    selMetrics
+  );
+
+  const showChart = selMetrics.size > 0 && hasRows;
+  if (emptyEl) {
+    emptyEl.hidden = showChart;
+    emptyEl.textContent = !selMetrics.size
+      ? "Selecione ao menos uma variável para exibir o gráfico."
+      : "Sem dados para o recorte e filtros selecionados.";
+  }
+  el.style.display = showChart ? "" : "none";
+
+  ceDestroyIntermediacaoLineChart();
+  if (!showChart) return;
+
+  const renderChart = () => {
+    try {
+      const chart = new ApexCharts(el, ceBuildIntermediacaoLineApexConfig(categories, series));
+      chart
+        .render()
+        .then(() => {
+          ceMapRuntime.intermediacaoLineChart = chart;
+          requestAnimationFrame(() => {
+            try {
+              chart.resize();
+            } catch (_) {}
+          });
+        })
+        .catch((err) => {
+          console.warn("Intermediação linha:", err);
+        });
+    } catch (err) {
+      console.warn("Intermediação linha (config):", err);
+    }
+  };
+
+  requestAnimationFrame(renderChart);
+}
+
 function ceSyncProfileLayerUi() {
   const root = document.getElementById("secaoMapaCe");
   if (!root) return;
@@ -4658,6 +4877,7 @@ function ceSyncProfileLayerUi() {
     );
     ceDestroyProfilePibLineChart();
     ceDestroyProfileCearaCredLineChart();
+    ceDestroyIntermediacaoLineChart();
     const pibWrap = document.querySelector(".map-ce-pib-line-wrap");
     if (pibWrap) {
       pibWrap.hidden = true;
@@ -4667,6 +4887,11 @@ function ceSyncProfileLayerUi() {
     if (cearaLineWrap) {
       cearaLineWrap.hidden = true;
       cearaLineWrap.setAttribute("aria-hidden", "true");
+    }
+    const intLineWrap = document.querySelector(".map-ce-intermediacao-line-wrap");
+    if (intLineWrap) {
+      intLineWrap.hidden = true;
+      intLineWrap.setAttribute("aria-hidden", "true");
     }
     return;
   }
@@ -4718,6 +4943,16 @@ function ceSyncProfileLayerUi() {
     }
   }
   if (!isCearaCred) ceDestroyProfileCearaCredLineChart();
+
+  const intLineWrap = document.querySelector(".map-ce-intermediacao-line-wrap");
+  if (intLineWrap) {
+    intLineWrap.hidden = !isIntermediacao;
+    intLineWrap.setAttribute("aria-hidden", isIntermediacao ? "false" : "true");
+    if (isIntermediacao) {
+      requestAnimationFrame(() => ceRefreshIntermediacaoLineChart());
+    }
+  }
+  if (!isIntermediacao) ceDestroyIntermediacaoLineChart();
 
   const standardChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--standard");
   const cearaChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--ceara-cred");
@@ -5740,6 +5975,11 @@ function ceApplyMapFilters() {
       filteredByLayer[ceGetSelectedProfileLayerKey()] || [],
       anoSel
     );
+    if (ceIsIntermediacaoMode()) {
+      ceUpdateIntermediacaoLineChart(munSel, regSel, anoSel);
+    } else {
+      ceDestroyIntermediacaoLineChart();
+    }
 
     if (!map || !map.getSource("ce-regioes")) return;
 
@@ -6046,6 +6286,9 @@ function ceWireMapFiltersDelegation() {
     if (t.closest?.("#mapCearaCredLineFilters")) {
       ceRefreshCearaCredLineChart();
     }
+    if (t.closest?.("#mapIntermediacaoLineFilters")) {
+      ceRefreshIntermediacaoLineChart();
+    }
   });
 
   root.addEventListener("click", (e) => {
@@ -6131,6 +6374,7 @@ function ceDestroyMap() {
   ceDestroyProfileSummaryCharts();
   ceDestroyProfilePibLineChart();
   ceDestroyProfileCearaCredLineChart();
+  ceDestroyIntermediacaoLineChart();
   ceDestroyMonthlyLineChart();
   ceDestroyMonthlySaldoChart();
   if (!ceRegioesMap) return;
@@ -6181,6 +6425,7 @@ function ceDestroyMap() {
     pibRegiao: null,
   };
   ceMapRuntime.profilePibLineChart = null;
+  ceMapRuntime.intermediacaoLineChart = null;
   ceMapRuntime.unidadesGeoJson = { type: "FeatureCollection", features: [] };
   ceMapRuntime.sedeLabelMarkers.forEach((m) => m.remove());
   ceMapRuntime.sedeLabelMarkers = [];
@@ -6710,6 +6955,7 @@ function ceResizeRegioesMap() {
       ceMapRuntime.profileSummaryCharts.pibRegiao?.resize?.();
       ceMapRuntime.profilePibLineChart?.resize?.();
       ceMapRuntime.profileCearaCredLineChart?.resize?.();
+      ceMapRuntime.intermediacaoLineChart?.resize?.();
       ceMapRuntime.monthlyLineChart?.resize?.();
       ceMapRuntime.monthlySaldoChart?.resize?.();
     } catch (_) {}

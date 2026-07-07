@@ -1412,8 +1412,13 @@ td {
 
 .section-map-ce--perfil .map-ce-profile-charts-wrap,
 .section-map-ce--perfil .map-ce-pib-line-wrap,
-.section-map-ce--perfil .map-ce-ceara-cred-line-wrap {
+.section-map-ce--perfil .map-ce-ceara-cred-line-wrap,
+.section-map-ce--perfil .map-ce-intermediacao-line-wrap {
   display: none !important;
+}
+
+.section-map-ce--intermediacao .map-ce-intermediacao-line-wrap {
+  display: block !important;
 }
 
 .section-map-ce--perfil.section-map-ce--kpi-standard .map-ce-profile-charts-wrap--standard {
