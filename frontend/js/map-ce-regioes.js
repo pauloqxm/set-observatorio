@@ -627,7 +627,9 @@ const CE_CEARA_CRED_KPI_METRICS = [
 
 const CE_PROFILE_LAYER_KEYS = Object.keys(CE_PROFILE_LAYER_CONFIG);
 const CE_PROFILE_BAR_LAYER_KEYS = CE_PROFILE_LAYER_KEYS.filter(
-  (key) => !CE_PROFILE_LAYER_CONFIG[key]?.excludeFromBarCharts
+  (key) =>
+    !CE_PROFILE_LAYER_CONFIG[key]?.excludeFromBarCharts &&
+    CE_PROFILE_LAYER_CONFIG[key]?.parseMode !== "intermediacao"
 );
 const CE_PROFILE_KPI_IDS = {
   servidores_municipais: "mapKpiProfileServidores",
@@ -3151,6 +3153,7 @@ function ceSortProfileRowsBySelectedLayer(rows, selectedLayerKey, sortOrder = "d
 }
 
 function ceGetProfileBarLayerKeysForCharts() {
+  if (ceIsIntermediacaoMode()) return CE_INTERMEDIACAO_LAYER_KEYS;
   return CE_PROFILE_BAR_LAYER_KEYS;
 }
 
@@ -4170,6 +4173,9 @@ function ceUpdateProfileSummaryCharts(aggByLayer) {
     return;
   }
 
+  const isIntermediacaoLayer = CE_PROFILE_LAYER_CONFIG[selectedLayerKey]?.parseMode === "intermediacao";
+  if (isIntermediacaoLayer && !ceIsIntermediacaoMode()) return;
+
   ceUpdateStandardProfileSummaryCharts(aggByLayer, selectedLayerKey, sortOrder);
 }
 
@@ -5090,6 +5096,8 @@ function ceSyncProfileLayerUi() {
     !isVinculoEscolaridade &&
     !isIntermediacao &&
     !isVinculoSexo;
+  const showGroupedBarCharts =
+    isStandard || (isIntermediacao && ceIsIntermediacaoMode());
   const isWide = ceIsProfileWideYearLayer(layerKey);
   root.classList.toggle("section-map-ce--pib-layer", isPib);
   root.classList.toggle("section-map-ce--ceara-cred-layer", isCearaCred);
@@ -5136,8 +5144,8 @@ function ceSyncProfileLayerUi() {
   const vinculoSexoChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--vinculo-sexo");
   const pibChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--pib");
   if (standardChartsWrap) {
-    standardChartsWrap.hidden = !isStandard;
-    standardChartsWrap.setAttribute("aria-hidden", isStandard ? "false" : "true");
+    standardChartsWrap.hidden = !showGroupedBarCharts;
+    standardChartsWrap.setAttribute("aria-hidden", showGroupedBarCharts ? "false" : "true");
   }
   if (cearaChartsWrap) {
     cearaChartsWrap.hidden = !isCearaCred;
@@ -5171,10 +5179,16 @@ function ceSyncProfileLayerUi() {
 
   const chartsTitle = document.getElementById("mapProfileChartsTitle");
   const chartsHint = document.getElementById("mapProfileChartsHint");
-  if (isStandard && chartsTitle && chartsHint) {
-    chartsTitle.textContent = "Variáveis do perfil municipal";
-    chartsHint.textContent =
-      "Mesmos filtros do mapa · comparação entre as seis variáveis (coluna Pessoas) · referência mais recente do recorte · ordenação pela camada selecionada no mapa";
+  if (showGroupedBarCharts && chartsTitle && chartsHint) {
+    if (ceIsIntermediacaoMode() && isIntermediacao) {
+      chartsTitle.textContent = "Variáveis da intermediação";
+      chartsHint.textContent =
+        "Mesmos filtros do mapa · comparação entre as variáveis de intermediação (coluna Real.) · total no recorte · ordenação pela camada selecionada no mapa";
+    } else {
+      chartsTitle.textContent = "Variáveis do perfil municipal";
+      chartsHint.textContent =
+        "Mesmos filtros do mapa · comparação entre as seis variáveis (coluna Pessoas) · referência mais recente do recorte · ordenação pela camada selecionada no mapa";
+    }
   }
 }
 

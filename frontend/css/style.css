@@ -1425,6 +1425,10 @@ td {
   display: block !important;
 }
 
+.section-map-ce--intermediacao .map-ce-profile-charts-wrap--standard {
+  display: block !important;
+}
+
 .section-map-ce--perfil.section-map-ce--ceara-cred-layer .map-ce-profile-charts-wrap--ceara-cred {
   display: block !important;
 }
