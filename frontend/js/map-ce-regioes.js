@@ -2901,7 +2901,8 @@ function ceUpdateProfileKpis(metricsByLayer) {
           metric.pct != null && Number.isFinite(metric.pct)
             ? ceFormatPercentPt(metric.pct)
             : "—";
-        pctEl.textContent = `total no recorte · ${pctTxt}`;
+        pctEl.textContent =
+          metric.pct != null && Number.isFinite(metric.pct) ? `· ${pctTxt}` : "—";
       } else if (layerCfgPct?.hidePctKpi) {
         pctEl.textContent = "média no recorte";
       } else {
