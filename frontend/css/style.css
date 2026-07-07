@@ -1560,6 +1560,22 @@ td {
   min-height: 60px;
 }
 
+/* ── Modo Intermediação ───────────────────────────────────────────────────────
+   Baseado no Perfil Municipal: exibe apenas Servidores municipais.
+   KPI cards de outras camadas (PIB, BF, BPC, MEI, aposentados, emprego, etc.)
+   ficam ocultos até serem habilitados com novas orientações.
+   ─────────────────────────────────────────────────────────────────────────── */
+.section-map-ce--intermediacao .map-ce-kpi-card--pib,
+.section-map-ce--intermediacao .map-ce-kpi-card--ceara-cred,
+.section-map-ce--intermediacao .map-ce-kpi-card--mun-simples,
+.section-map-ce--intermediacao .map-ce-kpi-card--empresa-grupamento,
+.section-map-ce--intermediacao .map-ce-kpi-card--empresas-vinculos,
+.section-map-ce--intermediacao .map-ce-kpi-card--vinculo-escolaridade,
+.section-map-ce--intermediacao .map-ce-kpi-card--vinculo-sexo,
+.section-map-ce--intermediacao .map-ce-kpi-card--total {
+  display: none !important;
+}
+
 .map-ce-kpis-bar.map-ce-kpis-bar--profile .map-ce-kpi-card--ceara-cred {
   background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
   border-color: rgba(5, 150, 105, 0.28);

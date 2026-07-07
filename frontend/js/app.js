@@ -131,7 +131,7 @@ const els = {
 const CE_REGIOES_GEO_URL = "/static/geo/ce_regioes.geojson";
 
 function isMunicipalMapPage(sheetName = state.abaAtual) {
-  return sheetName === "mapa_regioes" || sheetName === "perfil_municipal";
+  return sheetName === "mapa_regioes" || sheetName === "perfil_municipal" || sheetName === "series_historicas";
 }
 
 function isMobileSidebarViewport() {
@@ -1489,7 +1489,8 @@ function applyPageSubtitle() {
   if (state.abaAtual === "series_historicas") {
     els.tituloPagina.textContent = "Intermediação";
     els.descricaoPagina.textContent =
-      "Séries por indicador e ano: comparativos no topo e evolução abaixo.";
+      "Mapa de intermediação dos serviços do IDT: unidades, servidores municipais e camadas de contexto territorial.";
+    if (els.statusPagina) els.statusPagina.textContent = "Mapa + camadas territoriais";
     return;
   }
 
@@ -2395,6 +2396,31 @@ function setDestaqueSectionsVisibility() {
   if (els.kpis) els.kpis.style.display = hide ? "none" : "";
 }
 
+/**
+ * Camadas disponíveis no select de perfil por modo de página.
+ * Adicionar novas camadas para series_historicas quando solicitado.
+ */
+const PROFILE_LAYERS_BY_MODE = {
+  series_historicas: new Set(["servidores_municipais"]),
+};
+
+/** Filtra as opções visíveis do select de camada municipal conforme o modo atual. */
+function syncProfileLayerSelectForMode(sheetName) {
+  const sel = document.getElementById("mapProfileLayerStyle");
+  if (!sel) return;
+  const allowed = PROFILE_LAYERS_BY_MODE[sheetName];
+  if (!allowed) {
+    for (const opt of sel.options) opt.hidden = false;
+    return;
+  }
+  for (const opt of sel.options) {
+    opt.hidden = !allowed.has(opt.value);
+  }
+  if (!allowed.has(sel.value)) {
+    sel.value = [...allowed][0];
+  }
+}
+
 /** Páginas municipais: subpáginas sob Página Inicial. */
 function syncCeRegioesMapSection() {
   const wrap = els.secaoMapaCe;
@@ -2403,14 +2429,25 @@ function syncCeRegioesMapSection() {
 
   const show = isMunicipalMapPage();
   const isPerfil = state.abaAtual === "perfil_municipal";
+  const isIntermediacao = state.abaAtual === "series_historicas";
+  const isPerfilMode = isPerfil || isIntermediacao;
+
   wrap.style.display = show ? "" : "none";
   wrap.hidden = !show;
   wrap.setAttribute("aria-hidden", show ? "false" : "true");
-  wrap.classList.toggle("section-map-ce--perfil", isPerfil);
+  wrap.classList.toggle("section-map-ce--perfil", isPerfilMode);
+  wrap.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
+
   const filtersTitle = wrap.querySelector(".map-ce-filters-wrap__title");
   if (filtersTitle) {
-    filtersTitle.textContent = isPerfil ? "Filtros do perfil municipal" : "Filtros dos dados (CAGED)";
+    filtersTitle.textContent = isPerfil
+      ? "Filtros do perfil municipal"
+      : isIntermediacao
+        ? "Filtros da intermediação"
+        : "Filtros dos dados (CAGED)";
   }
+
+  syncProfileLayerSelectForMode(state.abaAtual);
 
   if (!show) return;
   if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;
