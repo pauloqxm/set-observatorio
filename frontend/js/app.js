@@ -2420,15 +2420,20 @@ function syncProfileLayerSelectForMode(sheetName) {
   const sel = document.getElementById("mapProfileLayerStyle");
   if (!sel) return;
   const allowed = PROFILE_LAYERS_BY_MODE[sheetName];
-  if (!allowed) {
-    for (const opt of sel.options) opt.hidden = false;
-    return;
-  }
   for (const opt of sel.options) {
-    opt.hidden = !allowed.has(opt.value);
+    const isIntLayer = opt.value.startsWith("intermediacao_");
+    if (allowed) {
+      opt.hidden = !allowed.has(opt.value);
+    } else {
+      /* Perfil Municipal e demais modos: oculta as camadas exclusivas de intermediação */
+      opt.hidden = isIntLayer;
+    }
   }
-  if (!allowed.has(sel.value)) {
+  if (allowed && !allowed.has(sel.value)) {
     sel.value = [...allowed][0];
+  } else if (!allowed && sel.value.startsWith("intermediacao_")) {
+    const first = Array.from(sel.options).find((o) => !o.hidden);
+    if (first) sel.value = first.value;
   }
 }
 
