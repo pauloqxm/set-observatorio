@@ -5926,12 +5926,27 @@ function ceBuildMapPopupHtml({ municipio, regiao, indicador, valor, accentColor 
   `;
 }
 
+function ceGetSelectedAnoLabels() {
+  const anoEl = document.getElementById("mapFilterAno");
+  return Array.from(anoEl?.selectedOptions || [])
+    .map((o) => o.value)
+    .filter(Boolean);
+}
+
 function ceBuildProfileMapPopupHtml({ municipio, regiao, accentColor, layerCfg, row }) {
+  const isIntermedicao = layerCfg?.parseMode === "intermediacao";
   const fieldRows = (layerCfg?.popupFields || [])
     .map((field) => {
       const rawValue =
-        field.key === "pessoas"
+        field.key === "pessoas" || (isIntermedicao && field.key === "real")
           ? row?.pessoas
+          : field.key === "referencia" && isIntermedicao
+            ? (() => {
+                const anos = ceGetSelectedAnoLabels();
+                if (anos.length === 1) return `Total em ${anos[0]}`;
+                if (anos.length > 1) return `Total em ${anos.join(", ")}`;
+                return row?.mesAno || row?.raw?.referencia || "—";
+              })()
           : field.key === "ano"
             ? row?.raw?.ano || row?.mesAno
             : field.metric && row?.metrics && field.key in row.metrics
