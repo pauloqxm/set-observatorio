@@ -1777,8 +1777,9 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
     if (codIbge == null) continue;
 
     const mesAno = ceBuildIntermedicaoMesAno(record);
-    /* Suporta "Real.", "Real. (I)", "Real (I)" e variantes após normalização */
-    const real   = ceParseNumberPt(ceGetCellByKeys(record, ["real", "reali"]));
+    /* Coluna H: Prev. (previsão) · coluna I: Real. */
+    const real = ceParseNumberPt(ceGetCellByKeys(record, ["real", "reali"]));
+    const prev = ceParseNumberPt(ceGetCellByKeys(record, ["prev"]));
 
     byLayer[layerKey].push({
       codigo: codIbge,
@@ -1786,6 +1787,7 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
       mesAno,
       mesAnoKey: ceMesAnoKey(mesAno),
       pessoas: Number.isFinite(real) ? real : 0,
+      previsao: Number.isFinite(prev) ? prev : 0,
       raw: record,
     });
   }
@@ -4702,19 +4704,24 @@ function ceBuildIntermediacaoMonthlyLineSeries(munSel, regSel, anoSel, metricKey
   const monthRanks = new Map();
   /** @type {Map<string, Map<string, number>>} */
   const byMetricMonth = new Map();
+  /** @type {Map<string, Map<string, number>>} */
+  const byMetricMonthPrev = new Map();
 
   for (const layerKey of CE_INTERMEDIACAO_LAYER_KEYS) {
     if (!metricKeys.has(layerKey)) continue;
     const rows = ceMapRuntime.profileRowsByLayer[layerKey] || [];
     const filtered = ceGetFilteredRows(rows, new Set(), munSel, regSel, anoSel);
     const monthMap = new Map();
+    const monthMapPrev = new Map();
     for (const row of filtered) {
       const key = ceRowMesAnoKey(row);
       if (!key) continue;
       monthRanks.set(key, ceMesAnoKeyRank(key));
       monthMap.set(key, (monthMap.get(key) || 0) + (Number(row.pessoas) || 0));
+      monthMapPrev.set(key, (monthMapPrev.get(key) || 0) + (Number(row.previsao) || 0));
     }
     byMetricMonth.set(layerKey, monthMap);
+    byMetricMonthPrev.set(layerKey, monthMapPrev);
   }
 
   const sortedKeys = [...monthRanks.entries()]
@@ -4722,17 +4729,27 @@ function ceBuildIntermediacaoMonthlyLineSeries(munSel, regSel, anoSel, metricKey
     .map(([key]) => key);
   const categories = sortedKeys.map((key) => ceFormatMesAnoFromKey(key));
 
-  const series = CE_INTERMEDIACAO_LINE_METRICS
-    .filter((def) => metricKeys.has(def.key))
-    .map((def) => ({
+  const series = [];
+  for (const def of CE_INTERMEDIACAO_LINE_METRICS.filter((d) => metricKeys.has(d.key))) {
+    series.push({
       name: def.label,
       data: sortedKeys.map((key) => {
         const v = Number(byMetricMonth.get(def.key)?.get(key));
         return Number.isFinite(v) ? v : 0;
       }),
       _color: def.color,
-      _key: def.key,
-    }));
+      _dash: false,
+    });
+    series.push({
+      name: `${def.label} (prev.)`,
+      data: sortedKeys.map((key) => {
+        const v = Number(byMetricMonthPrev.get(def.key)?.get(key));
+        return Number.isFinite(v) ? v : 0;
+      }),
+      _color: def.color,
+      _dash: true,
+    });
+  }
 
   const hasRows = series.some((s) => s.data.some((v) => Number(v) > 0));
   return { categories, series, hasRows };
@@ -4762,15 +4779,23 @@ function ceBuildIntermediacaoLineApexConfig(categories, seriesMeta) {
       },
     },
     yaxis: {
-      title: { text: "Real (total no mês)", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
+      title: { text: "Quantidade (Real e prev.)", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
       labels: {
         formatter: (val) => ceFormatIntPt(Number(val)),
         style: { fontSize: "11px", colors: "#047857" },
       },
       min: 0,
     },
-    stroke: { curve: "smooth", width: 3 },
-    markers: { size: 4, strokeWidth: 2, hover: { size: 6 } },
+    stroke: {
+      curve: "smooth",
+      width: seriesMeta.map((s) => (s._dash ? 2 : 3)),
+      dashArray: seriesMeta.map((s) => (s._dash ? 6 : 0)),
+    },
+    markers: {
+      size: seriesMeta.map((s) => (s._dash ? 0 : 4)),
+      strokeWidth: 2,
+      hover: { size: 6 },
+    },
     legend: {
       show: true,
       position: "top",
