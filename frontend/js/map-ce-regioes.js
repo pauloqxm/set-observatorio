@@ -1609,10 +1609,17 @@ function ceMergeProfileIntoGeojson(geojson, aggByCod, options = {}) {
   };
 }
 
+function ceGetFiniteFeatureNumber(properties, prop) {
+  const raw = properties?.[prop];
+  if (raw === null || raw === undefined || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 function ceComputePropStats(geojson, prop, options = {}) {
   const vals = (geojson?.features || [])
-    .map((f) => Number(f.properties?.[prop]))
-    .filter((n) => Number.isFinite(n));
+    .map((f) => ceGetFiniteFeatureNumber(f.properties, prop))
+    .filter((n) => n !== null);
   if (!vals.length) return { thresholds: [], min: 0, max: 0 };
   vals.sort((a, b) => a - b);
   const min = vals[0];
@@ -2361,20 +2368,33 @@ function ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel) {
 
 const CE_LEGEND_DIM_COLOR = "#d4d7e3";
 
+function ceBuildStrictStepThresholds(thresholds) {
+  if (!Array.isArray(thresholds) || thresholds.length < 4) return [];
+  const strict = thresholds.slice(0, 4).map((v) => Number(v));
+  if (strict.some((v) => !Number.isFinite(v))) return [];
+  for (let i = 1; i < strict.length; i++) {
+    if (strict[i] <= strict[i - 1]) {
+      strict[i] = strict[i - 1] + Number.EPSILON;
+    }
+  }
+  return strict;
+}
+
 function ceBuildNumericFillExpr(prop, thresholds, colors, activeIdx = null) {
   const displayColors = activeIdx !== null
     ? colors.map((c, i) => (i === activeIdx ? c : CE_LEGEND_DIM_COLOR))
     : colors;
+  const stepThresholds = ceBuildStrictStepThresholds(thresholds);
 
-  if (!thresholds.length) {
+  if (!stepThresholds.length) {
     return [
       "case",
       ["==", ["get", prop], ["literal", null]],
       CE_NO_DATA_FILL,
-      CE_NO_DATA_FILL,
+      displayColors[Math.min(4, displayColors.length - 1)] || CE_NO_DATA_FILL,
     ];
   }
-  const [t0, t1, t2, t3] = thresholds;
+  const [t0, t1, t2, t3] = stepThresholds;
   return [
     "case",
     ["==", ["get", prop], ["literal", null]],
@@ -2398,7 +2418,7 @@ function ceBuildNumericFillExpr(prop, thresholds, colors, activeIdx = null) {
 function ceLegendClassIndex(value, thresholds) {
   const n = Number(value);
   if (!Number.isFinite(n) || !thresholds || thresholds.length < 4) return -1;
-  const [t0, t1, t2, t3] = thresholds;
+  const [t0, t1, t2, t3] = ceBuildStrictStepThresholds(thresholds);
   if (n < t0) return 0;
   if (n < t1) return 1;
   if (n < t2) return 2;
@@ -2430,7 +2450,8 @@ function ceBuildLegendClassGroupsByProp(prop, thresholds) {
   const groups = Array.from({ length: 5 }, () => ({ count: 0, nomes: [] }));
   if (!thresholds || thresholds.length < 4) return groups;
   for (const f of ceMapRuntime.currentMergedGeoJson?.features || []) {
-    const v = Number(f.properties?.[prop]);
+    const v = ceGetFiniteFeatureNumber(f.properties, prop);
+    if (v === null) continue;
     const idx = ceLegendClassIndex(v, thresholds);
     if (idx < 0) continue;
     groups[idx].count += 1;
