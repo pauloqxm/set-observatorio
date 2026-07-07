@@ -1646,16 +1646,47 @@ function ceParseIdtUnidadesCsv(text) {
   return { type: "FeatureCollection", features };
 }
 
-/** Constrói Map<cod_posto (string) → cod_ibge (número 6 dígitos)> a partir das unidades IDT. */
+/**
+ * Normaliza um código de posto para comparação: tenta converter para inteiro
+ * (remove zeros à esquerda e espaços), mantendo a string original se não for numérico.
+ */
+function ceNormalizePostoCodigo(raw) {
+  const s = String(raw || "").trim();
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? String(n) : s;
+}
+
+/** Constrói Map<cod_posto normalizado → cod_ibge (número 6 dígitos)> a partir das unidades IDT. */
 function ceBuildPostoToIbgeMap(unidadesGeoJson) {
   const m = new Map();
   for (const f of unidadesGeoJson?.features || []) {
     const p = f.properties || {};
-    const codPosto = String(p.cod_posto || "").trim();
+    const codPosto = ceNormalizePostoCodigo(p.cod_posto);
     const codIbge = ceNormalizeCsvCodigoMunicipio(p.cod_ibge);
     if (codPosto && codIbge != null) m.set(codPosto, codIbge);
   }
   return m;
+}
+
+/**
+ * Constrói uma string mesAno a partir das colunas disponíveis no registro.
+ * Prioridade: referencia → mês nº + Ano → mês (nome) + Ano → só Ano.
+ */
+function ceBuildIntermedicaoMesAno(record) {
+  const ref = ceGetCellByKeys(record, ["referencia"]);
+  if (ref && ceMesAnoKey(ref)) return ref;
+
+  const mesNo  = ceGetCellByKeys(record, ["mesn"]);   // mês nº (normalizado)
+  const mesNom = ceGetCellByKeys(record, ["mes"]);    // mês (nome, normalizado)
+  const ano    = ceGetCellByKeys(record, ["ano"]);
+
+  if (mesNo && ano) {
+    const n = parseInt(mesNo, 10);
+    if (n >= 1 && n <= 12) return `${n}/${ano}`;
+  }
+  if (mesNom && ano) return `${mesNom}/${ano}`;
+  if (ano) return ano;
+  return ref || "";
 }
 
 /**
@@ -1681,16 +1712,14 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
     const layerKey = CE_INTERMEDIACAO_INDICADOR_TO_KEY[indicador];
     if (!layerKey) continue;
 
-    const codPosto = ceGetCellByKeys(record, ["codposto"]);
+    /* Lookup cod_ibge via cod_posto (normalizado para comparação robusta) */
+    const codPostoRaw = ceGetCellByKeys(record, ["codposto"]);
+    const codPosto = ceNormalizePostoCodigo(codPostoRaw);
     const codIbge = postoCodIbgeMap?.get(codPosto);
     if (codIbge == null) continue;
 
-    const mesNo = ceGetCellByKeys(record, ["mesn"]);
-    const ano = ceGetCellByKeys(record, ["ano"]);
-    let mesAno = ceGetCellByKeys(record, ["referencia"]);
-    if (!mesAno && mesNo && ano) mesAno = `${mesNo}/${ano}`;
-
-    const real = ceParseNumberPt(ceGetCellByKeys(record, ["real"]));
+    const mesAno = ceBuildIntermedicaoMesAno(record);
+    const real   = ceParseNumberPt(ceGetCellByKeys(record, ["real"]));
 
     byLayer[layerKey].push({
       codigo: codIbge,
