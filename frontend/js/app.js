@@ -2402,7 +2402,6 @@ function setDestaqueSectionsVisibility() {
  */
 const PROFILE_LAYERS_BY_MODE = {
   series_historicas: new Set([
-    "servidores_municipais",
     "intermediacao_atendimentos",
     "intermediacao_autonomos",
     "intermediacao_cadastros",

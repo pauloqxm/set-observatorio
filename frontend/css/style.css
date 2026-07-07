@@ -1576,22 +1576,13 @@ td {
   display: none !important;
 }
 
-/* Todos os cards de intermediação ficam ocultos por padrão */
-.section-map-ce--perfil .map-ce-kpi-card--intermediacao {
+/* Cards de intermediação ocultos em qualquer modo exceto intermediação */
+.section-map-ce--perfil:not(.section-map-ce--intermediacao) .map-ce-kpi-card--intermediacao {
   display: none;
 }
 
-/* Mostra apenas o card do indicador ativo (controlado pelo data-int-layer do JS) */
-.section-map-ce--intermediacao[data-int-layer="atendimentos"]  [data-int-key="atendimentos"],
-.section-map-ce--intermediacao[data-int-layer="autonomos"]     [data-int-key="autonomos"],
-.section-map-ce--intermediacao[data-int-layer="cadastros"]     [data-int-key="cadastros"],
-.section-map-ce--intermediacao[data-int-layer="colocados"]     [data-int-key="colocados"],
-.section-map-ce--intermediacao[data-int-layer="egressos"]      [data-int-key="egressos"],
-.section-map-ce--intermediacao[data-int-layer="empresas"]      [data-int-key="empresas"],
-.section-map-ce--intermediacao[data-int-layer="encaminhados"]  [data-int-key="encaminhados"],
-.section-map-ce--intermediacao[data-int-layer="pcd"]           [data-int-key="pcd"],
-.section-map-ce--intermediacao[data-int-layer="vagas"]         [data-int-key="vagas"],
-.section-map-ce--intermediacao[data-int-layer="visitas"]       [data-int-key="visitas"] {
+/* No modo intermediação, todos os 10 KPI cards ficam visíveis simultaneamente */
+.section-map-ce--intermediacao .map-ce-kpi-card--intermediacao {
   display: flex !important;
 }
 
