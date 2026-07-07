@@ -1482,16 +1482,16 @@ function ceParseIdtUnidadesCsv(text) {
         coordinates: [lon, lat],
       },
       properties: {
+        cod_posto: ceGetCellByKeys(r, ["codposto"]),
+        cod_ibge: ceGetCellByKeys(r, ["codibge"]),
         municipio: ceGetCellByKeys(r, ["municipio"]),
-        unidade: ceGetCellByKeys(r, ["unidade"]),
-        unidade_posto: ceGetCellByKeys(r, ["unidadeposto"]),
+        unidade: ceGetCellByKeys(r, ["posto"]),
+        tipo: ceGetCellByKeys(r, ["tipo"]),
         responsavel: ceGetCellByKeys(r, ["responsavelatual", "responsavel"]),
+        bairro: ceGetCellByKeys(r, ["bairro"]),
         endereco: ceGetCellByKeys(r, ["endereco"]),
-        telefone: ceGetCellByKeys(r, ["telefonedauni", "telefone", "telefonedaunidade"]),
-        porte: ceGetCellByKeys(r, ["portedaunidade", "porte"]),
-        celular: ceGetCellByKeys(r, ["celulardoresp", "celular"]),
-        email: ceGetCellByKeys(r, ["emaildoresponsavel", "email"]),
-        foto: ceGetCellByKeys(r, ["foto"]),
+        telefone: ceGetCellByKeys(r, ["telefonedaunidade", "telefone"]),
+        celular: ceGetCellByKeys(r, ["celulardoresponsavel", "celular"]),
       },
     });
   }
@@ -5681,9 +5681,12 @@ function ceBuildIdtPopupHtml(props) {
       </header>
       <div class="map-ce-popup__grid">
         ${row("fa-location-dot", "Município", p.municipio)}
-        ${row("fa-layer-group", "Unidade", p.unidade)}
-        ${row("fa-user", "Responsável atual", p.responsavel)}
+        ${row("fa-layer-group", "Posto", p.unidade)}
+        ${row("fa-user", "Responsável", p.responsavel)}
+        ${row("fa-map-pin", "Bairro", p.bairro)}
+        ${row("fa-road", "Endereço", p.endereco)}
         ${row("fa-phone", "Telefone", p.telefone)}
+        ${row("fa-mobile-screen", "Celular", p.celular)}
       </div>
     </section>
   `;
