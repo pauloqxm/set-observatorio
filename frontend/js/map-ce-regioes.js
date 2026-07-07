@@ -22,28 +22,37 @@ const CE_IDT_POINT_ICON_ID = "ce-idt-pin";
 
 const CE_INTERMEDIACAO_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyc8fEsbFl47mk9a0w6iN3FXJQgSjkxURmb8R0_RzuhUuRde2NTxK_tbS5ZlWq7w84IAm3tHaRCpKn/pub?gid=0&single=true&output=csv";
+/** Mapa canônico (uma entrada por indicador) — usado para derivar CE_INTERMEDIACAO_LAYER_KEYS. */
 const CE_INTERMEDIACAO_INDICADOR_TO_KEY = {
-  "Atendimentos": "intermediacao_atendimentos",
-  "Autônomos": "intermediacao_autonomos",
-  "Autonomos": "intermediacao_autonomos",
-  "Autónomos": "intermediacao_autonomos",
-  "Cadastros": "intermediacao_cadastros",
-  "Cadastro": "intermediacao_cadastros",
-  "Colocados": "intermediacao_colocados",
-  "Colocado": "intermediacao_colocados",
-  "Egressos": "intermediacao_egressos",
-  "Egresso": "intermediacao_egressos",
-  "Empresas": "intermediacao_empresas",
-  "Empresa": "intermediacao_empresas",
-  "Encaminhados": "intermediacao_encaminhados",
-  "Encaminhado": "intermediacao_encaminhados",
-  "PCD": "intermediacao_pcd",
-  "Vagas": "intermediacao_vagas",
-  "Vaga": "intermediacao_vagas",
-  "Visitas": "intermediacao_visitas",
-  "Visita": "intermediacao_visitas",
+  "Atendimentos":  "intermediacao_atendimentos",
+  "Autônomos":     "intermediacao_autonomos",
+  "Cadastros":     "intermediacao_cadastros",
+  "Colocados":     "intermediacao_colocados",
+  "Egressos":      "intermediacao_egressos",
+  "Empresas":      "intermediacao_empresas",
+  "Encaminhados":  "intermediacao_encaminhados",
+  "PCD":           "intermediacao_pcd",
+  "Vagas":         "intermediacao_vagas",
+  "Visitas":       "intermediacao_visitas",
 };
 const CE_INTERMEDIACAO_LAYER_KEYS = Object.values(CE_INTERMEDIACAO_INDICADOR_TO_KEY);
+
+/**
+ * Mapa estendido com variantes de grafia (singular, sem acento, minúsculas) para
+ * tolerância no parse do CSV — NÃO usado para derivar CE_INTERMEDIACAO_LAYER_KEYS.
+ */
+const CE_INTERMEDIACAO_INDICADOR_ALIASES = {
+  ...CE_INTERMEDIACAO_INDICADOR_TO_KEY,
+  "Autonomos":     "intermediacao_autonomos",
+  "Autónomos":     "intermediacao_autonomos",
+  "Cadastro":      "intermediacao_cadastros",
+  "Colocado":      "intermediacao_colocados",
+  "Egresso":       "intermediacao_egressos",
+  "Empresa":       "intermediacao_empresas",
+  "Encaminhado":   "intermediacao_encaminhados",
+  "Vaga":          "intermediacao_vagas",
+  "Visita":        "intermediacao_visitas",
+};
 
 /** Evita cache HTTP antigo em CSV/planilhas publicadas. */
 const CE_FETCH_NO_CACHE = { cache: "no-store" };
@@ -1744,13 +1753,12 @@ function ceParseIntermedicaoCsv(text, postoCodIbgeMap) {
     headers.forEach((h, idx) => { if (h) record[h] = (cells[idx] || "").trim(); });
 
     const indicadorRaw = ceGetCellByKeys(record, ["indicador"]).trim();
-    /* Tenta match exato primeiro, depois capitalizado para tolerância a grafia */
-    const indicador = CE_INTERMEDIACAO_INDICADOR_TO_KEY[indicadorRaw]
-      ? indicadorRaw
-      : Object.keys(CE_INTERMEDIACAO_INDICADOR_TO_KEY).find(
-          (k) => k.toLowerCase() === indicadorRaw.toLowerCase()
-        ) || indicadorRaw;
-    const layerKey = CE_INTERMEDIACAO_INDICADOR_TO_KEY[indicador];
+    /* Tenta match no mapa de aliases (inclui variantes de grafia e case-insensitive) */
+    const layerKey = CE_INTERMEDIACAO_INDICADOR_ALIASES[indicadorRaw]
+      || Object.keys(CE_INTERMEDIACAO_INDICADOR_ALIASES).reduce((found, k) => {
+        return found || (k.toLowerCase() === indicadorRaw.toLowerCase()
+          ? CE_INTERMEDIACAO_INDICADOR_ALIASES[k] : null);
+      }, null);
     if (!layerKey) continue;
 
     /* Lookup cod_ibge via cod_posto (normalizado para comparação robusta) */
