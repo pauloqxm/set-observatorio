@@ -6473,10 +6473,12 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
 
         ceBuildSedeLabelMarkers(map, sedesFc);
 
-        ceSyncTemporalFiltersForCurrentMode();
         if (ceIsPerfilMunicipalMode()) {
-          ceApplyMapFilters();
+          /* Modo perfil/intermediação: executa o fluxo completo igual ao setPageMode()
+             para garantir estado correto independentemente da ordem de navegação. */
+          ceSetPageMode();
         } else {
+          ceSyncTemporalFiltersForCurrentMode();
           ceApplyVisualization();
           ceUpdateRankingCharts();
           ceUpdateRegionSummaryCharts();
