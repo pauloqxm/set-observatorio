@@ -33,6 +33,11 @@ def index() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+@app.get("/mapa")
+def mapa_page() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "mapa.html")
+
+
 @app.get("/favicon.ico")
 def favicon() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "favicon.svg", media_type="image/svg+xml")

@@ -1,7 +1,6 @@
 const API_ABAS = "/api/abas";
 const MENU_META = {
   indicadores: { label: "Página Inicial", icon: "fa-solid fa-house" },
-  series_historicas: { label: "Intermediação", icon: "fa-solid fa-chart-line" },
   programas: { label: "Programas", icon: "fa-solid fa-address-card" },
   projecoes: { label: "Projeções", icon: "fa-solid fa-arrow-trend-up" },
   autonomo_detalhado: { label: "Autônomos", icon: "fa-solid fa-briefcase" },
@@ -9,17 +8,15 @@ const MENU_META = {
   autonomo_indicadores: { label: "Indicadores", icon: "fa-solid fa-gauge-high" },
   capacitacao_detalhada: { label: "Capacitação", icon: "fa-solid fa-graduation-cap" },
   analises: { label: "Análises", icon: "fa-solid fa-magnifying-glass-chart" },
-  mapa_regioes: { label: "Dados CAGED", icon: "fa-solid fa-map-location-dot" },
-  perfil_municipal: { label: "Perfil Municipal", icon: "fa-solid fa-city" },
   texto_apoio: { label: "Texto de Apoio", icon: "fa-solid fa-file-lines" },
   config: { label: "Configuração", icon: "fa-solid fa-gear" }
 };
-const HIDDEN_MENU_ITEMS = new Set(["texto_apoio", "config", "perfil_social"]);
+const HIDDEN_MENU_ITEMS = new Set(["texto_apoio", "config", "perfil_social", "dados_caged", "perfil_municipal", "perfil_empresas", "ceara_credi", "vai_vem", "series_historicas"]);
 /** Abas que aparecem apenas dentro do grupo do pai (ex.: Análises sob Página Inicial). */
-const NESTED_MENU_ITEMS = new Set(["analises", "mapa_regioes", "perfil_municipal", "autonomo_perfil", "autonomo_indicadores"]);
+const NESTED_MENU_ITEMS = new Set(["analises", "autonomo_perfil", "autonomo_indicadores"]);
 /** Pai → filhos aninhados na ordem de exibição (filhos precisam existir em state.abas). */
 const MENU_GROUP_CHILDREN = {
-  indicadores: ["analises", "mapa_regioes", "perfil_municipal"],
+  indicadores: ["analises"],
   autonomo_detalhado: ["autonomo_perfil", "autonomo_indicadores"]
 };
 const GROUP_BY_SHEET = {
@@ -28,17 +25,12 @@ const GROUP_BY_SHEET = {
   autonomo_perfil: "categoria",
   autonomo_indicadores: "indicador",
   capacitacao_detalhada: "programa",
-  series_historicas: "indicador",
   projecoes: "indicador",
   indicadores: "categoria",
   analises: "categoria",
-  mapa_regioes: "categoria",
-  perfil_municipal: "categoria",
   texto_apoio: "categoria",
   config: "chave"
 };
-
-const VIRTUAL_SHEETS = ["perfil_municipal", "series_historicas"];
 
 /** Linhas da aba indicadores ocultadas do ranking geral (mantidas só na base). */
 const HOME_KPI_OCULTOS = new Set(["servicos", "industria", "comercio"]);
@@ -102,9 +94,6 @@ const els = {
   statusPagina: document.getElementById("statusPagina"),
   labelKpis: document.getElementById("labelKpis"),
   sectionKpisHeader: document.getElementById("sectionKpisHeader"),
-  secaoMapaCe: document.getElementById("secaoMapaCe"),
-  mapCeRegioes: document.getElementById("mapCeRegioes"),
-  mapCeLegend: document.getElementById("mapCeLegend"),
   kpis: document.getElementById("kpis"),
   labelGraficos: document.getElementById("labelGraficos"),
   painelGraficos: document.getElementById("painelGraficos"),
@@ -127,13 +116,6 @@ const els = {
   menuOverlay: document.getElementById("menuOverlay")
 };
 
-/** GeoJSON servido em /static (frontend/geo/). */
-const CE_REGIOES_GEO_URL = "/static/geo/ce_regioes.geojson";
-
-function isMunicipalMapPage(sheetName = state.abaAtual) {
-  return sheetName === "mapa_regioes" || sheetName === "perfil_municipal" || sheetName === "series_historicas";
-}
-
 function isMobileSidebarViewport() {
   return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1024px)").matches;
 }
@@ -154,18 +136,12 @@ function openMenu() {
   els.sidebar.classList.add("open");
   if (isMobileSidebarViewport()) els.menuOverlay.classList.add("show");
   updateMenuToggleIcon();
-  requestAnimationFrame(() => {
-    if (isMunicipalMapPage()) window.ceRegioesMapApi?.resize();
-  });
 }
 
 function closeMenu() {
   els.sidebar.classList.remove("open");
   els.menuOverlay.classList.remove("show");
   updateMenuToggleIcon();
-  requestAnimationFrame(() => {
-    if (isMunicipalMapPage()) window.ceRegioesMapApi?.resize();
-  });
 }
 
 /** Desktop = menu visível por defeito; mobile = fechado (ícones). */
@@ -179,9 +155,6 @@ function applySidebarModeForViewport() {
     els.menuOverlay.classList.remove("show");
   }
   updateMenuToggleIcon();
-  if (isMunicipalMapPage() && window.ceRegioesMapApi) {
-    window.ceRegioesMapApi.resize();
-  }
 }
 
 function toggleMenu() {
@@ -1465,32 +1438,10 @@ function applyPageSubtitle() {
     return;
   }
 
-  if (state.abaAtual === "mapa_regioes") {
-    els.descricaoPagina.textContent =
-      "Painel interativo de monitoramento do mercado formal de trabalho cearense, com dados do CAGED desagregados por município — estoque de empregos, admissões, desligamentos e saldo líquido. Permite filtragem por competência (mês/ano), região administrativa e município, com visualização georreferenciada sobre o mapa do Ceará.";
-    if (els.statusPagina) els.statusPagina.textContent = "Mapa + planilha CAGED";
-    return;
-  }
-
-  if (state.abaAtual === "perfil_municipal") {
-    els.descricaoPagina.textContent =
-      "Perfil municipal no mapa do Ceará: camadas temáticas (servidores, Bolsa Família, BPC, MEI, aposentados, emprego, PIB per capita e Ceará Crédito), filtros por ano, região e município, KPIs e gráfico de evolução do PIB.";
-    if (els.statusPagina) els.statusPagina.textContent = "Mapa + planilha perfil";
-    return;
-  }
-
   if (state.abaAtual === "autonomo_detalhado") {
     els.tituloPagina.textContent = "Intermediação dos serviços autônomos";
     els.descricaoPagina.textContent =
       "Últimos valores de serviços intermediados e volume financeiro, com série temporal nos gráficos.";
-    return;
-  }
-
-  if (state.abaAtual === "series_historicas") {
-    els.tituloPagina.textContent = "Intermediação";
-    els.descricaoPagina.textContent =
-      "Mapa de intermediação dos serviços do IDT: unidades, servidores municipais e camadas de contexto territorial.";
-    if (els.statusPagina) els.statusPagina.textContent = "Mapa + camadas territoriais";
     return;
   }
 
@@ -1553,7 +1504,7 @@ function applyPageSubtitle() {
 function renderKpis() {
   destroySeriesHistoricasKpiCharts();
 
-  if (state.abaAtual === "analises" || isMunicipalMapPage()) {
+  if (state.abaAtual === "analises") {
     els.kpis.innerHTML = "";
     return;
   }
@@ -2101,7 +2052,7 @@ function renderSeriesHistoricasCharts(rows) {
 }
 
 function renderCharts() {
-  if (state.abaAtual === "indicadores" || state.abaAtual === "analises" || isMunicipalMapPage()) {
+  if (state.abaAtual === "indicadores" || state.abaAtual === "analises") {
     if (els.labelGraficos) els.labelGraficos.style.display = "none";
     if (els.painelGraficos) els.painelGraficos.style.display = "none";
     ["grafico1", "grafico2"].forEach((key) => {
@@ -2216,13 +2167,7 @@ function renderGroupedSection() {
   const rows = state.dadosFiltrados || [];
   const columns = rows.length ? Object.keys(rows[0]) : [];
 
-  if (state.abaAtual === "indicadores" || isMunicipalMapPage()) {
-    els.secaoAgrupamentos.style.display = "none";
-    els.agrupamentosGrid.className = "programas-grid";
-    return;
-  }
-
-  if (state.abaAtual === "series_historicas") {
+  if (state.abaAtual === "indicadores") {
     els.secaoAgrupamentos.style.display = "none";
     els.agrupamentosGrid.className = "programas-grid";
     return;
@@ -2391,91 +2336,9 @@ function applyViewFilters() {
 }
 
 function setDestaqueSectionsVisibility() {
-  const hide = state.abaAtual === "analises" || isMunicipalMapPage();
+  const hide = state.abaAtual === "analises";
   if (els.sectionKpisHeader) els.sectionKpisHeader.style.display = hide ? "none" : "";
   if (els.kpis) els.kpis.style.display = hide ? "none" : "";
-}
-
-/**
- * Camadas disponíveis no select de perfil por modo de página.
- * Adicionar novas camadas para series_historicas quando solicitado.
- */
-const PROFILE_LAYERS_BY_MODE = {
-  series_historicas: new Set([
-    "intermediacao_atendimentos",
-    "intermediacao_autonomos",
-    "intermediacao_cadastros",
-    "intermediacao_colocados",
-    "intermediacao_egressos",
-    "intermediacao_empresas",
-    "intermediacao_encaminhados",
-    "intermediacao_pcd",
-    "intermediacao_vagas",
-    "intermediacao_visitas",
-  ]),
-};
-
-/** Filtra as opções visíveis do select de camada municipal conforme o modo atual. */
-function syncProfileLayerSelectForMode(sheetName) {
-  const sel = document.getElementById("mapProfileLayerStyle");
-  if (!sel) return;
-  const allowed = PROFILE_LAYERS_BY_MODE[sheetName];
-  for (const opt of sel.options) {
-    const isIntLayer = opt.value.startsWith("intermediacao_");
-    if (allowed) {
-      opt.hidden = !allowed.has(opt.value);
-    } else {
-      /* Perfil Municipal e demais modos: oculta as camadas exclusivas de intermediação */
-      opt.hidden = isIntLayer;
-    }
-  }
-  if (allowed && !allowed.has(sel.value)) {
-    sel.value = [...allowed][0];
-  } else if (!allowed && sel.value.startsWith("intermediacao_")) {
-    const first = Array.from(sel.options).find((o) => !o.hidden);
-    if (first) sel.value = first.value;
-  }
-}
-
-/** Páginas municipais: subpáginas sob Página Inicial. */
-function syncCeRegioesMapSection() {
-  const wrap = els.secaoMapaCe;
-  const mount = els.mapCeRegioes;
-  if (!wrap || !mount) return;
-
-  const show = isMunicipalMapPage();
-  const isPerfil = state.abaAtual === "perfil_municipal";
-  const isIntermediacao = state.abaAtual === "series_historicas";
-  const isPerfilMode = isPerfil || isIntermediacao;
-
-  wrap.style.display = show ? "" : "none";
-  wrap.hidden = !show;
-  wrap.setAttribute("aria-hidden", show ? "false" : "true");
-  wrap.classList.toggle("section-map-ce--perfil", isPerfilMode);
-  wrap.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
-
-  const filtersTitle = wrap.querySelector(".map-ce-filters-wrap__title");
-  if (filtersTitle) {
-    filtersTitle.textContent = isPerfil
-      ? "Filtros do perfil municipal"
-      : isIntermediacao
-        ? "Filtros da intermediação"
-        : "Filtros dos dados (CAGED)";
-  }
-
-  syncProfileLayerSelectForMode(state.abaAtual);
-
-  if (typeof window.ceRegioesMapApi?.setPageMode === "function" && show) {
-    window.ceRegioesMapApi.setPageMode(state.abaAtual);
-  }
-
-  if (!show) return;
-  if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;
-
-  void window.ceRegioesMapApi.ensure(mount, CE_REGIOES_GEO_URL, els.mapCeLegend || null).then(() => {
-    window.ceRegioesMapApi.setPageMode?.(state.abaAtual);
-    window.ceRegioesMapApi.resize();
-  });
 }
 
 function renderAll() {
@@ -2485,7 +2348,6 @@ function renderAll() {
   renderKpis();
   renderCharts();
   renderGroupedSection();
-  syncCeRegioesMapSection();
 }
 
 async function loadAba(sheetName) {
@@ -2494,20 +2356,6 @@ async function loadAba(sheetName) {
       ? "programas"
       : state.abas.find((a) => a !== "perfil_social");
     if (fallback) return loadAba(fallback);
-  }
-  if (VIRTUAL_SHEETS.includes(sheetName)) {
-    state.abaAtual = sheetName;
-    state.dadosAba = [];
-    state.dadosFiltrados = [];
-    state.dadosPerfilParaProgramas = [];
-    state.programaSelecionado = "";
-    document.body.classList.remove("pagina-inicial");
-    els.tituloPagina.textContent = (MENU_META[sheetName] && MENU_META[sheetName].label) || prettifyName(sheetName);
-    els.descricaoPagina.textContent = "Página municipal preparada para camadas temáticas adicionais.";
-    els.statusPagina.textContent = "Mapa base";
-    renderMenu();
-    renderAll();
-    return;
   }
   try {
     const response = await fetch(`/api/abas/${sheetName}`);
@@ -2556,7 +2404,7 @@ async function init() {
     const response = await fetch(API_ABAS);
     if (!response.ok) throw new Error("Falha ao carregar abas");
     const payload = await response.json();
-    state.abas = [...new Set([...(payload.abas || []), ...VIRTUAL_SHEETS])];
+    state.abas = payload.abas || [];
     if (!state.abas.length) throw new Error("Nenhuma aba disponivel");
     const initialSheet = state.abas.includes("indicadores") ? "indicadores" : state.abas[0];
     els.filtroPrograma.addEventListener("change", () => {
@@ -2594,7 +2442,6 @@ async function init() {
     applySidebarModeForViewport();
     window.addEventListener("resize", () => {
       applySidebarModeForViewport();
-      if (isMunicipalMapPage()) window.ceRegioesMapApi?.resize();
     });
     await loadAba(initialSheet);
   } catch (error) {

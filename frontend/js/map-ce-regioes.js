@@ -37,6 +37,15 @@ const CE_INTERMEDIACAO_INDICADOR_TO_KEY = {
 };
 const CE_INTERMEDIACAO_LAYER_KEYS = Object.values(CE_INTERMEDIACAO_INDICADOR_TO_KEY);
 
+const CE_PERFIL_EMPRESAS_LAYER_KEYS = [
+  "pib_per_capta",
+  "mun_simples",
+  "empresa_grupamento",
+  "empresas_vinculos",
+  "vinculo_escolaridade",
+  "vinculo_sexo",
+];
+
 /**
  * Mapa estendido com variantes de grafia (singular, sem acento, minúsculas) para
  * tolerância no parse do CSV — NÃO usado para derivar CE_INTERMEDIACAO_LAYER_KEYS.
@@ -100,6 +109,16 @@ const CE_METRIC_CONFIG = {
 };
 
 const CE_PROFILE_LAYER_PROP = "perfil_metric";
+const CE_VAI_VEM_PROP = "vai_vem_metric";
+const CE_VAI_VEM_COLORS = ["#fff7ed", "#fed7aa", "#fdba74", "#f97316", "#c2410c"];
+const CE_VAI_VEM_LAYER_CONFIG = {
+  total: { legendTitle: "Total de solicitações" },
+  desempregados: { legendTitle: "Desempregados" },
+  vinculoEmprego: { legendTitle: "Vínculo de emprego" },
+  aguardandoImpressao: { legendTitle: "Aguardando impressão" },
+  cartoesImpressos: { legendTitle: "Cartões impressos" },
+  cartaoEntregue: { legendTitle: "Cartão entregue" },
+};
 const CE_PROFILE_LAYER_SOURCE_BASE_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRY77niZrgeJpcmKNv8BWEUyetRRYARaBk-nRzUFqSvJbTF1OdkneesuAJOHWSg0FVwamjEBJsviFJz/pub?output=csv&single=true&gid=";
 
@@ -629,7 +648,8 @@ const CE_PROFILE_LAYER_KEYS = Object.keys(CE_PROFILE_LAYER_CONFIG);
 const CE_PROFILE_BAR_LAYER_KEYS = CE_PROFILE_LAYER_KEYS.filter(
   (key) =>
     !CE_PROFILE_LAYER_CONFIG[key]?.excludeFromBarCharts &&
-    CE_PROFILE_LAYER_CONFIG[key]?.parseMode !== "intermediacao"
+    CE_PROFILE_LAYER_CONFIG[key]?.parseMode !== "intermediacao" &&
+    key !== "ceara_cred"
 );
 const CE_PROFILE_KPI_IDS = {
   servidores_municipais: "mapKpiProfileServidores",
@@ -769,6 +789,7 @@ const ceMapRuntime = {
   municipiosList: [],
   lastAggByCodigo: new Map(),
   profileLastAggByCodigo: new Map(),
+  vaiVemAggByMunKey: new Map(),
   /** @type {Record<string, any>} instâncias ApexCharts por métrica */
   rankingCharts: {},
   /** Pizza estoque / barras saldo por região administrativa */
@@ -1120,6 +1141,10 @@ function ceGetSelectedProfileLayerKey() {
   if (isIntermediacao && !v.startsWith("intermediacao_")) {
     return CE_INTERMEDIACAO_LAYER_KEYS[0];
   }
+  const isCearaCredi =
+    ceIsCearaCrediMode() || cePendingPageMode === "ceara_credi";
+  if (isCearaCredi) return "ceara_cred";
+  if (ceIsVaiVemMode() || cePendingPageMode === "vai_vem") return CE_PROFILE_LAYER_KEYS[0];
   return v;
 }
 
@@ -1590,6 +1615,123 @@ function ceAggregateProfileByCodigo(rows, options = {}) {
     agg.set(row.codigo, cur);
   }
   return agg;
+}
+
+function ceNormMunKey(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function ceGetSelectedVaiVemLayerKey() {
+  const el = document.getElementById("mapVaiVemLayerStyle");
+  const v = el?.value || "total";
+  return Object.prototype.hasOwnProperty.call(CE_VAI_VEM_LAYER_CONFIG, v) ? v : "total";
+}
+
+function ceMergeVaiVemIntoGeojson(geojson, aggByMunKey, metricKey) {
+  return {
+    type: "FeatureCollection",
+    features: (geojson.features || []).map((f) => {
+      const { municipio } = cePropsMunReg(f.properties);
+      const key = ceNormMunKey(municipio);
+      const agg = key ? aggByMunKey.get(key) : null;
+      const raw = agg ? agg[metricKey] : null;
+      const val = agg != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+      return {
+        ...f,
+        properties: {
+          ...(f.properties || {}),
+          [CE_VAI_VEM_PROP]: val,
+        },
+      };
+    }),
+  };
+}
+
+function ceApplyVaiVemMapFillPaint() {
+  const map = ceMapRuntime.map;
+  if (!map?.getLayer("ce-regioes-fill")) return false;
+
+  const metricKey = ceGetSelectedVaiVemLayerKey();
+  const cfg = CE_VAI_VEM_LAYER_CONFIG[metricKey];
+  const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_VAI_VEM_PROP, {});
+  const activeIdx = ceMapRuntime.activeLegendClass;
+
+  map.setPaintProperty(
+    "ce-regioes-fill",
+    "fill-color",
+    ceBuildNumericFillExpr(
+      CE_VAI_VEM_PROP,
+      stats?.thresholds || [],
+      CE_VAI_VEM_COLORS,
+      activeIdx
+    )
+  );
+  map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.82);
+  return true;
+}
+
+function ceApplyVaiVemLayer(aggByMunKey) {
+  const map = ceMapRuntime.map;
+  if (!map?.getSource?.("ce-regioes") || !ceMapRuntime.geoJsonBase) return;
+
+  ceMapRuntime.vaiVemAggByMunKey = aggByMunKey instanceof Map ? aggByMunKey : new Map();
+  const metricKey = ceGetSelectedVaiVemLayerKey();
+  const merged = ceMergeVaiVemIntoGeojson(ceMapRuntime.geoJsonBase, ceMapRuntime.vaiVemAggByMunKey, metricKey);
+  ceMapRuntime.currentMergedGeoJson = merged;
+  try {
+    map.getSource("ce-regioes").setData(merged);
+    ceScheduleMapVisualizationRefresh();
+  } catch (e) {
+    console.warn("Atualizar mapa Vai Vem:", e);
+  }
+}
+
+function ceBuildVaiVemPopupHtml({ municipio, regiao, agg, accentColor }) {
+  const fmt = (v) => (Number.isFinite(Number(v)) ? ceFormatIntPt(Number(v)) : "—");
+  const rows = agg
+    ? [
+        ["Total", agg.total],
+        ["Desempregados", agg.desempregados],
+        ["Vínculo de emprego", agg.vinculoEmprego],
+        ["Aguardando impressão", agg.aguardandoImpressao],
+        ["Cartões impressos", agg.cartoesImpressos],
+        ["Cartão entregue", agg.cartaoEntregue],
+      ]
+    : [];
+  const fieldRows = rows
+    .map(
+      ([label, value]) => `
+        <div class="map-ce-popup__row">
+          <span class="map-ce-popup__label">
+            <span class="map-ce-popup__icon map-ce-popup__icon--label" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
+            ${ceEscapeHtml(label)}
+          </span>
+          <strong class="map-ce-popup__value map-ce-popup__value--metric">${ceEscapeHtml(fmt(value))}</strong>
+        </div>`
+    )
+    .join("");
+
+  return `
+    <section class="map-ce-popup" style="--map-popup-accent:${ceEscapeHtml(accentColor || "#ea580c")}" role="group" aria-label="Detalhes do Vai Vem">
+      <header class="map-ce-popup__head">
+        <h4 class="map-ce-popup__title">
+          <span class="map-ce-popup__icon" aria-hidden="true"><i class="fa-solid fa-bus"></i></span>
+          ${ceEscapeHtml(municipio || "Município")}
+        </h4>
+        ${regiao ? `<p class="map-ce-popup__subtitle">${ceEscapeHtml(regiao)}</p>` : ""}
+      </header>
+      <div class="map-ce-popup__grid">
+        ${
+          fieldRows ||
+          `<p class="map-ce-popup__empty">Sem solicitações do Vai Vem neste município nos filtros ativos.</p>`
+        }
+      </div>
+    </section>
+  `;
 }
 
 function ceMergeProfileIntoGeojson(geojson, aggByCod, options = {}) {
@@ -2429,6 +2571,10 @@ function ceLegendClassIndex(value, thresholds) {
 }
 
 function ceGetActiveLegendThresholds() {
+  if (ceIsVaiVemMode()) {
+    const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_VAI_VEM_PROP, {});
+    return stats?.thresholds || [];
+  }
   if (ceIsPerfilMunicipalMode()) {
     const profileCfg = ceGetActiveProfileLayerConfig();
     const profileStats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_PROFILE_LAYER_PROP, {
@@ -2554,7 +2700,23 @@ function ceUpdateLegendNumericGeneric(el, cfg, thresholds, minV, maxV) {
 function ceRenderFullLegend(metricKey) {
   const el = ceMapRuntime.legendEl;
   if (!el) return;
-  if (ceIsPerfilMunicipalMode()) {
+  if (ceIsVaiVemMode()) {
+    const layerKey = ceGetSelectedVaiVemLayerKey();
+    const cfg = CE_VAI_VEM_LAYER_CONFIG[layerKey];
+    const st = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_VAI_VEM_PROP, {});
+    ceUpdateLegendNumericGeneric(
+      el,
+      {
+        prop: CE_VAI_VEM_PROP,
+        colors: CE_VAI_VEM_COLORS,
+        legendTitle: cfg.legendTitle,
+        formatValue: (value) => ceFormatIntPt(Number(value)),
+      },
+      st.thresholds,
+      st.min,
+      st.max
+    );
+  } else if (ceIsPerfilMunicipalMode()) {
     const cfg = ceGetActiveProfileLayerConfig();
     const st = ceComputePropStats(
       ceMapRuntime.currentMergedGeoJson,
@@ -2650,6 +2812,9 @@ function ceIsPerfilMunicipalMode() {
   const root = document.getElementById("secaoMapaCe");
   if (root?.classList.contains("section-map-ce--perfil")) return true;
   if (root?.classList.contains("section-map-ce--intermediacao")) return true;
+  if (root?.classList.contains("section-map-ce--ceara-credi")) return true;
+  if (root?.classList.contains("section-map-ce--perfil-empresas")) return true;
+  if (root?.classList.contains("section-map-ce--vai-vem")) return true;
   if (cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode)) return true;
   return false;
 }
@@ -2659,8 +2824,33 @@ function ceIsIntermediacaoMode() {
   return root?.classList.contains("section-map-ce--intermediacao") === true;
 }
 
+function ceIsCearaCrediMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--ceara-credi") === true;
+}
+
+function ceIsPerfilEmpresasMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--perfil-empresas") === true;
+}
+
+function ceIsVaiVemMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--vai-vem") === true;
+}
+
+function ceIsPerfilEmpresasLayerKey(layerKey) {
+  return CE_PERFIL_EMPRESAS_LAYER_KEYS.includes(layerKey);
+}
+
 function ceIsProfileMapPageMode(sheetName) {
-  return sheetName === "perfil_municipal" || sheetName === "series_historicas";
+  return (
+    sheetName === "perfil_municipal" ||
+    sheetName === "perfil_empresas" ||
+    sheetName === "series_historicas" ||
+    sheetName === "ceara_credi" ||
+    sheetName === "vai_vem"
+  );
 }
 
 /** Modo de página pendente — aplicado assim que o mapa terminar de carregar. */
@@ -2670,29 +2860,57 @@ function ceApplyPageModeClasses(sheetName) {
   const root = document.getElementById("secaoMapaCe");
   if (!root) return;
   const isIntermediacao = sheetName === "series_historicas";
+  const isCearaCredi = sheetName === "ceara_credi";
+  const isPerfilEmpresas = sheetName === "perfil_empresas";
+  const isVaiVem = sheetName === "vai_vem";
   const isPerfilMode = ceIsProfileMapPageMode(sheetName);
   root.classList.toggle("section-map-ce--perfil", isPerfilMode);
   root.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
+  root.classList.toggle("section-map-ce--ceara-credi", isCearaCredi);
+  root.classList.toggle("section-map-ce--perfil-empresas", isPerfilEmpresas);
+  root.classList.toggle("section-map-ce--vai-vem", isVaiVem);
 }
 
 function ceSyncProfileLayerSelectForPage(sheetName) {
   const sel = document.getElementById("mapProfileLayerStyle");
   if (!sel) return;
-  const allowed = sheetName === "series_historicas" ? new Set(CE_INTERMEDIACAO_LAYER_KEYS) : null;
+  const allowed =
+    sheetName === "series_historicas"
+      ? new Set(CE_INTERMEDIACAO_LAYER_KEYS)
+      : sheetName === "ceara_credi"
+        ? new Set(["ceara_cred"])
+        : sheetName === "perfil_empresas"
+          ? new Set(CE_PERFIL_EMPRESAS_LAYER_KEYS)
+          : sheetName === "vai_vem"
+            ? new Set()
+            : null;
   for (const opt of sel.options) {
     const isIntLayer = opt.value.startsWith("intermediacao_");
+    const isCearaCred = opt.value === "ceara_cred";
+    const isEmpresaLayer = CE_PERFIL_EMPRESAS_LAYER_KEYS.includes(opt.value);
+    if (sheetName === "vai_vem") {
+      opt.hidden = true;
+      continue;
+    }
     if (allowed) {
       opt.hidden = !allowed.has(opt.value);
     } else if (sheetName === "perfil_municipal") {
-      opt.hidden = isIntLayer;
+      opt.hidden = isIntLayer || isCearaCred || isEmpresaLayer;
     }
   }
   if (allowed && !allowed.has(sel.value)) {
-    sel.value = CE_INTERMEDIACAO_LAYER_KEYS[0];
-  } else if (sheetName === "perfil_municipal" && sel.value.startsWith("intermediacao_")) {
+    sel.value = [...allowed][0];
+  } else if (
+    sheetName === "perfil_municipal" &&
+    (sel.value.startsWith("intermediacao_") || sel.value === "ceara_cred" || isEmpresaLayerSelected(sel))
+  ) {
     const first = Array.from(sel.options).find((o) => !o.hidden);
     if (first) sel.value = first.value;
   }
+}
+
+function isEmpresaLayerSelected(sel) {
+  return CE_PERFIL_EMPRESAS_LAYER_KEYS.includes(sel.value);
 }
 
 function ceGetIdtLayerId(map) {
@@ -2759,7 +2977,9 @@ function ceApplyVisualization() {
   const activeIdx = ceMapRuntime.activeLegendClass;
 
   try {
-    if (isPerfil) {
+    if (ceIsVaiVemMode()) {
+      ceApplyVaiVemMapFillPaint();
+    } else if (isPerfil) {
       ceApplyProfileMapFillPaint();
     } else {
       map.setPaintProperty(
@@ -4135,6 +4355,7 @@ function ceUpdateProfileSummaryCharts(aggByLayer) {
   ceDestroyPibPerCaptaBarCharts();
 
   if (selectedLayerKey === "pib_per_capta") {
+    if (!ceIsPerfilEmpresasMode()) return;
     const filteredRows =
       ceMapRuntime.lastProfileFilteredByLayer?.pib_per_capta ||
       ceMapRuntime.profileRowsByLayer?.pib_per_capta ||
@@ -4144,31 +4365,37 @@ function ceUpdateProfileSummaryCharts(aggByLayer) {
   }
 
   if (selectedLayerKey === "ceara_cred") {
+    if (!ceIsCearaCrediMode()) return;
     ceUpdateCearaCredSummaryCharts(aggByLayer, sortOrder);
     return;
   }
 
   if (selectedLayerKey === "mun_simples") {
+    if (!ceIsPerfilEmpresasMode()) return;
     ceUpdateMunSimplesSummaryCharts(aggByLayer, sortOrder);
     return;
   }
 
   if (selectedLayerKey === "empresa_grupamento") {
+    if (!ceIsPerfilEmpresasMode()) return;
     ceUpdateEmpresaGrupamentoSummaryCharts(aggByLayer, sortOrder);
     return;
   }
 
   if (selectedLayerKey === "empresas_vinculos") {
+    if (!ceIsPerfilEmpresasMode()) return;
     ceUpdateEmpresasVinculosSummaryCharts(aggByLayer, sortOrder);
     return;
   }
 
   if (selectedLayerKey === "vinculo_escolaridade") {
+    if (!ceIsPerfilEmpresasMode()) return;
     ceUpdateVinculoEscolaridadeSummaryCharts(aggByLayer, sortOrder);
     return;
   }
 
   if (selectedLayerKey === "vinculo_sexo") {
+    if (!ceIsPerfilEmpresasMode()) return;
     ceUpdateVinculoSexoSummaryCharts(aggByLayer, sortOrder);
     return;
   }
@@ -4280,7 +4507,7 @@ function ceBuildPibVsMediaRegiaoRows(filteredRows, sortOrder) {
 
 function ceUpdatePibPerCaptaBarCharts(filteredRows, sortOrder) {
   if (typeof ApexCharts === "undefined") return;
-  if (!ceIsPerfilMunicipalMode() || ceGetSelectedProfileLayerKey() !== "pib_per_capta") return;
+  if (!ceIsPerfilEmpresasMode() || ceGetSelectedProfileLayerKey() !== "pib_per_capta") return;
 
   const munEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.pibMunicipio);
   const regEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.pibRegiao);
@@ -4401,7 +4628,7 @@ function ceUpdateProfilePibLineChart(filteredRows, anoSel) {
   ceDestroyProfilePibLineChart();
 
   const isPib = ceGetSelectedProfileLayerKey() === "pib_per_capta";
-  if (!isPib || !ceIsPerfilMunicipalMode()) return;
+  if (!isPib || !ceIsPerfilEmpresasMode()) return;
 
   const { categories, series, hasRows } = ceBuildPibAnnualLineSeries(filteredRows, anoSel);
   const cats = hasRows ? categories : ["Sem dados no filtro"];
@@ -5042,7 +5269,7 @@ function ceSyncProfileLayerUi() {
   if (!root) return;
 
   const isPerfil = ceIsPerfilMunicipalMode();
-  if (!isPerfil) {
+  if (!isPerfil || ceIsVaiVemMode()) {
     root.classList.remove(
       "section-map-ce--pib-layer",
       "section-map-ce--ceara-cred-layer",
@@ -5072,12 +5299,16 @@ function ceSyncProfileLayerUi() {
       intLineWrap.hidden = true;
       intLineWrap.setAttribute("aria-hidden", "true");
     }
+    for (const wrap of document.querySelectorAll(".map-ce-profile-charts-wrap")) {
+      wrap.hidden = true;
+      wrap.setAttribute("aria-hidden", "true");
+    }
     return;
   }
 
   const layerKey = ceGetSelectedProfileLayerKey();
   const isPib = layerKey === "pib_per_capta";
-  const isCearaCred = layerKey === "ceara_cred";
+  const isCearaCred = layerKey === "ceara_cred" || ceIsCearaCrediMode();
   const isMunSimples = layerKey === "mun_simples";
   const isEmpresaGrupamento = layerKey === "empresa_grupamento";
   const isEmpresasVinculos = layerKey === "empresas_vinculos";
@@ -6150,6 +6381,11 @@ function ceApplyMapFilters() {
   const munSel = new Set(Array.from(munEl?.selectedOptions || []).map((o) => o.value));
   const regSel = new Set(Array.from(regEl?.selectedOptions || []).map((o) => o.value));
 
+  if (ceIsVaiVemMode()) {
+    window.vaiVemApi?.refresh?.();
+    return;
+  }
+
   if (ceIsPerfilMunicipalMode()) {
     ceSyncProfileLayerUi();
     const { aggByLayer, filteredByLayer } = ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel);
@@ -6452,8 +6688,11 @@ function ceWireMapFiltersDelegation() {
   root.addEventListener("change", (e) => {
     const t = e.target;
     if (t.id === "mapFilterRegiao") ceSyncMunicipiosFromRegioes();
+    if (t.id === "mapFilterVaiVemRegiao" && ceIsVaiVemMode()) {
+      window.vaiVemApi?.syncMunicipiosFromRegiao?.();
+    }
     if (t.id === "mapFilterAno") ceRefreshMesOptionsFromAnoFilter();
-    if (t.id === "mapFilterMes" || t.id === "mapFilterAno" || t.id === "mapFilterMunicipio" || t.id === "mapFilterRegiao") {
+    if (t.id === "mapFilterMes" || t.id === "mapFilterAno" || t.id === "mapFilterMunicipio" || t.id === "mapFilterRegiao" || t.id === "mapFilterVaiVemRegiao") {
       ceMapRuntime.activeLegendClass = null;
       ceApplyMapFilters();
     }
@@ -6465,6 +6704,10 @@ function ceWireMapFiltersDelegation() {
       ceMapRuntime.activeLegendClass = null;
       ceSyncTemporalFiltersForCurrentMode();
       ceApplyMapFilters();
+    }
+    if (t.id === "mapVaiVemLayerStyle") {
+      ceMapRuntime.activeLegendClass = null;
+      window.vaiVemApi?.refreshMap?.();
     }
     if (t.id === "mapRankOrder") {
       ceUpdateRankingCharts();
@@ -6538,7 +6781,17 @@ function ceWireMapFiltersDelegation() {
       const search = document.getElementById("mapFilterMunSearch");
       if (sel) Array.from(sel.options).forEach((o) => { o.selected = false; });
       if (search) search.value = "";
-      ceRebuildMunicipioOptions();
+      if (ceIsVaiVemMode()) {
+        window.vaiVemApi?.clearMunicipioSelection?.();
+      } else {
+        ceRebuildMunicipioOptions();
+      }
+      ceApplyMapFilters();
+    }
+    if (t.id === "mapFilterVaiVemRegiaoClear") {
+      const sel = document.getElementById("mapFilterVaiVemRegiao");
+      if (sel) Array.from(sel.options).forEach((o) => { o.selected = false; });
+      if (ceIsVaiVemMode()) window.vaiVemApi?.syncMunicipiosFromRegiao?.();
       ceApplyMapFilters();
     }
   });
@@ -6547,7 +6800,11 @@ function ceWireMapFiltersDelegation() {
     if (e.target.id !== "mapFilterMunSearch") return;
     clearTimeout(ceMunSearchTimer);
     ceMunSearchTimer = setTimeout(() => {
-      ceRebuildMunicipioOptions();
+      if (ceIsVaiVemMode()) {
+        window.vaiVemApi?.rebuildMunicipioOptions?.();
+      } else {
+        ceRebuildMunicipioOptions();
+      }
     }, 160);
   });
 }
@@ -6807,15 +7064,24 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               ? cePendingPageMode
               : ceIsIntermediacaoMode()
                 ? "series_historicas"
-                : "perfil_municipal";
+                : ceIsCearaCrediMode()
+                  ? "ceara_credi"
+                  : ceIsVaiVemMode()
+                    ? "vai_vem"
+                  : ceIsPerfilEmpresasMode()
+                    ? "perfil_empresas"
+                    : "perfil_municipal";
           ceSyncProfileLayerSelectForPage(initSheet);
         }
         let initialFill;
         let initialFillOpacity = 0.78;
-        if (profileModeInit) {
+        if (profileModeInit && !ceIsVaiVemMode() && cePendingPageMode !== "vai_vem") {
           const profileCfg = ceGetActiveProfileLayerConfig();
           initialFill = ceBuildNumericFillExpr(CE_PROFILE_LAYER_PROP, [], profileCfg.colors);
           initialFillOpacity = 0.82;
+        } else if (ceIsVaiVemMode() || cePendingPageMode === "vai_vem") {
+          initialFill = "#e8eef5";
+          initialFillOpacity = 0.52;
         } else {
           const mode0 = ceGetSelectedLayerMode();
           const cfg0 = CE_METRIC_CONFIG[mode0];
@@ -6944,7 +7210,12 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         if (cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode)) {
           ceSetPageMode(cePendingPageMode);
         } else if (ceIsPerfilMunicipalMode()) {
-          ceSetPageMode(ceIsIntermediacaoMode() ? "series_historicas" : "perfil_municipal");
+          let mode = "perfil_municipal";
+          if (ceIsIntermediacaoMode()) mode = "series_historicas";
+          else if (ceIsCearaCrediMode()) mode = "ceara_credi";
+          else if (ceIsVaiVemMode()) mode = "vai_vem";
+          else if (ceIsPerfilEmpresasMode()) mode = "perfil_empresas";
+          ceSetPageMode(mode);
         } else {
           ceSyncTemporalFiltersForCurrentMode();
           ceApplyVisualization();
@@ -6973,11 +7244,17 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           const f = e.features && e.features[0];
           if (!f) return;
           const { municipio, regiao } = cePropsMunReg(f.properties);
+          let popupHtml = "";
+          let accentColor = "#00a859";
+          if (ceIsVaiVemMode()) {
+            const key = ceNormMunKey(municipio);
+            const agg = key ? ceMapRuntime.vaiVemAggByMunKey?.get(key) : null;
+            accentColor = CE_VAI_VEM_COLORS[Math.min(3, CE_VAI_VEM_COLORS.length - 1)];
+            popupHtml = ceBuildVaiVemPopupHtml({ municipio, regiao, agg, accentColor });
+          } else {
           const isPerfil = ceIsPerfilMunicipalMode();
           let indicador = "";
           let metricTxt = "";
-          let accentColor = "#00a859";
-          let popupHtml = "";
           if (!isPerfil) {
             const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
             const agg = cod != null ? ceMapRuntime.lastAggByCodigo.get(cod) : null;
@@ -7012,6 +7289,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               row: agg,
             });
           }
+          }
           if (!municipio && !regiao) return;
           hoverPopup
             .setLngLat(e.lngLat)
@@ -7029,6 +7307,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         const selectMunicipioFromFeature = (e) => {
           const f = e.features && e.features[0];
           if (!f) return;
+          if (ceIsVaiVemMode()) {
+            const { municipio } = cePropsMunReg(f.properties);
+            window.vaiVemApi?.selectSingleMunicipioFromMap?.(ceNormMunKey(municipio));
+            return;
+          }
           const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
           ceSelectSingleMunicipioFromMap(cod);
         };
@@ -7045,6 +7328,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             layers,
           });
           if (hits && hits.length) return;
+          if (ceIsVaiVemMode()) {
+            window.vaiVemApi?.clearMunicipioSelection?.();
+            window.vaiVemApi?.refresh?.();
+            return;
+          }
           ceClearMunicipioSelectionFromMap();
         });
         const planejamentoPopup = (e) => {
@@ -7199,4 +7487,7 @@ window.ceRegioesMapApi = {
   resize: ceResizeRegioesMap,
   setPageMode: ceSetPageMode,
   destroy: ceDestroyMap,
+  applyVaiVemLayer: ceApplyVaiVemLayer,
+  normMunKey: ceNormMunKey,
+  rebuildAllMunicipios: ceRebuildMunicipioOptions,
 };
