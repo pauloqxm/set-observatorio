@@ -133,6 +133,7 @@
               <button type="button" class="map-ce-filter-btn" id="mapFilterMunClear">Limpar municípios</button>
             </div>
           </div>
+          <p class="map-ce-filters-wrap__status" id="cgStatus" hidden></p>
         </div>
 
         <div class="sec sec-map">
@@ -184,6 +185,26 @@
                   <option value="aguardandoImpressao">Aguardando impressão</option>
                   <option value="cartoesImpressos">Cartões impressos</option>
                   <option value="cartaoEntregue">Cartão entregue</option>
+                </select>
+              </div>
+              <div class="map-ce-layer-row__caged-grup">
+                <label class="map-ce-filter-label" for="mapCagedGrupLayerStyle">Grande grupamento</label>
+                <select id="mapCagedGrupLayerStyle" class="map-ce-layer-select" aria-label="Grande grupamento no mapa graduado">
+                  <option value="todos" selected>Todos</option>
+                  <option value="agropecuaria">Agropecuária</option>
+                  <option value="comercio">Comércio</option>
+                  <option value="construcao">Construção</option>
+                  <option value="industria">Indústria</option>
+                  <option value="servicos">Serviços</option>
+                  <option value="nao_identificado">Não Identificado</option>
+                </select>
+                <label class="map-ce-filter-label" for="mapCagedGrupMetricStyle">Indicador</label>
+                <select id="mapCagedGrupMetricStyle" class="map-ce-layer-select" aria-label="Indicador graduado do CAGED por grupamento">
+                  <option value="todos" selected>Todos</option>
+                  <option value="estoque">Estoque mensal</option>
+                  <option value="admitidos">Admitidos</option>
+                  <option value="desligados">Desligados</option>
+                  <option value="saldo">Saldo</option>
                 </select>
               </div>
               <div class="map-ce-layer-row__toggle-wrap">
@@ -980,6 +1001,64 @@
           </p>
         </div>
 
+        <div class="map-ce-cg-charts-wrap">
+          <div class="map-ce-cg-formalizacao-wrap">
+            <article class="map-ce-cg-chart-panel">
+              <h3 class="map-ce-cg-chart-panel__title">Por município</h3>
+              <p class="map-ce-cg-chart-panel__hint">Indicador selecionado no mapa · valor absoluto no recorte dos filtros</p>
+              <div id="cgChartFormalizacaoMun" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por município"></div>
+            </article>
+            <article class="map-ce-cg-chart-panel">
+              <h3 class="map-ce-cg-chart-panel__title">Por região</h3>
+              <p class="map-ce-cg-chart-panel__hint">Indicador selecionado no mapa · valor absoluto no recorte dos filtros</p>
+              <div id="cgChartFormalizacaoReg" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por região"></div>
+            </article>
+          </div>
+
+          <div class="map-ce-line-wrap map-ce-cg-line-wrap">
+            <div class="map-ce-line-block">
+              <h3 class="map-ce-line-block__title">Evolução do estoque por grande grupamento</h3>
+              <p class="map-ce-line-block__hint">Mesmos filtros do mapa · estoque no último mês de cada período · uma linha por grupamento econômico</p>
+              <div id="cgChartLineEstoque" class="map-ce-line-block__chart" aria-label="Gráfico de linhas de estoque por grupamento"></div>
+            </div>
+          </div>
+
+          <div class="map-ce-line-wrap map-ce-cg-line-wrap map-ce-cg-line-wrap--municipio">
+            <div class="map-ce-line-block">
+              <h3 class="map-ce-line-block__title">Comparativo por município</h3>
+              <p id="cgChartLineMunicipioHint" class="map-ce-line-block__hint">Mesma métrica do gráfico por município · até 5 maiores no recorte dos filtros · evolução mensal</p>
+              <div id="cgChartLineMunicipio" class="map-ce-line-block__chart" aria-label="Gráfico de linhas comparando municípios"></div>
+            </div>
+          </div>
+
+          <article class="map-ce-cg-chart-panel map-ce-cg-chart-panel--saldo">
+            <h3 class="map-ce-cg-chart-panel__title">Saldo por Grande Grupamento de Atividade Econômica</h3>
+            <p class="map-ce-cg-chart-panel__hint">Soma dos saldos no recorte dos filtros ativos</p>
+            <div id="cgChartSaldoGrupo" class="map-ce-cg-chart-panel__chart" aria-label="Saldo por grande grupamento"></div>
+          </article>
+
+          <section class="map-ce-cg-table-wrap" aria-label="Tabela resumo por grupamento">
+            <h3 class="map-ce-cg-table-wrap__title">Resumo por grupamento</h3>
+            <p class="map-ce-cg-table-wrap__hint">Totais no recorte · estoque no mês mais recente · variação relativa do estoque em relação ao mês anterior</p>
+            <div class="map-ce-cg-table-scroll">
+              <table class="map-ce-cg-table">
+                <thead>
+                  <tr>
+                    <th>Grande Grupamento</th>
+                    <th>Admitidos</th>
+                    <th>Desligados</th>
+                    <th>Saldo</th>
+                    <th>Tempo de Emprego (Desligados)</th>
+                    <th>Estoque Mensal</th>
+                    <th>Vr. Relativa</th>
+                  </tr>
+                </thead>
+                <tbody id="cgTableGrupamentoBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
         <div class="map-ce-vv-charts-wrap">
           <div class="map-ce-line-wrap">
             <div class="map-ce-line-block">
@@ -1528,6 +1607,7 @@
   <script src="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
   <script src="/static/js/map-ce-regioes.js"></script>
   <script src="/static/js/vai-vem.js"></script>
+  <script src="/static/js/caged-grupamentos.js"></script>
   <script src="/static/js/mapa-app.js"></script>
 </body>
 </html>

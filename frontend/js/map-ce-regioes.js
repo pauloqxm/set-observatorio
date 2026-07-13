@@ -119,6 +119,19 @@ const CE_VAI_VEM_LAYER_CONFIG = {
   cartoesImpressos: { legendTitle: "Cartões impressos" },
   cartaoEntregue: { legendTitle: "Cartão entregue" },
 };
+const CE_CAGED_GRUP_PROP = "caged_grup_metric";
+const CE_CAGED_GRUP_METRIC_COLORS = {
+  estoque: CE_ESTOQUE_COLORS,
+  admitidos: CE_ADMISSOES_COLORS,
+  desligados: CE_DESLIGAMENTOS_COLORS,
+  saldo: CE_SALDOS_COLORS,
+};
+const CE_CAGED_GRUP_METRIC_FIELDS = {
+  estoque: "estoque",
+  admitidos: "admitidos",
+  desligados: "desligados",
+  saldo: "saldo",
+};
 const CE_PROFILE_LAYER_SOURCE_BASE_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRY77niZrgeJpcmKNv8BWEUyetRRYARaBk-nRzUFqSvJbTF1OdkneesuAJOHWSg0FVwamjEBJsviFJz/pub?output=csv&single=true&gid=";
 
@@ -790,6 +803,9 @@ const ceMapRuntime = {
   lastAggByCodigo: new Map(),
   profileLastAggByCodigo: new Map(),
   vaiVemAggByMunKey: new Map(),
+  cagedGrupAggByCod: new Map(),
+  cagedGrupGrupoKey: "todos",
+  cagedGrupMetricKey: "todos",
   /** @type {Record<string, any>} instâncias ApexCharts por métrica */
   rankingCharts: {},
   /** Pizza estoque / barras saldo por região administrativa */
@@ -1145,6 +1161,7 @@ function ceGetSelectedProfileLayerKey() {
     ceIsCearaCrediMode() || cePendingPageMode === "ceara_credi";
   if (isCearaCredi) return "ceara_cred";
   if (ceIsVaiVemMode() || cePendingPageMode === "vai_vem") return CE_PROFILE_LAYER_KEYS[0];
+  if (ceIsCagedGrupamentosMode() || cePendingPageMode === "caged_grupamentos") return CE_PROFILE_LAYER_KEYS[0];
   return v;
 }
 
@@ -1728,6 +1745,138 @@ function ceBuildVaiVemPopupHtml({ municipio, regiao, agg, accentColor }) {
         ${
           fieldRows ||
           `<p class="map-ce-popup__empty">Sem solicitações do Vai Vem neste município nos filtros ativos.</p>`
+        }
+      </div>
+    </section>
+  `;
+}
+
+function ceGetCagedGrupMetricField(metricKey) {
+  if (metricKey === "todos") return "estoque";
+  return CE_CAGED_GRUP_METRIC_FIELDS[metricKey] || "estoque";
+}
+
+function ceGetCagedGrupLegendConfig(grupoKey, metricKey) {
+  const colorMetricKey = metricKey === "todos" ? "estoque" : metricKey;
+  const colors = CE_CAGED_GRUP_METRIC_COLORS[colorMetricKey] || CE_ESTOQUE_COLORS;
+  const grupoLabel = window.cagedGrupamentosApi?.getGrupoLabel?.(grupoKey) || grupoKey;
+  const metricLabel = window.cagedGrupamentosApi?.getMetricLabel?.(metricKey) || metricKey;
+  const mapNote = metricKey === "todos" ? " · mapa por estoque" : "";
+  return { legendTitle: `${grupoLabel} — ${metricLabel}${mapNote}`, colors };
+}
+
+function ceGetSelectedCagedGrupGrupoKey() {
+  const el = document.getElementById("mapCagedGrupLayerStyle");
+  const v = el?.value || "todos";
+  return v;
+}
+
+function ceGetSelectedCagedGrupMetricKey() {
+  const el = document.getElementById("mapCagedGrupMetricStyle");
+  const v = el?.value || "todos";
+  if (v === "todos") return "todos";
+  return CE_CAGED_GRUP_METRIC_FIELDS[v] ? v : "estoque";
+}
+
+function ceMergeCagedGrupIntoGeojson(geojson, aggByCod, metricKey) {
+  const field = ceGetCagedGrupMetricField(metricKey);
+  return {
+    type: "FeatureCollection",
+    features: (geojson.features || []).map((f) => {
+      const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+      const agg = cod != null ? aggByCod.get(cod) : null;
+      const raw = agg ? agg[field] : null;
+      const val = agg != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+      return {
+        ...f,
+        properties: {
+          ...(f.properties || {}),
+          [CE_CAGED_GRUP_PROP]: val,
+        },
+      };
+    }),
+  };
+}
+
+function ceApplyCagedGrupMapFillPaint() {
+  const map = ceMapRuntime.map;
+  if (!map?.getLayer("ce-regioes-fill")) return false;
+
+  const grupoKey = ceMapRuntime.cagedGrupGrupoKey;
+  const metricKey = ceMapRuntime.cagedGrupMetricKey;
+  const cfg = ceGetCagedGrupLegendConfig(grupoKey, metricKey);
+  const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_CAGED_GRUP_PROP, {});
+  const activeIdx = ceMapRuntime.activeLegendClass;
+
+  map.setPaintProperty(
+    "ce-regioes-fill",
+    "fill-color",
+    ceBuildNumericFillExpr(CE_CAGED_GRUP_PROP, stats?.thresholds || [], cfg.colors, activeIdx)
+  );
+  map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.78);
+  return true;
+}
+
+function ceApplyCagedGrupLayer(aggByCod, grupoKey, metricKey) {
+  const map = ceMapRuntime.map;
+  if (!map?.getSource?.("ce-regioes") || !ceMapRuntime.geoJsonBase) return;
+
+  ceMapRuntime.cagedGrupAggByCod = aggByCod instanceof Map ? aggByCod : new Map();
+  ceMapRuntime.cagedGrupGrupoKey = grupoKey || ceGetSelectedCagedGrupGrupoKey();
+  ceMapRuntime.cagedGrupMetricKey = metricKey || ceGetSelectedCagedGrupMetricKey();
+  const merged = ceMergeCagedGrupIntoGeojson(
+    ceMapRuntime.geoJsonBase,
+    ceMapRuntime.cagedGrupAggByCod,
+    ceMapRuntime.cagedGrupMetricKey
+  );
+  ceMapRuntime.currentMergedGeoJson = merged;
+  try {
+    map.getSource("ce-regioes").setData(merged);
+    ceScheduleMapVisualizationRefresh();
+  } catch (e) {
+    console.warn("Atualizar mapa CAGED grupamentos:", e);
+  }
+}
+
+function ceBuildCagedGrupPopupHtml({ municipio, regiao, agg, grupoKey, metricKey, accentColor }) {
+  const fmt = (v) => (Number.isFinite(Number(v)) ? ceFormatIntPt(Number(v)) : "—");
+  const field = ceGetCagedGrupMetricField(metricKey);
+  const cfg = ceGetCagedGrupLegendConfig(grupoKey, metricKey);
+  const rows = agg
+    ? [
+        ["Estoque mensal", agg.estoque],
+        ["Admitidos", agg.admitidos],
+        ["Desligados", agg.desligados],
+        ["Saldo", agg.saldo],
+      ]
+    : [];
+  const fieldRows = rows
+    .map(
+      ([label, value]) => `
+        <div class="map-ce-popup__row">
+          <span class="map-ce-popup__label">
+            <span class="map-ce-popup__icon map-ce-popup__icon--label" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
+            ${ceEscapeHtml(label)}
+          </span>
+          <strong class="map-ce-popup__value map-ce-popup__value--metric">${ceEscapeHtml(fmt(value))}</strong>
+        </div>`
+    )
+    .join("");
+
+  return `
+    <section class="map-ce-popup" style="--map-popup-accent:${ceEscapeHtml(accentColor || "#006d2c")}" role="group" aria-label="Detalhes do CAGED por grupamento">
+      <header class="map-ce-popup__head">
+        <h4 class="map-ce-popup__title">
+          <span class="map-ce-popup__icon" aria-hidden="true"><i class="fa-solid fa-industry"></i></span>
+          ${ceEscapeHtml(municipio || "Município")}
+        </h4>
+        ${regiao ? `<p class="map-ce-popup__subtitle">${ceEscapeHtml(regiao)}</p>` : ""}
+        <p class="map-ce-popup__subtitle">${ceEscapeHtml(cfg.legendTitle)}</p>
+      </header>
+      <div class="map-ce-popup__grid">
+        ${
+          fieldRows ||
+          `<p class="map-ce-popup__empty">Sem dados deste grupamento neste município nos filtros ativos.</p>`
         }
       </div>
     </section>
@@ -2575,6 +2724,10 @@ function ceGetActiveLegendThresholds() {
     const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_VAI_VEM_PROP, {});
     return stats?.thresholds || [];
   }
+  if (ceIsCagedGrupamentosMode()) {
+    const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_CAGED_GRUP_PROP, {});
+    return stats?.thresholds || [];
+  }
   if (ceIsPerfilMunicipalMode()) {
     const profileCfg = ceGetActiveProfileLayerConfig();
     const profileStats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_PROFILE_LAYER_PROP, {
@@ -2716,6 +2869,23 @@ function ceRenderFullLegend(metricKey) {
       st.min,
       st.max
     );
+  } else if (ceIsCagedGrupamentosMode()) {
+    const grupoKey = ceMapRuntime.cagedGrupGrupoKey;
+    const metricKey = ceMapRuntime.cagedGrupMetricKey;
+    const cfg = ceGetCagedGrupLegendConfig(grupoKey, metricKey);
+    const st = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_CAGED_GRUP_PROP, {});
+    ceUpdateLegendNumericGeneric(
+      el,
+      {
+        prop: CE_CAGED_GRUP_PROP,
+        colors: cfg.colors,
+        legendTitle: cfg.legendTitle,
+        formatValue: (value) => ceFormatIntPt(Number(value)),
+      },
+      st.thresholds,
+      st.min,
+      st.max
+    );
   } else if (ceIsPerfilMunicipalMode()) {
     const cfg = ceGetActiveProfileLayerConfig();
     const st = ceComputePropStats(
@@ -2839,6 +3009,11 @@ function ceIsVaiVemMode() {
   return root?.classList.contains("section-map-ce--vai-vem") === true;
 }
 
+function ceIsCagedGrupamentosMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--caged-grupamentos") === true;
+}
+
 function ceIsPerfilEmpresasLayerKey(layerKey) {
   return CE_PERFIL_EMPRESAS_LAYER_KEYS.includes(layerKey);
 }
@@ -2863,12 +3038,14 @@ function ceApplyPageModeClasses(sheetName) {
   const isCearaCredi = sheetName === "ceara_credi";
   const isPerfilEmpresas = sheetName === "perfil_empresas";
   const isVaiVem = sheetName === "vai_vem";
+  const isCagedGrup = sheetName === "caged_grupamentos";
   const isPerfilMode = ceIsProfileMapPageMode(sheetName);
   root.classList.toggle("section-map-ce--perfil", isPerfilMode);
   root.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
   root.classList.toggle("section-map-ce--ceara-credi", isCearaCredi);
   root.classList.toggle("section-map-ce--perfil-empresas", isPerfilEmpresas);
   root.classList.toggle("section-map-ce--vai-vem", isVaiVem);
+  root.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
 }
 
 function ceSyncProfileLayerSelectForPage(sheetName) {
@@ -2889,6 +3066,10 @@ function ceSyncProfileLayerSelectForPage(sheetName) {
     const isCearaCred = opt.value === "ceara_cred";
     const isEmpresaLayer = CE_PERFIL_EMPRESAS_LAYER_KEYS.includes(opt.value);
     if (sheetName === "vai_vem") {
+      opt.hidden = true;
+      continue;
+    }
+    if (sheetName === "caged_grupamentos") {
       opt.hidden = true;
       continue;
     }
@@ -2979,6 +3160,8 @@ function ceApplyVisualization() {
   try {
     if (ceIsVaiVemMode()) {
       ceApplyVaiVemMapFillPaint();
+    } else if (ceIsCagedGrupamentosMode()) {
+      ceApplyCagedGrupMapFillPaint();
     } else if (isPerfil) {
       ceApplyProfileMapFillPaint();
     } else {
@@ -5269,7 +5452,7 @@ function ceSyncProfileLayerUi() {
   if (!root) return;
 
   const isPerfil = ceIsPerfilMunicipalMode();
-  if (!isPerfil || ceIsVaiVemMode()) {
+  if (!isPerfil || ceIsVaiVemMode() || ceIsCagedGrupamentosMode()) {
     root.classList.remove(
       "section-map-ce--pib-layer",
       "section-map-ce--ceara-cred-layer",
@@ -6386,6 +6569,11 @@ function ceApplyMapFilters() {
     return;
   }
 
+  if (ceIsCagedGrupamentosMode()) {
+    window.cagedGrupamentosApi?.refresh?.();
+    return;
+  }
+
   if (ceIsPerfilMunicipalMode()) {
     ceSyncProfileLayerUi();
     const { aggByLayer, filteredByLayer } = ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel);
@@ -6687,7 +6875,13 @@ function ceWireMapFiltersDelegation() {
 
   root.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.id === "mapFilterRegiao") ceSyncMunicipiosFromRegioes();
+    if (t.id === "mapFilterRegiao") {
+      if (ceIsCagedGrupamentosMode()) {
+        window.cagedGrupamentosApi?.syncMunicipiosFromRegiao?.();
+      } else {
+        ceSyncMunicipiosFromRegioes();
+      }
+    }
     if (t.id === "mapFilterVaiVemRegiao" && ceIsVaiVemMode()) {
       window.vaiVemApi?.syncMunicipiosFromRegiao?.();
     }
@@ -6708,6 +6902,10 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapVaiVemLayerStyle") {
       ceMapRuntime.activeLegendClass = null;
       window.vaiVemApi?.refreshMap?.();
+    }
+    if (t.id === "mapCagedGrupLayerStyle" || t.id === "mapCagedGrupMetricStyle") {
+      ceMapRuntime.activeLegendClass = null;
+      window.cagedGrupamentosApi?.refreshMap?.();
     }
     if (t.id === "mapRankOrder") {
       ceUpdateRankingCharts();
@@ -6773,7 +6971,11 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapFilterRegiaoClear") {
       const sel = document.getElementById("mapFilterRegiao");
       if (sel) Array.from(sel.options).forEach((o) => { o.selected = false; });
-      ceSyncMunicipiosFromRegioes();
+      if (ceIsCagedGrupamentosMode()) {
+        window.cagedGrupamentosApi?.syncMunicipiosFromRegiao?.();
+      } else {
+        ceSyncMunicipiosFromRegioes();
+      }
       ceApplyMapFilters();
     }
     if (t.id === "mapFilterMunClear") {
@@ -6783,6 +6985,8 @@ function ceWireMapFiltersDelegation() {
       if (search) search.value = "";
       if (ceIsVaiVemMode()) {
         window.vaiVemApi?.clearMunicipioSelection?.();
+      } else if (ceIsCagedGrupamentosMode()) {
+        window.cagedGrupamentosApi?.clearMunicipioSelection?.();
       } else {
         ceRebuildMunicipioOptions();
       }
@@ -6802,6 +7006,8 @@ function ceWireMapFiltersDelegation() {
     ceMunSearchTimer = setTimeout(() => {
       if (ceIsVaiVemMode()) {
         window.vaiVemApi?.rebuildMunicipioOptions?.();
+      } else if (ceIsCagedGrupamentosMode()) {
+        window.cagedGrupamentosApi?.rebuildMunicipioOptions?.();
       } else {
         ceRebuildMunicipioOptions();
       }
@@ -7075,11 +7281,14 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         }
         let initialFill;
         let initialFillOpacity = 0.78;
-        if (profileModeInit && !ceIsVaiVemMode() && cePendingPageMode !== "vai_vem") {
+        if (profileModeInit && !ceIsVaiVemMode() && cePendingPageMode !== "vai_vem" && !ceIsCagedGrupamentosMode() && cePendingPageMode !== "caged_grupamentos") {
           const profileCfg = ceGetActiveProfileLayerConfig();
           initialFill = ceBuildNumericFillExpr(CE_PROFILE_LAYER_PROP, [], profileCfg.colors);
           initialFillOpacity = 0.82;
         } else if (ceIsVaiVemMode() || cePendingPageMode === "vai_vem") {
+          initialFill = "#e8eef5";
+          initialFillOpacity = 0.52;
+        } else if (ceIsCagedGrupamentosMode() || cePendingPageMode === "caged_grupamentos") {
           initialFill = "#e8eef5";
           initialFillOpacity = 0.52;
         } else {
@@ -7207,13 +7416,14 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
 
         ceBuildSedeLabelMarkers(map, sedesFc);
 
-        if (cePendingPageMode && ceIsProfileMapPageMode(cePendingPageMode)) {
+        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos")) {
           ceSetPageMode(cePendingPageMode);
         } else if (ceIsPerfilMunicipalMode()) {
           let mode = "perfil_municipal";
           if (ceIsIntermediacaoMode()) mode = "series_historicas";
           else if (ceIsCearaCrediMode()) mode = "ceara_credi";
           else if (ceIsVaiVemMode()) mode = "vai_vem";
+          else if (ceIsCagedGrupamentosMode()) mode = "caged_grupamentos";
           else if (ceIsPerfilEmpresasMode()) mode = "perfil_empresas";
           ceSetPageMode(mode);
         } else {
@@ -7251,6 +7461,21 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             const agg = key ? ceMapRuntime.vaiVemAggByMunKey?.get(key) : null;
             accentColor = CE_VAI_VEM_COLORS[Math.min(3, CE_VAI_VEM_COLORS.length - 1)];
             popupHtml = ceBuildVaiVemPopupHtml({ municipio, regiao, agg, accentColor });
+          } else if (ceIsCagedGrupamentosMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            const agg = cod != null ? ceMapRuntime.cagedGrupAggByCod?.get(cod) : null;
+            const grupoKey = ceMapRuntime.cagedGrupGrupoKey;
+            const metricKey = ceMapRuntime.cagedGrupMetricKey;
+            const cfg = ceGetCagedGrupLegendConfig(grupoKey, metricKey);
+            accentColor = cfg.colors[Math.min(3, cfg.colors.length - 1)];
+            popupHtml = ceBuildCagedGrupPopupHtml({
+              municipio,
+              regiao,
+              agg,
+              grupoKey,
+              metricKey,
+              accentColor,
+            });
           } else {
           const isPerfil = ceIsPerfilMunicipalMode();
           let indicador = "";
@@ -7312,6 +7537,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             window.vaiVemApi?.selectSingleMunicipioFromMap?.(ceNormMunKey(municipio));
             return;
           }
+          if (ceIsCagedGrupamentosMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            window.cagedGrupamentosApi?.selectSingleMunicipioFromMap?.(cod);
+            return;
+          }
           const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
           ceSelectSingleMunicipioFromMap(cod);
         };
@@ -7331,6 +7561,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           if (ceIsVaiVemMode()) {
             window.vaiVemApi?.clearMunicipioSelection?.();
             window.vaiVemApi?.refresh?.();
+            return;
+          }
+          if (ceIsCagedGrupamentosMode()) {
+            window.cagedGrupamentosApi?.clearMunicipioSelection?.();
+            window.cagedGrupamentosApi?.refresh?.();
             return;
           }
           ceClearMunicipioSelectionFromMap();
@@ -7468,9 +7703,11 @@ function ceSetPageMode(sheetName) {
   }
   cePendingPageMode = sheetName;
 
-  if (ceIsProfileMapPageMode(sheetName)) {
+  if (ceIsProfileMapPageMode(sheetName) || sheetName === "caged_grupamentos") {
     ceApplyPageModeClasses(sheetName);
-    ceSyncProfileLayerSelectForPage(sheetName);
+    if (ceIsProfileMapPageMode(sheetName)) {
+      ceSyncProfileLayerSelectForPage(sheetName);
+    }
   }
 
   const map = ceMapRuntime.map;
@@ -7488,6 +7725,11 @@ window.ceRegioesMapApi = {
   setPageMode: ceSetPageMode,
   destroy: ceDestroyMap,
   applyVaiVemLayer: ceApplyVaiVemLayer,
+  applyCagedGrupLayer: ceApplyCagedGrupLayer,
   normMunKey: ceNormMunKey,
   rebuildAllMunicipios: ceRebuildMunicipioOptions,
+  getRegiaoToCodigos: () => ceMapRuntime.regiaoToCodigos,
+  formatMesAnoKey: ceFormatMesAnoFromKey,
+  pickFormalizacaoByMunicipio: (aggByCod) => cePickFormalizacaoMunicipioEntries(aggByCod, "maiores"),
+  pickFormalizacaoByRegiao: (aggByCod) => cePickFormalizacaoRegiaoEntries(aggByCod, "maiores"),
 };

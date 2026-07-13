@@ -6,6 +6,7 @@ const MAP_TABS = {
   perfil_empresas:  { label: "Perfil Empresas",  icon: "fa-solid fa-building" },
   ceara_credi:      { label: "Ceará Credi",      icon: "fa-solid fa-hand-holding-dollar" },
   vai_vem:          { label: "Vai Vem",          icon: "fa-solid fa-bus" },
+  caged_grupamentos:{ label: "CAGED Grupamentos", icon: "fa-solid fa-industry" },
   series_historicas:{ label: "Intermediação",    icon: "fa-solid fa-chart-line" },
 };
 
@@ -58,6 +59,11 @@ const PAGE_META = {
     title: "Vai Vem Trabalhador",
     desc: "Indicadores do programa Vai Vem Trabalhador na RMF e RMC: status dos beneficiários, situação dos cartões e solicitações por região, com filtros por município e região metropolitana.",
     status: "Mapa + planilha Vai Vem",
+  },
+  caged_grupamentos: {
+    title: "CAGED por Grande Grupamento",
+    desc: "Dados do CAGED desagregados por grande grupamento econômico (Agropecuária, Comércio, Construção, Indústria, Serviços), com filtros por referência, região e município e mapa graduado por setor.",
+    status: "Mapa + planilha CAGED grupamentos",
   },
   series_historicas: {
     title: "Intermediação",
@@ -144,6 +150,10 @@ function syncProfileLayerSelectForMode(sheetName) {
       opt.hidden = true;
       continue;
     }
+    if (sheetName === "caged_grupamentos") {
+      opt.hidden = true;
+      continue;
+    }
     if (allowed) {
       opt.hidden = !allowed.has(opt.value);
     } else if (sheetName === "perfil_municipal") {
@@ -201,6 +211,7 @@ function syncMapSection() {
   const isPerfilEmpresas = state.abaAtual === "perfil_empresas";
   const isCearaCredi    = state.abaAtual === "ceara_credi";
   const isVaiVem        = state.abaAtual === "vai_vem";
+  const isCagedGrup     = state.abaAtual === "caged_grupamentos";
   const isIntermediacao = state.abaAtual === "series_historicas";
   const isPerfilMode    = isPerfil || isPerfilEmpresas || isCearaCredi || isVaiVem || isIntermediacao;
 
@@ -208,6 +219,7 @@ function syncMapSection() {
   wrap.classList.toggle("section-map-ce--perfil-empresas", isPerfilEmpresas);
   wrap.classList.toggle("section-map-ce--ceara-credi",    isCearaCredi);
   wrap.classList.toggle("section-map-ce--vai-vem",        isVaiVem);
+  wrap.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
   wrap.classList.toggle("section-map-ce--intermediacao",  isIntermediacao);
 
   const filtersTitle = wrap.querySelector(".map-ce-filters-wrap__title");
@@ -220,6 +232,8 @@ function syncMapSection() {
           ? "Filtros do Ceará Credi"
           : isVaiVem
             ? "Filtros do Vai Vem (data da solicitação)"
+            : isCagedGrup
+              ? "Filtros do CAGED por grupamento (referência)"
             : isIntermediacao
             ? "Filtros da intermediação"
             : "Filtros dos dados (CAGED)";
@@ -232,9 +246,13 @@ function syncMapSection() {
   }
 
   window.vaiVemApi?.onPageActivate?.();
+  window.cagedGrupamentosApi?.onPageActivate?.();
 
   if (!isVaiVem) {
     window.vaiVemApi?.restoreFullMunicipioFilter?.();
+  }
+  if (!isCagedGrup) {
+    window.cagedGrupamentosApi?.restoreFullMunicipioFilter?.();
   }
 
   if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;

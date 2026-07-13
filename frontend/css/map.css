@@ -174,6 +174,199 @@
   display: none !important;
 }
 
+/* CAGED por Grande Grupamento */
+.section-map-ce--caged-grupamentos .map-ce-filter-group--vv-ano,
+.section-map-ce--caged-grupamentos .map-ce-filter-group--vv-mes,
+.section-map-ce--caged-grupamentos .map-ce-filter-group--vai-vem-regiao {
+  display: none !important;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-filter-group:not(.map-ce-filter-group--vv-ano):not(.map-ce-filter-group--vv-mes):not(.map-ce-filter-group--vai-vem-regiao) {
+  display: flex;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-toolbar--map-only {
+  display: block;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-layer-row__graduated,
+.section-map-ce--caged-grupamentos .map-ce-layer-row__perfil,
+.section-map-ce--caged-grupamentos .map-ce-layer-row__vai-vem {
+  display: none;
+}
+
+.map-ce-layer-row__caged-grup {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-layer-row__caged-grup {
+  display: flex;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-main__profile-kpis,
+.section-map-ce--caged-grupamentos .map-ce-main__vai-vem-kpis,
+.section-map-ce--caged-grupamentos .map-ce-vv-charts-wrap,
+.section-map-ce--caged-grupamentos .map-ce-charts-wrap,
+.section-map-ce--caged-grupamentos .map-ce-rankings-wrap,
+.section-map-ce--caged-grupamentos .map-ce-region-charts-wrap,
+.section-map-ce--caged-grupamentos .map-ce-line-wrap:not(.map-ce-cg-line-wrap) {
+  display: none !important;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-main {
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 288px);
+  grid-template-areas:
+    "map kpis"
+    "legend .";
+}
+
+.section-map-ce--caged-grupamentos .map-ce-kpis-bar--side .map-ce-kpi-card:has(#mapKpiFormalizacao) {
+  display: none;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-profile-charts-wrap,
+.section-map-ce--caged-grupamentos .map-ce-pib-line-wrap,
+.section-map-ce--caged-grupamentos .map-ce-ceara-cred-line-wrap,
+.section-map-ce--caged-grupamentos .map-ce-intermediacao-line-wrap {
+  display: none !important;
+}
+
+.section-map-ce--caged-grupamentos #cgStatus {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  color: #5c678f;
+}
+
+.map-ce-filters-wrap__status {
+  display: none;
+}
+
+/* CAGED Grupamentos — gráficos */
+.map-ce-cg-charts-wrap {
+  display: none;
+  margin-top: 18px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-cg-charts-wrap {
+  display: flex;
+}
+
+.map-ce-cg-formalizacao-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.map-ce-cg-chart-panel {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 104, 55, 0.18);
+  background: linear-gradient(180deg, #fcfffe 0%, #f0faf4 100%);
+  box-shadow: 0 2px 14px rgba(13, 21, 72, 0.06);
+}
+
+.map-ce-cg-chart-panel__title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0d2148;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.map-ce-cg-chart-panel__hint {
+  margin: 0 0 12px;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: #5c678f;
+}
+
+.map-ce-cg-chart-panel__chart {
+  min-height: 280px;
+  width: 100%;
+}
+
+.map-ce-cg-line-wrap {
+  display: block !important;
+}
+
+.section-map-ce--caged-grupamentos .map-ce-cg-line-wrap .map-ce-line-block {
+  border-color: rgba(0, 104, 55, 0.2);
+  background: linear-gradient(180deg, #fffdf8 0%, #fff8ef 100%);
+}
+
+.section-map-ce--caged-grupamentos .map-ce-cg-line-wrap--municipio .map-ce-line-block {
+  border-color: rgba(37, 99, 235, 0.18);
+  background: linear-gradient(180deg, #fcfdff 0%, #f0f5ff 100%);
+}
+
+.map-ce-cg-table-wrap {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  background: #fff;
+  box-shadow: 0 2px 14px rgba(13, 21, 72, 0.06);
+}
+
+.map-ce-cg-table-wrap__title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0d2148;
+}
+
+.map-ce-cg-table-wrap__hint {
+  margin: 0 0 12px;
+  font-size: 0.74rem;
+  color: #5c678f;
+}
+
+.map-ce-cg-table-scroll {
+  overflow-x: auto;
+}
+
+.map-ce-cg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.map-ce-cg-table th,
+.map-ce-cg-table td {
+  padding: 10px 12px;
+  text-align: right;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.map-ce-cg-table th:first-child,
+.map-ce-cg-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+
+.map-ce-cg-table thead th {
+  background: #f1f5f9;
+  color: #1e3a5f;
+  font-weight: 700;
+}
+
+.map-ce-cg-table tbody tr:last-child td {
+  font-weight: 700;
+  background: #f8fafc;
+}
+
+@media (max-width: 960px) {
+  .map-ce-cg-formalizacao-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
 .section-map-ce--vai-vem .map-ce-vv-charts-wrap .map-ce-line-wrap {
   display: block !important;
 }
