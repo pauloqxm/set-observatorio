@@ -68,17 +68,17 @@
         <div class="map-ce-filters-wrap">
           <p class="map-ce-filters-wrap__title">Filtros dos dados (CAGED)</p>
           <div class="map-ce-toolbar__filters map-ce-toolbar__filters--standalone">
-            <div class="map-ce-filter-group">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos">
               <label class="map-ce-filter-label" for="mapFilterAno">Ano</label>
               <select id="mapFilterAno" class="map-ce-select-multi" multiple size="4" aria-label="Filtrar por ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterAnoClear">Limpar anos</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mes">
+            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos">
               <label class="map-ce-filter-label" for="mapFilterMes">Mês/ano</label>
               <select id="mapFilterMes" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar por mês e ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterMesClear">Limpar meses</button>
             </div>
-            <div class="map-ce-filter-group">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos seguro_desemprego">
               <label class="map-ce-filter-label" for="mapFilterRegiao">Região administrativa</label>
               <select
                 id="mapFilterRegiao"
@@ -89,17 +89,17 @@
               ></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterRegiaoClear">Limpar regiões</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--vv-ano">
+            <div class="map-ce-filter-group map-ce-filter-group--vv-ano" data-filter-tabs="vai_vem">
               <label class="map-ce-filter-label" for="vvFilterAno">Ano</label>
               <select id="vvFilterAno" class="map-ce-select-multi" multiple size="4" aria-label="Filtrar Vai Vem por ano da solicitação"></select>
               <button type="button" class="map-ce-filter-btn" id="vvFilterAnoClear">Limpar anos</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--vv-mes">
+            <div class="map-ce-filter-group map-ce-filter-group--vv-mes" data-filter-tabs="vai_vem">
               <label class="map-ce-filter-label" for="vvFilterMes">Mês/ano</label>
               <select id="vvFilterMes" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar Vai Vem por mês da solicitação"></select>
               <button type="button" class="map-ce-filter-btn" id="vvFilterMesClear">Limpar meses</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--vai-vem-regiao">
+            <div class="map-ce-filter-group map-ce-filter-group--vai-vem-regiao" data-filter-tabs="vai_vem">
               <label class="map-ce-filter-label" for="mapFilterVaiVemRegiao">Região (RMF/RMC)</label>
               <select
                 id="mapFilterVaiVemRegiao"
@@ -113,7 +113,17 @@
               </select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterVaiVemRegiaoClear">Limpar regiões</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mun">
+            <div class="map-ce-filter-group map-ce-filter-group--sd-ano" data-filter-tabs="seguro_desemprego">
+              <label class="map-ce-filter-label" for="sdFilterAno">Ano</label>
+              <select id="sdFilterAno" class="map-ce-select-multi" multiple size="4" aria-label="Filtrar Seguro Desemprego por ano"></select>
+              <button type="button" class="map-ce-filter-btn" id="sdFilterAnoClear">Limpar anos</button>
+            </div>
+            <div class="map-ce-filter-group map-ce-filter-group--sd-quinzena" data-filter-tabs="seguro_desemprego">
+              <label class="map-ce-filter-label" for="sdFilterQuinzena">Quinzena</label>
+              <select id="sdFilterQuinzena" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar Seguro Desemprego por quinzena"></select>
+              <button type="button" class="map-ce-filter-btn" id="sdFilterQuinzenaClear">Limpar quinzenas</button>
+            </div>
+            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos vai_vem seguro_desemprego">
               <label class="map-ce-filter-label" for="mapFilterMunicipio">Município</label>
               <input
                 type="search"
@@ -134,6 +144,7 @@
             </div>
           </div>
           <p class="map-ce-filters-wrap__status" id="cgStatus" hidden></p>
+          <p class="map-ce-filters-wrap__status" id="sdStatus" hidden></p>
         </div>
 
         <div class="sec sec-map">
@@ -205,6 +216,13 @@
                   <option value="admitidos">Admitidos</option>
                   <option value="desligados">Desligados</option>
                   <option value="saldo">Saldo</option>
+                </select>
+              </div>
+              <div class="map-ce-layer-row__seguro-desemprego">
+                <label class="map-ce-filter-label" for="mapSeguroDesempregoLayerStyle">Indicador no mapa</label>
+                <select id="mapSeguroDesempregoLayerStyle" class="map-ce-layer-select" aria-label="Indicador graduado do Seguro Desemprego no mapa">
+                  <option value="requerentes" selected>Requerentes</option>
+                  <option value="requerentes_web">Requerentes WEB</option>
                 </select>
               </div>
               <div class="map-ce-layer-row__toggle-wrap">
@@ -937,6 +955,35 @@
               </div>
               <p class="map-ce-main__profile-kpis-note" id="vvKpiStatus" role="status">Carregando…</p>
             </section>
+            <section class="map-ce-main__seguro-desemprego-kpis" aria-label="Indicadores Seguro Desemprego">
+              <p class="map-ce-main__kpis-title">
+                <span class="map-ce-main__kpis-title-inner">
+                  <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                  <span>KPIs do Seguro Desemprego</span>
+                </span>
+              </p>
+              <div class="map-ce-kpis-bar map-ce-kpis-bar--profile" id="mapCeSeguroDesempregoKpis" aria-live="polite">
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Requerentes</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="sdKpiRequerentes">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-globe"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Requerentes WEB</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="sdKpiRequerentesWeb">—</strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              <p class="map-ce-main__profile-kpis-note" id="sdKpiStatus" role="status">Carregando…</p>
+            </section>
             <div class="map-ce-main__map-view">
               <div
                 id="mapCeRegioes"
@@ -999,6 +1046,51 @@
           <p class="map-ce-regioes-foot">
             Fonte: CAGED | Mês de referência: <span id="mapRefMesAno">—</span>
           </p>
+        </div>
+
+        <div class="map-ce-sd-charts-wrap">
+          <section class="map-ce-cg-rankings-wrap" aria-label="Ranking Seguro Desemprego por município e região">
+            <div class="map-ce-cg-rankings">
+              <div class="map-ce-cg-rankings__head">
+                <h3 class="map-ce-cg-rankings__title">Ranking por município e região</h3>
+                <p id="sdRankingsHeadHint" class="map-ce-cg-rankings__hint">
+                  Indicador selecionado no mapa · valor absoluto no recorte dos filtros
+                </p>
+                <div class="map-ce-rankings__toolbar">
+                  <label class="map-ce-filter-label" for="sdRankOrder">Ordenação</label>
+                  <select id="sdRankOrder" class="map-ce-layer-select map-ce-rankings__select" aria-label="Mostrar os 15 maiores ou os 15 menores valores nos gráficos por município e região">
+                    <option value="maiores">15 maiores</option>
+                    <option value="menores">15 menores</option>
+                  </select>
+                </div>
+              </div>
+              <div class="map-ce-cg-formalizacao-wrap">
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por município</h3>
+                  <div id="sdChartRankingMun" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por município"></div>
+                </article>
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por região</h3>
+                  <div id="sdChartRankingReg" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por região"></div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <div class="map-ce-line-wrap map-ce-sd-line-wrap">
+            <div class="map-ce-line-block">
+              <h3 class="map-ce-line-block__title">Requerentes por Quinzena</h3>
+              <p class="map-ce-line-block__hint">Evolução do total de requerentes por competência quinzenal · mesmos filtros do mapa (exceto quinzena)</p>
+              <div id="sdChartQuinzenaLine" class="map-ce-line-block__chart" aria-label="Gráfico de linha de requerentes por quinzena"></div>
+            </div>
+          </div>
+          <div class="map-ce-line-wrap map-ce-sd-line-wrap map-ce-line-wrap--stacked">
+            <div class="map-ce-line-block">
+              <h3 class="map-ce-line-block__title">Requerentes por Quinzena e Tipo de Atendimento</h3>
+              <p class="map-ce-line-block__hint">Participação percentual Presencial e WEB em cada quinzena · mesmos filtros do mapa (exceto quinzena)</p>
+              <div id="sdChartQuinzenaStacked" class="map-ce-line-block__chart map-ce-line-block__chart--stacked" aria-label="Gráfico empilhado de requerentes por quinzena e tipo de atendimento"></div>
+            </div>
+          </div>
         </div>
 
         <div class="map-ce-cg-charts-wrap">
@@ -1623,6 +1715,7 @@
   <script src="/static/js/map-ce-regioes.js"></script>
   <script src="/static/js/vai-vem.js"></script>
   <script src="/static/js/caged-grupamentos.js"></script>
+  <script src="/static/js/seguro-desemprego.js"></script>
   <script src="/static/js/mapa-app.js"></script>
 </body>
 </html>

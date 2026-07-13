@@ -86,23 +86,13 @@
   flex-wrap: wrap;
 }
 
+/* Visibilidade dos grupos de filtro é controlada via JS (atributo [data-filter-tabs] + [hidden]),
+   garantindo que cada filtro só apareça quando fizer sentido na aba ativa do mapa. */
+.map-ce-filter-group[hidden] {
+  display: none !important;
+}
+
 /* Vai Vem Trabalhador */
-.map-ce-filter-group--vai-vem-regiao,
-.map-ce-filter-group--vv-ano,
-.map-ce-filter-group--vv-mes {
-  display: none;
-}
-
-.section-map-ce--vai-vem .map-ce-filter-group--vai-vem-regiao,
-.section-map-ce--vai-vem .map-ce-filter-group--vv-ano,
-.section-map-ce--vai-vem .map-ce-filter-group--vv-mes {
-  display: flex;
-}
-
-.section-map-ce--vai-vem .map-ce-filter-group:not(.map-ce-filter-group--mun):not(.map-ce-filter-group--vai-vem-regiao):not(.map-ce-filter-group--vv-ano):not(.map-ce-filter-group--vv-mes) {
-  display: none;
-}
-
 .section-map-ce--vai-vem .map-ce-toolbar--map-only {
   display: block;
 }
@@ -175,16 +165,6 @@
 }
 
 /* CAGED por Grande Grupamento */
-.section-map-ce--caged-grupamentos .map-ce-filter-group--vv-ano,
-.section-map-ce--caged-grupamentos .map-ce-filter-group--vv-mes,
-.section-map-ce--caged-grupamentos .map-ce-filter-group--vai-vem-regiao {
-  display: none !important;
-}
-
-.section-map-ce--caged-grupamentos .map-ce-filter-group:not(.map-ce-filter-group--vv-ano):not(.map-ce-filter-group--vv-mes):not(.map-ce-filter-group--vai-vem-regiao) {
-  display: flex;
-}
-
 .section-map-ce--caged-grupamentos .map-ce-toolbar--map-only {
   display: block;
 }
@@ -242,6 +222,121 @@
 
 .map-ce-filters-wrap__status {
   display: none;
+}
+
+/* Seguro Desemprego */
+.section-map-ce--seguro-desemprego .map-ce-toolbar--map-only {
+  display: block;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-layer-row__graduated,
+.section-map-ce--seguro-desemprego .map-ce-layer-row__perfil,
+.section-map-ce--seguro-desemprego .map-ce-layer-row__vai-vem,
+.section-map-ce--seguro-desemprego .map-ce-layer-row__caged-grup {
+  display: none;
+}
+
+.map-ce-layer-row__seguro-desemprego {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-layer-row__seguro-desemprego {
+  display: flex;
+}
+
+.map-ce-main__seguro-desemprego-kpis {
+  grid-area: kpis;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #f5f3ff 0%, #faf5ff 100%);
+  border: 1px solid rgba(109, 40, 217, 0.18);
+  min-width: 0;
+  align-self: stretch;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-main__seguro-desemprego-kpis {
+  display: flex;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-main {
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 288px);
+  grid-template-areas:
+    "map kpis"
+    "legend .";
+}
+
+.section-map-ce--seguro-desemprego .map-ce-main__profile-kpis,
+.section-map-ce--seguro-desemprego .map-ce-main__vai-vem-kpis,
+.section-map-ce--seguro-desemprego .map-ce-main__kpis,
+.section-map-ce--seguro-desemprego .map-ce-vv-charts-wrap,
+.section-map-ce--seguro-desemprego .map-ce-cg-charts-wrap,
+.section-map-ce--seguro-desemprego .map-ce-charts-wrap,
+.section-map-ce--seguro-desemprego .map-ce-rankings-wrap,
+.section-map-ce--seguro-desemprego .map-ce-region-charts-wrap,
+.section-map-ce--seguro-desemprego .map-ce-line-wrap:not(.map-ce-sd-line-wrap),
+.section-map-ce--seguro-desemprego .map-ce-profile-charts-wrap,
+.section-map-ce--seguro-desemprego .map-ce-pib-line-wrap,
+.section-map-ce--seguro-desemprego .map-ce-ceara-cred-line-wrap,
+.section-map-ce--seguro-desemprego .map-ce-intermediacao-line-wrap {
+  display: none !important;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-main__seguro-desemprego-kpis .map-ce-kpi-card--profile-standard {
+  display: flex !important;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-kpis-bar--profile {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.section-map-ce--seguro-desemprego #sdStatus {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  color: #5c678f;
+}
+
+.map-ce-sd-charts-wrap {
+  display: none;
+  margin-top: 18px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-sd-charts-wrap {
+  display: flex;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-cg-rankings-wrap {
+  border-color: rgba(79, 70, 229, 0.22);
+}
+
+.section-map-ce--seguro-desemprego .map-ce-sd-line-wrap {
+  display: block !important;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-sd-line-wrap .map-ce-line-block {
+  border: none;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.section-map-ce--seguro-desemprego .map-ce-sd-line-wrap.map-ce-line-wrap {
+  border-color: rgba(79, 70, 229, 0.18);
+  background: linear-gradient(180deg, #fcfdff 0%, #f5f3ff 100%);
+}
+
+.map-ce-line-block__chart--stacked {
+  min-height: 380px;
 }
 
 /* CAGED Grupamentos — gráficos */

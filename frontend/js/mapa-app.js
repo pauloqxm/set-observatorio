@@ -7,6 +7,7 @@ const MAP_TABS = {
   ceara_credi:      { label: "Ceará Credi",      icon: "fa-solid fa-hand-holding-dollar" },
   vai_vem:          { label: "Vai Vem",          icon: "fa-solid fa-bus" },
   caged_grupamentos:{ label: "CAGED Grupamentos", icon: "fa-solid fa-industry" },
+  seguro_desemprego: { label: "Seguro Desemprego", icon: "fa-solid fa-shield-halved" },
   series_historicas:{ label: "Intermediação",    icon: "fa-solid fa-chart-line" },
 };
 
@@ -78,6 +79,11 @@ const PAGE_META = {
     desc: "Dados do CAGED desagregados por grande grupamento econômico (Agropecuária, Comércio, Construção, Indústria, Serviços), com filtros por referência, região e município e mapa graduado por setor.",
     status: "Mapa + planilha CAGED grupamentos",
   },
+  seguro_desemprego: {
+    title: "Seguro Desemprego",
+    desc: "Requerimentos de Seguro Desemprego por município e quinzena de competência, com filtros por ano, quinzena, região administrativa e município, e mapa graduado por volume de requerentes.",
+    status: "Mapa + planilha Seguro Desemprego",
+  },
   series_historicas: {
     title: "Intermediação",
     desc: "Mapa de intermediação dos serviços do IDT: unidades, servidores municipais e camadas de contexto territorial.",
@@ -85,7 +91,7 @@ const PAGE_META = {
   },
 };
 
-const state = { abaAtual: "dados_caged" };
+const state = { abaAtual: "dados_caged", abaFiltrosSincronizados: null };
 
 const els = {
   sidebar:         document.getElementById("sidebar"),
@@ -164,6 +170,10 @@ function syncProfileLayerSelectForMode(sheetName) {
       continue;
     }
     if (sheetName === "caged_grupamentos") {
+      opt.hidden = true;
+      continue;
+    }
+    if (sheetName === "seguro_desemprego") {
       opt.hidden = true;
       continue;
     }
@@ -253,16 +263,63 @@ function renderMenu() {
   });
 }
 
+/** IDs dos selects multi-valor de filtro que existem no wrapper de filtros do mapa. */
+const MAP_FILTER_SELECT_IDS = [
+  "mapFilterAno",
+  "mapFilterMes",
+  "mapFilterRegiao",
+  "mapFilterMunicipio",
+  "vvFilterAno",
+  "vvFilterMes",
+  "mapFilterVaiVemRegiao",
+  "sdFilterAno",
+  "sdFilterQuinzena",
+];
+/** IDs dos seletores de ordenação (15 maiores/menores) usados nos rankings. */
+const MAP_RANK_ORDER_SELECT_IDS = ["mapRankOrder", "cgRankOrder", "sdRankOrder"];
+
+/** Mostra/esconde cada grupo de filtro conforme sua relação com a aba ativa (data-filter-tabs). */
+function syncFilterVisibilityForTab(sheetName) {
+  const wrap = els.secaoMapaCe;
+  if (!wrap) return;
+  wrap.querySelectorAll(".map-ce-filter-group[data-filter-tabs]").forEach((group) => {
+    const tabs = (group.dataset.filterTabs || "").split(/\s+/).filter(Boolean);
+    group.hidden = !tabs.includes(sheetName);
+  });
+}
+
+/** Reinicia a seleção de todos os filtros (multi-selects, busca de município e ordenação) ao trocar de aba. */
+function resetMapFilterSelections() {
+  MAP_FILTER_SELECT_IDS.forEach((id) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    Array.from(sel.options).forEach((opt) => { opt.selected = false; });
+  });
+  const search = document.getElementById("mapFilterMunSearch");
+  if (search) search.value = "";
+  MAP_RANK_ORDER_SELECT_IDS.forEach((id) => {
+    const sel = document.getElementById(id);
+    if (sel && sel.options.length) sel.selectedIndex = 0;
+  });
+}
+
 function syncMapSection() {
   const wrap = els.secaoMapaCe;
   const mount = els.mapCeRegioes;
   if (!wrap || !mount) return;
+
+  if (state.abaAtual !== state.abaFiltrosSincronizados) {
+    resetMapFilterSelections();
+    state.abaFiltrosSincronizados = state.abaAtual;
+  }
+  syncFilterVisibilityForTab(state.abaAtual);
 
   const isPerfil        = state.abaAtual === "perfil_municipal";
   const isPerfilEmpresas = state.abaAtual === "perfil_empresas";
   const isCearaCredi    = state.abaAtual === "ceara_credi";
   const isVaiVem        = state.abaAtual === "vai_vem";
   const isCagedGrup     = state.abaAtual === "caged_grupamentos";
+  const isSeguroDesemp  = state.abaAtual === "seguro_desemprego";
   const isIntermediacao = state.abaAtual === "series_historicas";
   const isPerfilMode    = isPerfil || isPerfilEmpresas || isCearaCredi || isVaiVem || isIntermediacao;
 
@@ -271,6 +328,7 @@ function syncMapSection() {
   wrap.classList.toggle("section-map-ce--ceara-credi",    isCearaCredi);
   wrap.classList.toggle("section-map-ce--vai-vem",        isVaiVem);
   wrap.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
+  wrap.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
   wrap.classList.toggle("section-map-ce--intermediacao",  isIntermediacao);
 
   const filtersTitle = wrap.querySelector(".map-ce-filters-wrap__title");
@@ -285,6 +343,8 @@ function syncMapSection() {
             ? "Filtros do Vai Vem (data da solicitação)"
             : isCagedGrup
               ? "Filtros do CAGED por grupamento (referência)"
+            : isSeguroDesemp
+              ? "Filtros do Seguro Desemprego (competência quinzenal)"
             : isIntermediacao
             ? "Filtros da intermediação"
             : "Filtros dos dados (CAGED)";
@@ -298,12 +358,16 @@ function syncMapSection() {
 
   window.vaiVemApi?.onPageActivate?.();
   window.cagedGrupamentosApi?.onPageActivate?.();
+  window.seguroDesempregoApi?.onPageActivate?.();
 
   if (!isVaiVem) {
     window.vaiVemApi?.restoreFullMunicipioFilter?.();
   }
   if (!isCagedGrup) {
     window.cagedGrupamentosApi?.restoreFullMunicipioFilter?.();
+  }
+  if (!isSeguroDesemp) {
+    window.seguroDesempregoApi?.restoreFullMunicipioFilter?.();
   }
 
   if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;

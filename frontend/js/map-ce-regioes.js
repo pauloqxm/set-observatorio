@@ -132,6 +132,12 @@ const CE_CAGED_GRUP_METRIC_FIELDS = {
   desligados: "desligados",
   saldo: "saldo",
 };
+const CE_SD_PROP = "seguro_desemprego_metric";
+const CE_SD_COLORS = ["#eef2ff", "#c7d2fe", "#818cf8", "#4f46e5", "#3730a3"];
+const CE_SD_LAYER_CONFIG = {
+  requerentes: { legendTitle: "Requerentes", field: "requerentes" },
+  requerentes_web: { legendTitle: "Requerentes WEB", field: "requerentesWeb" },
+};
 const CE_PROFILE_LAYER_SOURCE_BASE_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRY77niZrgeJpcmKNv8BWEUyetRRYARaBk-nRzUFqSvJbTF1OdkneesuAJOHWSg0FVwamjEBJsviFJz/pub?output=csv&single=true&gid=";
 
@@ -1162,6 +1168,7 @@ function ceGetSelectedProfileLayerKey() {
   if (isCearaCredi) return "ceara_cred";
   if (ceIsVaiVemMode() || cePendingPageMode === "vai_vem") return CE_PROFILE_LAYER_KEYS[0];
   if (ceIsCagedGrupamentosMode() || cePendingPageMode === "caged_grupamentos") return CE_PROFILE_LAYER_KEYS[0];
+  if (ceIsSeguroDesempregoMode() || cePendingPageMode === "seguro_desemprego") return CE_PROFILE_LAYER_KEYS[0];
   return v;
 }
 
@@ -1836,6 +1843,114 @@ function ceApplyCagedGrupLayer(aggByCod, grupoKey, metricKey) {
   } catch (e) {
     console.warn("Atualizar mapa CAGED grupamentos:", e);
   }
+}
+
+function ceGetSelectedSeguroDesempregoLayerKey() {
+  const el = document.getElementById("mapSeguroDesempregoLayerStyle");
+  const v = el?.value || "requerentes";
+  return Object.prototype.hasOwnProperty.call(CE_SD_LAYER_CONFIG, v) ? v : "requerentes";
+}
+
+function ceGetSeguroDesempregoMetricField(metricKey) {
+  return CE_SD_LAYER_CONFIG[metricKey]?.field || "requerentes";
+}
+
+function ceMergeSeguroDesempregoIntoGeojson(geojson, aggByCod, metricKey) {
+  const field = ceGetSeguroDesempregoMetricField(metricKey);
+  return {
+    type: "FeatureCollection",
+    features: (geojson.features || []).map((f) => {
+      const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+      const agg = cod != null ? aggByCod.get(cod) : null;
+      const raw = agg ? agg[field] : null;
+      const val = agg != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+      return {
+        ...f,
+        properties: {
+          ...(f.properties || {}),
+          [CE_SD_PROP]: val,
+        },
+      };
+    }),
+  };
+}
+
+function ceApplySeguroDesempregoMapFillPaint() {
+  const map = ceMapRuntime.map;
+  if (!map?.getLayer("ce-regioes-fill")) return false;
+
+  const metricKey = ceMapRuntime.seguroDesempregoMetricKey || ceGetSelectedSeguroDesempregoLayerKey();
+  const cfg = CE_SD_LAYER_CONFIG[metricKey] || CE_SD_LAYER_CONFIG.requerentes;
+  const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_SD_PROP, {});
+  const activeIdx = ceMapRuntime.activeLegendClass;
+
+  map.setPaintProperty(
+    "ce-regioes-fill",
+    "fill-color",
+    ceBuildNumericFillExpr(CE_SD_PROP, stats?.thresholds || [], CE_SD_COLORS, activeIdx)
+  );
+  map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.78);
+  return true;
+}
+
+function ceApplySeguroDesempregoLayer(aggByCod, metricKey) {
+  const map = ceMapRuntime.map;
+  if (!map?.getSource?.("ce-regioes") || !ceMapRuntime.geoJsonBase) return;
+
+  ceMapRuntime.seguroDesempregoAggByCod = aggByCod instanceof Map ? aggByCod : new Map();
+  ceMapRuntime.seguroDesempregoMetricKey = metricKey || ceGetSelectedSeguroDesempregoLayerKey();
+  const merged = ceMergeSeguroDesempregoIntoGeojson(
+    ceMapRuntime.geoJsonBase,
+    ceMapRuntime.seguroDesempregoAggByCod,
+    ceMapRuntime.seguroDesempregoMetricKey
+  );
+  ceMapRuntime.currentMergedGeoJson = merged;
+  try {
+    map.getSource("ce-regioes").setData(merged);
+    ceScheduleMapVisualizationRefresh();
+  } catch (e) {
+    console.warn("Atualizar mapa Seguro Desemprego:", e);
+  }
+}
+
+function ceBuildSeguroDesempregoPopupHtml({ municipio, regiao, agg, accentColor }) {
+  const fmt = (v) => (Number.isFinite(Number(v)) ? ceFormatIntPt(Number(v)) : "—");
+  const rows = agg
+    ? [
+        ["Requerentes", agg.requerentes],
+        ["Requerentes WEB", agg.requerentesWeb],
+      ]
+    : [];
+  const fieldRows = rows
+    .map(
+      ([label, value]) => `
+        <div class="map-ce-popup__row">
+          <span class="map-ce-popup__label">
+            <span class="map-ce-popup__icon map-ce-popup__icon--label" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
+            ${ceEscapeHtml(label)}
+          </span>
+          <strong class="map-ce-popup__value map-ce-popup__value--metric">${ceEscapeHtml(fmt(value))}</strong>
+        </div>`
+    )
+    .join("");
+
+  return `
+    <section class="map-ce-popup" style="--map-popup-accent:${ceEscapeHtml(accentColor || "#4f46e5")}" role="group" aria-label="Detalhes do Seguro Desemprego">
+      <header class="map-ce-popup__head">
+        <h4 class="map-ce-popup__title">
+          <span class="map-ce-popup__icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+          ${ceEscapeHtml(municipio || "Município")}
+        </h4>
+        ${regiao ? `<p class="map-ce-popup__subtitle">${ceEscapeHtml(regiao)}</p>` : ""}
+      </header>
+      <div class="map-ce-popup__grid">
+        ${
+          fieldRows ||
+          `<p class="map-ce-popup__empty">Sem requerimentos de Seguro Desemprego neste município nos filtros ativos.</p>`
+        }
+      </div>
+    </section>
+  `;
 }
 
 function ceBuildCagedGrupPopupHtml({ municipio, regiao, agg, grupoKey, metricKey, accentColor }) {
@@ -2728,6 +2843,10 @@ function ceGetActiveLegendThresholds() {
     const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_CAGED_GRUP_PROP, {});
     return stats?.thresholds || [];
   }
+  if (ceIsSeguroDesempregoMode()) {
+    const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_SD_PROP, {});
+    return stats?.thresholds || [];
+  }
   if (ceIsPerfilMunicipalMode()) {
     const profileCfg = ceGetActiveProfileLayerConfig();
     const profileStats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_PROFILE_LAYER_PROP, {
@@ -2886,6 +3005,22 @@ function ceRenderFullLegend(metricKey) {
       st.min,
       st.max
     );
+  } else if (ceIsSeguroDesempregoMode()) {
+    const layerKey = ceMapRuntime.seguroDesempregoMetricKey || ceGetSelectedSeguroDesempregoLayerKey();
+    const cfg = CE_SD_LAYER_CONFIG[layerKey] || CE_SD_LAYER_CONFIG.requerentes;
+    const st = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_SD_PROP, {});
+    ceUpdateLegendNumericGeneric(
+      el,
+      {
+        prop: CE_SD_PROP,
+        colors: CE_SD_COLORS,
+        legendTitle: cfg.legendTitle,
+        formatValue: (value) => ceFormatIntPt(Number(value)),
+      },
+      st.thresholds,
+      st.min,
+      st.max
+    );
   } else if (ceIsPerfilMunicipalMode()) {
     const cfg = ceGetActiveProfileLayerConfig();
     const st = ceComputePropStats(
@@ -3014,6 +3149,11 @@ function ceIsCagedGrupamentosMode() {
   return root?.classList.contains("section-map-ce--caged-grupamentos") === true;
 }
 
+function ceIsSeguroDesempregoMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--seguro-desemprego") === true;
+}
+
 function ceIsPerfilEmpresasLayerKey(layerKey) {
   return CE_PERFIL_EMPRESAS_LAYER_KEYS.includes(layerKey);
 }
@@ -3039,6 +3179,7 @@ function ceApplyPageModeClasses(sheetName) {
   const isPerfilEmpresas = sheetName === "perfil_empresas";
   const isVaiVem = sheetName === "vai_vem";
   const isCagedGrup = sheetName === "caged_grupamentos";
+  const isSeguroDesemp = sheetName === "seguro_desemprego";
   const isPerfilMode = ceIsProfileMapPageMode(sheetName);
   root.classList.toggle("section-map-ce--perfil", isPerfilMode);
   root.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
@@ -3046,6 +3187,7 @@ function ceApplyPageModeClasses(sheetName) {
   root.classList.toggle("section-map-ce--perfil-empresas", isPerfilEmpresas);
   root.classList.toggle("section-map-ce--vai-vem", isVaiVem);
   root.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
+  root.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
 }
 
 function ceSyncProfileLayerSelectForPage(sheetName) {
@@ -3070,6 +3212,10 @@ function ceSyncProfileLayerSelectForPage(sheetName) {
       continue;
     }
     if (sheetName === "caged_grupamentos") {
+      opt.hidden = true;
+      continue;
+    }
+    if (sheetName === "seguro_desemprego") {
       opt.hidden = true;
       continue;
     }
@@ -3162,6 +3308,8 @@ function ceApplyVisualization() {
       ceApplyVaiVemMapFillPaint();
     } else if (ceIsCagedGrupamentosMode()) {
       ceApplyCagedGrupMapFillPaint();
+    } else if (ceIsSeguroDesempregoMode()) {
+      ceApplySeguroDesempregoMapFillPaint();
     } else if (isPerfil) {
       ceApplyProfileMapFillPaint();
     } else {
@@ -5452,7 +5600,7 @@ function ceSyncProfileLayerUi() {
   if (!root) return;
 
   const isPerfil = ceIsPerfilMunicipalMode();
-  if (!isPerfil || ceIsVaiVemMode() || ceIsCagedGrupamentosMode()) {
+  if (!isPerfil || ceIsVaiVemMode() || ceIsCagedGrupamentosMode() || ceIsSeguroDesempregoMode()) {
     root.classList.remove(
       "section-map-ce--pib-layer",
       "section-map-ce--ceara-cred-layer",
@@ -6574,6 +6722,11 @@ function ceApplyMapFilters() {
     return;
   }
 
+  if (ceIsSeguroDesempregoMode()) {
+    window.seguroDesempregoApi?.refresh?.();
+    return;
+  }
+
   if (ceIsPerfilMunicipalMode()) {
     ceSyncProfileLayerUi();
     const { aggByLayer, filteredByLayer } = ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel);
@@ -6878,6 +7031,8 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapFilterRegiao") {
       if (ceIsCagedGrupamentosMode()) {
         window.cagedGrupamentosApi?.syncMunicipiosFromRegiao?.();
+      } else if (ceIsSeguroDesempregoMode()) {
+        window.seguroDesempregoApi?.syncMunicipiosFromRegiao?.();
       } else {
         ceSyncMunicipiosFromRegioes();
       }
@@ -6906,6 +7061,10 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapCagedGrupLayerStyle" || t.id === "mapCagedGrupMetricStyle") {
       ceMapRuntime.activeLegendClass = null;
       window.cagedGrupamentosApi?.refreshMap?.();
+    }
+    if (t.id === "mapSeguroDesempregoLayerStyle") {
+      ceMapRuntime.activeLegendClass = null;
+      window.seguroDesempregoApi?.refresh?.();
     }
     if (t.id === "mapRankOrder") {
       ceUpdateRankingCharts();
@@ -6973,6 +7132,8 @@ function ceWireMapFiltersDelegation() {
       if (sel) Array.from(sel.options).forEach((o) => { o.selected = false; });
       if (ceIsCagedGrupamentosMode()) {
         window.cagedGrupamentosApi?.syncMunicipiosFromRegiao?.();
+      } else if (ceIsSeguroDesempregoMode()) {
+        window.seguroDesempregoApi?.syncMunicipiosFromRegiao?.();
       } else {
         ceSyncMunicipiosFromRegioes();
       }
@@ -6987,6 +7148,8 @@ function ceWireMapFiltersDelegation() {
         window.vaiVemApi?.clearMunicipioSelection?.();
       } else if (ceIsCagedGrupamentosMode()) {
         window.cagedGrupamentosApi?.clearMunicipioSelection?.();
+      } else if (ceIsSeguroDesempregoMode()) {
+        window.seguroDesempregoApi?.clearMunicipioSelection?.();
       } else {
         ceRebuildMunicipioOptions();
       }
@@ -7008,6 +7171,8 @@ function ceWireMapFiltersDelegation() {
         window.vaiVemApi?.rebuildMunicipioOptions?.();
       } else if (ceIsCagedGrupamentosMode()) {
         window.cagedGrupamentosApi?.rebuildMunicipioOptions?.();
+      } else if (ceIsSeguroDesempregoMode()) {
+        window.seguroDesempregoApi?.rebuildMunicipioOptions?.();
       } else {
         ceRebuildMunicipioOptions();
       }
@@ -7281,7 +7446,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         }
         let initialFill;
         let initialFillOpacity = 0.78;
-        if (profileModeInit && !ceIsVaiVemMode() && cePendingPageMode !== "vai_vem" && !ceIsCagedGrupamentosMode() && cePendingPageMode !== "caged_grupamentos") {
+        if (profileModeInit && !ceIsVaiVemMode() && cePendingPageMode !== "vai_vem" && !ceIsCagedGrupamentosMode() && cePendingPageMode !== "caged_grupamentos" && !ceIsSeguroDesempregoMode() && cePendingPageMode !== "seguro_desemprego") {
           const profileCfg = ceGetActiveProfileLayerConfig();
           initialFill = ceBuildNumericFillExpr(CE_PROFILE_LAYER_PROP, [], profileCfg.colors);
           initialFillOpacity = 0.82;
@@ -7289,6 +7454,9 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           initialFill = "#e8eef5";
           initialFillOpacity = 0.52;
         } else if (ceIsCagedGrupamentosMode() || cePendingPageMode === "caged_grupamentos") {
+          initialFill = "#e8eef5";
+          initialFillOpacity = 0.52;
+        } else if (ceIsSeguroDesempregoMode() || cePendingPageMode === "seguro_desemprego") {
           initialFill = "#e8eef5";
           initialFillOpacity = 0.52;
         } else {
@@ -7416,7 +7584,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
 
         ceBuildSedeLabelMarkers(map, sedesFc);
 
-        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos")) {
+        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos" || cePendingPageMode === "seguro_desemprego")) {
           ceSetPageMode(cePendingPageMode);
         } else if (ceIsPerfilMunicipalMode()) {
           let mode = "perfil_municipal";
@@ -7424,6 +7592,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           else if (ceIsCearaCrediMode()) mode = "ceara_credi";
           else if (ceIsVaiVemMode()) mode = "vai_vem";
           else if (ceIsCagedGrupamentosMode()) mode = "caged_grupamentos";
+          else if (ceIsSeguroDesempregoMode()) mode = "seguro_desemprego";
           else if (ceIsPerfilEmpresasMode()) mode = "perfil_empresas";
           ceSetPageMode(mode);
         } else {
@@ -7476,6 +7645,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               metricKey,
               accentColor,
             });
+          } else if (ceIsSeguroDesempregoMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            const agg = cod != null ? ceMapRuntime.seguroDesempregoAggByCod?.get(cod) : null;
+            accentColor = CE_SD_COLORS[Math.min(3, CE_SD_COLORS.length - 1)];
+            popupHtml = ceBuildSeguroDesempregoPopupHtml({ municipio, regiao, agg, accentColor });
           } else {
           const isPerfil = ceIsPerfilMunicipalMode();
           let indicador = "";
@@ -7542,6 +7716,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             window.cagedGrupamentosApi?.selectSingleMunicipioFromMap?.(cod);
             return;
           }
+          if (ceIsSeguroDesempregoMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            window.seguroDesempregoApi?.selectSingleMunicipioFromMap?.(cod);
+            return;
+          }
           const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
           ceSelectSingleMunicipioFromMap(cod);
         };
@@ -7566,6 +7745,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           if (ceIsCagedGrupamentosMode()) {
             window.cagedGrupamentosApi?.clearMunicipioSelection?.();
             window.cagedGrupamentosApi?.refresh?.();
+            return;
+          }
+          if (ceIsSeguroDesempregoMode()) {
+            window.seguroDesempregoApi?.clearMunicipioSelection?.();
+            window.seguroDesempregoApi?.refresh?.();
             return;
           }
           ceClearMunicipioSelectionFromMap();
@@ -7703,7 +7887,7 @@ function ceSetPageMode(sheetName) {
   }
   cePendingPageMode = sheetName;
 
-  if (ceIsProfileMapPageMode(sheetName) || sheetName === "caged_grupamentos") {
+  if (ceIsProfileMapPageMode(sheetName) || sheetName === "caged_grupamentos" || sheetName === "seguro_desemprego") {
     ceApplyPageModeClasses(sheetName);
     if (ceIsProfileMapPageMode(sheetName)) {
       ceSyncProfileLayerSelectForPage(sheetName);
@@ -7726,6 +7910,7 @@ window.ceRegioesMapApi = {
   destroy: ceDestroyMap,
   applyVaiVemLayer: ceApplyVaiVemLayer,
   applyCagedGrupLayer: ceApplyCagedGrupLayer,
+  applySeguroDesempregoLayer: ceApplySeguroDesempregoLayer,
   normMunKey: ceNormMunKey,
   rebuildAllMunicipios: ceRebuildMunicipioOptions,
   getRegiaoToCodigos: () => ceMapRuntime.regiaoToCodigos,
