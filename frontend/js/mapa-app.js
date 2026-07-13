@@ -10,6 +10,19 @@ const MAP_TABS = {
   series_historicas:{ label: "Intermediação",    icon: "fa-solid fa-chart-line" },
 };
 
+/** Pai → subabas exibidas aninhadas abaixo dele no menu de mapas. */
+const MAP_MENU_GROUP_CHILDREN = {
+  dados_caged: ["caged_grupamentos"],
+};
+/** Rótulo específico da subaba no menu (sobrescreve o label de MAP_TABS). */
+const MAP_MENU_SUB_LABELS = {
+  caged_grupamentos: "Por grupamento",
+};
+/** Abas que só aparecem como subitem (não repetem no nível principal). */
+const MAP_MENU_NESTED_ITEMS = new Set(
+  Object.values(MAP_MENU_GROUP_CHILDREN).flat()
+);
+
 const PROFILE_LAYERS_BY_MODE = {
   perfil_empresas: new Set([
     "pib_per_capta",
@@ -187,11 +200,49 @@ function syncPageHeader() {
 function renderMenu() {
   if (!els.menuAbas) return;
   const html = Object.entries(MAP_TABS)
-    .map(([sheetName, meta]) => `
+    .filter(([sheetName]) => !MAP_MENU_NESTED_ITEMS.has(sheetName))
+    .map(([sheetName, meta]) => {
+      const children = (MAP_MENU_GROUP_CHILDREN[sheetName] || []).filter((c) => MAP_TABS[c]);
+      if (!children.length) {
+        return `
     <button type="button" class="menu-item ${state.abaAtual === sheetName ? "active" : ""}" data-aba="${sheetName}">
       <i class="${meta.icon}"></i>
       <span>${meta.label}</span>
-    </button>`)
+    </button>`;
+      }
+
+      const parentActive = state.abaAtual === sheetName;
+      const groupHasActiveChild = children.some((c) => state.abaAtual === c);
+      const parentClass = [
+        "menu-item",
+        "menu-item--parent",
+        parentActive ? "active" : "",
+        groupHasActiveChild ? "menu-item--within-group-active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const subHtml = children
+        .map((child) => {
+          const cm = MAP_TABS[child] || {};
+          const cl = MAP_MENU_SUB_LABELS[child] || cm.label || child;
+          return `
+      <button type="button" class="menu-item menu-item--sub ${state.abaAtual === child ? "active" : ""}" data-aba="${child}">
+        <i class="${cm.icon || "fa-solid fa-circle"}"></i>
+        <span>${cl}</span>
+      </button>`;
+        })
+        .join("");
+
+      return `
+    <div class="menu-group">
+      <button type="button" class="${parentClass}" data-aba="${sheetName}">
+        <i class="${meta.icon}"></i>
+        <span>${meta.label}</span>
+      </button>
+      <div class="menu-sub">${subHtml}</div>
+    </div>`;
+    })
     .join("");
   els.menuAbas.innerHTML = html;
   els.menuAbas.querySelectorAll(".menu-item").forEach((btn) => {

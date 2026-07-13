@@ -1002,18 +1002,33 @@
         </div>
 
         <div class="map-ce-cg-charts-wrap">
-          <div class="map-ce-cg-formalizacao-wrap">
-            <article class="map-ce-cg-chart-panel">
-              <h3 class="map-ce-cg-chart-panel__title">Por município</h3>
-              <p class="map-ce-cg-chart-panel__hint">Indicador selecionado no mapa · valor absoluto no recorte dos filtros</p>
-              <div id="cgChartFormalizacaoMun" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por município"></div>
-            </article>
-            <article class="map-ce-cg-chart-panel">
-              <h3 class="map-ce-cg-chart-panel__title">Por região</h3>
-              <p class="map-ce-cg-chart-panel__hint">Indicador selecionado no mapa · valor absoluto no recorte dos filtros</p>
-              <div id="cgChartFormalizacaoReg" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por região"></div>
-            </article>
-          </div>
+          <section class="map-ce-cg-rankings-wrap" aria-label="Ranking por município e região">
+            <div class="map-ce-cg-rankings">
+              <div class="map-ce-cg-rankings__head">
+                <h3 class="map-ce-cg-rankings__title">Ranking por município e região</h3>
+                <p id="cgRankingsHeadHint" class="map-ce-cg-rankings__hint">
+                  Indicador selecionado no mapa · valor absoluto no recorte dos filtros
+                </p>
+                <div class="map-ce-rankings__toolbar">
+                  <label class="map-ce-filter-label" for="cgRankOrder">Ordenação</label>
+                  <select id="cgRankOrder" class="map-ce-layer-select map-ce-rankings__select" aria-label="Mostrar os 15 maiores ou os 15 menores valores nos gráficos por município e região">
+                    <option value="maiores">15 maiores</option>
+                    <option value="menores">15 menores</option>
+                  </select>
+                </div>
+              </div>
+              <div class="map-ce-cg-formalizacao-wrap">
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por município</h3>
+                  <div id="cgChartFormalizacaoMun" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por município"></div>
+                </article>
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por região</h3>
+                  <div id="cgChartFormalizacaoReg" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por região"></div>
+                </article>
+              </div>
+            </div>
+          </section>
 
           <div class="map-ce-line-wrap map-ce-cg-line-wrap">
             <div class="map-ce-line-block">

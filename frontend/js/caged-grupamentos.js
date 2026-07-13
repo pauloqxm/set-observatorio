@@ -511,7 +511,24 @@ function cgGetMetricField(metricKey) {
 
 const CG_RANKING_TOP_N = 15;
 
-function cgPickMunicipioRankingEntries(aggByCod, field) {
+function cgGetSelectedRankOrder() {
+  const el = document.getElementById("cgRankOrder");
+  return el?.value === "menores" ? "menores" : "maiores";
+}
+
+function cgRankOrderLabel(order) {
+  return order === "menores" ? "15 menores" : "15 maiores";
+}
+
+function cgSortRankingRows(rows, order) {
+  rows.sort((a, b) => {
+    const cmp = order === "maiores" ? b.value - a.value : a.value - b.value;
+    return cmp || a.label.localeCompare(b.label, "pt-BR");
+  });
+  return rows;
+}
+
+function cgPickMunicipioRankingEntries(aggByCod, field, order = cgGetSelectedRankOrder()) {
   const rows = [];
   for (const [, vals] of aggByCod.entries()) {
     const value = vals[field];
@@ -522,11 +539,10 @@ function cgPickMunicipioRankingEntries(aggByCod, field) {
       value,
     });
   }
-  rows.sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "pt-BR"));
-  return rows.slice(0, CG_RANKING_TOP_N);
+  return cgSortRankingRows(rows, order).slice(0, CG_RANKING_TOP_N);
 }
 
-function cgPickRegiaoRankingEntries(aggByCod, field) {
+function cgPickRegiaoRankingEntries(aggByCod, field, order = cgGetSelectedRankOrder()) {
   const regMap = window.ceRegioesMapApi?.getRegiaoToCodigos?.();
   if (!regMap) return [];
   const rows = [];
@@ -538,8 +554,7 @@ function cgPickRegiaoRankingEntries(aggByCod, field) {
     }
     rows.push({ label: regName, value: sum });
   }
-  rows.sort((a, b) => b.value - a.value);
-  return rows.slice(0, CG_RANKING_TOP_N);
+  return cgSortRankingRows(rows, order).slice(0, CG_RANKING_TOP_N);
 }
 
 function cgBuildRankingBarConfig(entries, color, seriesName) {
@@ -596,18 +611,16 @@ function cgBuildRankingBarConfig(entries, color, seriesName) {
   };
 }
 
-function cgUpdateRankingHints() {
+function cgUpdateRankingHints(order) {
   const metricKey = cgGetSelectedMetricKey();
   const metricLabel = cgMetricLabel(metricKey);
   const grupoLabel = cgGrupoLabel(cgGetSelectedGrupoKey());
   const mapMetricNote =
     metricKey === CG_METRIC_TODOS_KEY ? " · mapa por estoque mensal" : "";
-  const hints = document.querySelectorAll(".map-ce-cg-formalizacao-wrap .map-ce-cg-chart-panel__hint");
-  if (hints[0]) {
-    hints[0].textContent = `${metricLabel}${mapMetricNote} · ${grupoLabel} · valor absoluto no recorte dos filtros · por município`;
-  }
-  if (hints[1]) {
-    hints[1].textContent = `${metricLabel}${mapMetricNote} · ${grupoLabel} · valor absoluto no recorte dos filtros · por região administrativa`;
+  const orderNote = cgRankOrderLabel(order);
+  const headHint = document.getElementById("cgRankingsHeadHint");
+  if (headHint) {
+    headHint.textContent = `${metricLabel}${mapMetricNote} · ${grupoLabel} · ${orderNote} · valor absoluto no recorte dos filtros · mesmos filtros do mapa`;
   }
 }
 
@@ -616,10 +629,11 @@ function cgUpdateRankingCharts(filtered, grupoKey) {
   const metricKey = cgGetSelectedMetricKey();
   const metricField = cgGetMetricField(metricKey);
   const metricLabel = cgMetricLabel(metricKey);
+  const order = cgGetSelectedRankOrder();
   const aggByCod = cgAggregateByCodigo(filtered, grupoKey);
-  const munEntries = cgPickMunicipioRankingEntries(aggByCod, metricField);
-  const regEntries = cgPickRegiaoRankingEntries(aggByCod, metricField);
-  cgUpdateRankingHints();
+  const munEntries = cgPickMunicipioRankingEntries(aggByCod, metricField, order);
+  const regEntries = cgPickRegiaoRankingEntries(aggByCod, metricField, order);
+  cgUpdateRankingHints(order);
 
   const munEl = document.getElementById("cgChartFormalizacaoMun");
   if (munEl) {
@@ -718,9 +732,9 @@ function cgMunicipioName(codigo) {
   return fromRow?.municipio || `Código ${codStr}`;
 }
 
-function cgPickMunicipiosForLineChart(filtered, grupoKey, metricField) {
+function cgPickMunicipiosForLineChart(filtered, grupoKey, metricField, order = cgGetSelectedRankOrder()) {
   const aggByCod = cgAggregateByCodigo(filtered, grupoKey);
-  const ranked = cgPickMunicipioRankingEntries(aggByCod, metricField);
+  const ranked = cgPickMunicipioRankingEntries(aggByCod, metricField, order);
   return ranked.slice(0, CG_MUN_LINE_MAX).map((e) => String(e.codigo));
 }
 
@@ -745,19 +759,20 @@ function cgBuildMunicipioLineSeries(rows, grupoKey, metricField, codigos) {
   return { categories, series, hasData, emptyMessage: false };
 }
 
-function cgUpdateMunicipioLineHint(codigos, metricKey, grupoKey, rankedTotal) {
+function cgUpdateMunicipioLineHint(codigos, metricKey, grupoKey, rankedTotal, order) {
   const el = document.getElementById("cgChartLineMunicipioHint");
   if (!el) return;
   const metricLabel = cgMetricLabel(metricKey);
   const grupoLabel = cgGrupoLabel(grupoKey);
+  const orderWord = order === "menores" ? "menores" : "maiores";
   if (!codigos.length) {
     el.textContent = `${metricLabel} · ${grupoLabel} · sem dados no recorte dos filtros`;
     return;
   }
   const munNote =
     rankedTotal > CG_MUN_LINE_MAX
-      ? `${CG_MUN_LINE_MAX} maiores municípios no recorte (de ${rankedTotal} com dados)`
-      : `${codigos.length} município${codigos.length > 1 ? "s" : ""} no recorte`;
+      ? `${CG_MUN_LINE_MAX} ${orderWord} municípios no recorte (de ${rankedTotal} com dados)`
+      : `${codigos.length} município${codigos.length > 1 ? "s" : ""} no recorte (${orderWord})`;
   el.textContent = `${metricLabel} · ${grupoLabel} · ${munNote} · mesma métrica do gráfico por município · evolução mensal`;
 }
 
@@ -770,10 +785,11 @@ function cgUpdateMunicipioLineChart(rows) {
   const metricKey = cgGetSelectedMetricKey();
   const metricField = cgGetMetricField(metricKey);
   const grupoKey = cgGetSelectedGrupoKey();
+  const order = cgGetSelectedRankOrder();
   const aggByCod = cgAggregateByCodigo(rows, grupoKey);
-  const ranked = cgPickMunicipioRankingEntries(aggByCod, metricField);
-  const codigos = cgPickMunicipiosForLineChart(rows, grupoKey, metricField);
-  cgUpdateMunicipioLineHint(codigos, metricKey, grupoKey, ranked.length);
+  const ranked = cgPickMunicipioRankingEntries(aggByCod, metricField, order);
+  const codigos = cgPickMunicipiosForLineChart(rows, grupoKey, metricField, order);
+  cgUpdateMunicipioLineHint(codigos, metricKey, grupoKey, ranked.length, order);
 
   const { categories, series, hasData, emptyMessage } = cgBuildMunicipioLineSeries(
     rows,
@@ -1162,6 +1178,9 @@ function cgBindFilters() {
       cgRefreshAll();
       const grupo = cgGrupoLabel(cgGetSelectedGrupoKey());
       cgSetStatus(`${cgState.rows.length.toLocaleString("pt-BR")} registros · grupamento: ${grupo}`);
+    }
+    if (id === "cgRankOrder") {
+      cgRefreshCharts();
     }
   });
 
