@@ -159,6 +159,38 @@
           <div class="home-explore-grid" id="homeExploreGrid"></div>
         </section>
 
+        <section class="home-section" id="homeProgramsSection">
+          <h2 class="home-section__title">Outros programas em destaque</h2>
+          <p class="home-section__subtitle">
+            Números atualizados diretamente das planilhas oficiais de Ceará Crédito, Vai Vem e Qualificação
+            Profissional.
+          </p>
+          <div class="home-program-grid" id="homeProgramsGrid"></div>
+        </section>
+
+        <section class="home-section" id="homeIntermediacaoSection">
+          <h2 class="home-section__title">Intermediação de Mão de Obra</h2>
+          <p class="home-section__subtitle" id="homeIntermediacaoSubtitle">
+            Vagas, encaminhamentos e colocações acumulados no ano mais recente.
+          </p>
+          <div class="home-intermediacao">
+            <div class="home-intermediacao__kpis" id="homeIntermediacaoKpis"></div>
+            <article class="home-intermediacao__chart-card">
+              <div class="home-intermediacao__chart-head">
+                <div>
+                  <h3>Colocados — últimos 12 meses</h3>
+                  <p>Evolução mensal até a referência mais recente disponível</p>
+                </div>
+                <a href="/mapa?aba=series_historicas">
+                  Ver detalhes <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </a>
+              </div>
+              <div id="homeIntermediacaoChart" class="home-intermediacao__chart"></div>
+              <p id="homeIntermediacaoStatus" class="home-trend-card__status" hidden></p>
+            </article>
+          </div>
+        </section>
+
         <section class="home-section" id="homePanoramaSection">
           <h2 class="home-section__title">Panorama do Ceará</h2>
           <p class="home-section__subtitle">Passe o mouse ou toque nos pontos para ver empregos e saldo do mês.</p>
@@ -258,6 +290,8 @@
 
   <script src="/static/js/home-trend.js"></script>
   <script src="/static/js/home-panorama.js"></script>
+  <script src="/static/js/home-programs.js"></script>
+  <script src="/static/js/home-intermediacao.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

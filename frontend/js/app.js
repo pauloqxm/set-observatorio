@@ -98,6 +98,46 @@ const HOME_EXPLORE_CARDS = [
   }
 ];
 
+/** Cartões da seção "Outros programas em destaque" (página inicial). */
+const HOME_PROGRAM_CARDS_DEF = [
+  {
+    key: "cearaCredi",
+    title: "Ceará Crédito",
+    icon: "fa-solid fa-hand-holding-dollar",
+    variant: "credi",
+    url: "/mapa?aba=ceara_credi",
+    kpis: [
+      { key: "cadastradas", label: "Pessoas cadastradas", format: "int" },
+      { key: "aprovadas", label: "Operações aprovadas", format: "int" },
+      { key: "valorLiberado", label: "Valor liberado", format: "currency" }
+    ]
+  },
+  {
+    key: "vaiVem",
+    title: "Vai Vem Trabalhador",
+    icon: "fa-solid fa-bus",
+    variant: "vaivem",
+    url: "/mapa?aba=vai_vem",
+    kpis: [
+      { key: "total", label: "Solicitações", format: "int" },
+      { key: "desempregados", label: "Desempregados atendidos", format: "int" },
+      { key: "cartaoEntregue", label: "Cartões entregues", format: "int" }
+    ]
+  },
+  {
+    key: "qualificacao",
+    title: "Qualificação Profissional",
+    icon: "fa-solid fa-graduation-cap",
+    variant: "qualificacao",
+    url: "/mapa?aba=qualificacao",
+    kpis: [
+      { key: "cursos", label: "Cursos ofertados", format: "int" },
+      { key: "vagas", label: "Vagas ofertadas", format: "int" },
+      { key: "municipios", label: "Municípios atendidos", format: "int" }
+    ]
+  }
+];
+
 /** KPIs prioritários da página inicial (texto da planilha sem acentos após normalize). */
 const HOME_KPI_DESTAQUE_DEF = [
   {
@@ -126,9 +166,20 @@ const state = {
   programaSelecionado: "",
   /** Página inicial: { ano, mes } ou null para usar o período mais recente da base. */
   homeReferencia: null,
-  charts: { grafico1: null, grafico2: null, seriesKpiBar1: null, seriesKpiBar2: null, homeTrend: null },
+  charts: {
+    grafico1: null,
+    grafico2: null,
+    seriesKpiBar1: null,
+    seriesKpiBar2: null,
+    homeTrend: null,
+    homeIntermediacao: null
+  },
   /** Cache do gráfico "Como está o mercado de trabalho?" (CAGED, últimos 12 meses). */
-  homeTrendData: { status: "idle", monthly: null }
+  homeTrendData: { status: "idle", monthly: null },
+  /** Cache dos resumos de Ceará Crédito, Vai Vem e Qualificação para "Outros programas em destaque". */
+  homeProgramsData: { status: "idle", data: null },
+  /** Acumulado anual e série mensal da Intermediação de Mão de Obra. */
+  homeIntermediacaoData: { status: "idle", data: null }
 };
 
 /** Evita que listeners de change dos selects gravem mês errado durante repopulação programática. */
@@ -171,6 +222,11 @@ const els = {
   homeTrendStatus: document.getElementById("homeTrendStatus"),
   homeSetorSection: document.getElementById("homeSetorSection"),
   homeExploreGrid: document.getElementById("homeExploreGrid"),
+  homeProgramsGrid: document.getElementById("homeProgramsGrid"),
+  homeIntermediacaoSubtitle: document.getElementById("homeIntermediacaoSubtitle"),
+  homeIntermediacaoKpis: document.getElementById("homeIntermediacaoKpis"),
+  homeIntermediacaoChart: document.getElementById("homeIntermediacaoChart"),
+  homeIntermediacaoStatus: document.getElementById("homeIntermediacaoStatus"),
   homePanoramaMap: document.getElementById("homePanoramaMap"),
   homeTendenciasList: document.getElementById("homeTendenciasList"),
   footerMetaAtualizacao: document.getElementById("footerMetaAtualizacao"),
@@ -1509,6 +1565,176 @@ function renderHomePanoramaSection() {
   window.homePanorama.render(els.homePanoramaMap);
 }
 
+function formatHomeProgramKpiValue(format, value) {
+  if (!Number.isFinite(value)) return "—";
+  if (format === "currency") {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(
+      value
+    );
+  }
+  return formatNumber(value);
+}
+
+/** Cartões com números de Ceará Crédito, Vai Vem e Qualificação (dados carregados à parte). */
+function renderHomeProgramsSection() {
+  if (!els.homeProgramsGrid) return;
+  const status = state.homeProgramsData.status;
+  const data = state.homeProgramsData.data;
+  els.homeProgramsGrid.innerHTML = HOME_PROGRAM_CARDS_DEF.map((card) => {
+    const source = data ? data[card.key] : null;
+    const loaded = status === "loaded" && source && source.status === "ok";
+    const errored = status === "error" || (source && source.status === "error");
+    const kpisHtml = card.kpis
+      .map((kpi) => {
+        const value = loaded ? formatHomeProgramKpiValue(kpi.format, source[kpi.key]) : errored ? "—" : "…";
+        return `
+      <div class="home-program-kpi">
+        <span class="home-program-kpi__label">${escapeHtml(kpi.label)}</span>
+        <span class="home-program-kpi__value">${escapeHtml(value)}</span>
+      </div>`;
+      })
+      .join("");
+    const meta = loaded && source.referenciaLabel ? `Referência: ${escapeHtml(source.referenciaLabel)}` : "";
+    return `
+    <article class="home-program-card home-program-card--${card.variant}${errored ? " home-program-card--error" : ""}">
+      <div class="home-program-card__head">
+        <div class="home-program-card__icon" aria-hidden="true"><i class="${card.icon}"></i></div>
+        <div>
+          <h3 class="home-program-card__title">${escapeHtml(card.title)}</h3>
+          ${meta ? `<p class="home-program-card__meta">${meta}</p>` : ""}
+        </div>
+      </div>
+      <div class="home-program-card__kpis">${kpisHtml}</div>
+      <a class="home-program-card__cta" href="${card.url}">
+        Ver no mapa <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </a>
+    </article>`;
+  }).join("");
+}
+
+/** Busca (uma vez) os resumos de Ceará Crédito, Vai Vem e Qualificação para os blocos da home. */
+function ensureHomeProgramsData() {
+  if (state.homeProgramsData.status === "loaded" || state.homeProgramsData.status === "loading") return;
+  if (!window.homePrograms || typeof window.homePrograms.loadData !== "function") {
+    state.homeProgramsData.status = "error";
+    return;
+  }
+  state.homeProgramsData.status = "loading";
+  window.homePrograms
+    .loadData()
+    .then((data) => {
+      state.homeProgramsData.status = "loaded";
+      state.homeProgramsData.data = data;
+    })
+    .catch(() => {
+      state.homeProgramsData.status = "error";
+    })
+    .finally(() => {
+      if (state.abaAtual === "indicadores") renderHomeProgramsSection();
+    });
+}
+
+const HOME_INTERMEDIACAO_KPIS = [
+  { key: "vagas", label: "Vagas", icon: "fa-solid fa-briefcase", variant: "vagas" },
+  { key: "encaminhados", label: "Encaminhados", icon: "fa-solid fa-people-arrows", variant: "encaminhados" },
+  { key: "colocados", label: "Colocados", icon: "fa-solid fa-user-check", variant: "colocados" }
+];
+
+function renderHomeIntermediacaoSection() {
+  if (!els.homeIntermediacaoKpis || !els.homeIntermediacaoChart) return;
+  const status = state.homeIntermediacaoData.status;
+  const data = state.homeIntermediacaoData.data;
+  const loaded = status === "loaded" && data;
+
+  if (els.homeIntermediacaoSubtitle) {
+    els.homeIntermediacaoSubtitle.textContent = loaded
+      ? `Vagas, encaminhamentos e colocações acumulados em ${data.year}.`
+      : "Vagas, encaminhamentos e colocações acumulados no ano mais recente.";
+  }
+
+  els.homeIntermediacaoKpis.innerHTML = HOME_INTERMEDIACAO_KPIS.map((item) => {
+    const value = loaded ? formatNumber(data.totals[item.key]) : status === "error" ? "—" : "…";
+    return `
+    <article class="home-intermediacao-kpi home-intermediacao-kpi--${item.variant}">
+      <div class="home-intermediacao-kpi__icon" aria-hidden="true"><i class="${item.icon}"></i></div>
+      <div>
+        <span class="home-intermediacao-kpi__label">${escapeHtml(item.label)}</span>
+        <strong class="home-intermediacao-kpi__value">${escapeHtml(value)}</strong>
+        <span class="home-intermediacao-kpi__meta">${loaded ? `Acumulado de ${data.year}` : "Acumulado anual"}</span>
+      </div>
+    </article>`;
+  }).join("");
+
+  if (els.homeIntermediacaoStatus) {
+    els.homeIntermediacaoStatus.hidden = loaded;
+    els.homeIntermediacaoStatus.textContent =
+      status === "error" ? "Não foi possível carregar os dados de Intermediação agora." : "Carregando Intermediação…";
+  }
+
+  if (state.charts.homeIntermediacao) {
+    state.charts.homeIntermediacao.destroy();
+    state.charts.homeIntermediacao = null;
+  }
+  if (!loaded || typeof ApexCharts === "undefined") return;
+
+  state.charts.homeIntermediacao = new ApexCharts(els.homeIntermediacaoChart, {
+    chart: {
+      type: "area",
+      height: 280,
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#64708f"
+    },
+    series: [{ name: "Colocados", data: data.monthly.values }],
+    xaxis: {
+      categories: data.monthly.categories,
+      labels: { style: { fontSize: "11px", colors: "#7180a1" } },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      min: 0,
+      labels: { formatter: (value) => formatNumber(value), style: { colors: "#7180a1" } }
+    },
+    stroke: { curve: "smooth", width: 3 },
+    markers: { size: 4, strokeWidth: 2, hover: { size: 6 } },
+    colors: ["#0d9488"],
+    fill: {
+      type: "gradient",
+      gradient: { shadeIntensity: 1, opacityFrom: 0.34, opacityTo: 0.03, stops: [0, 92, 100] }
+    },
+    grid: { borderColor: "#e7edf6", strokeDashArray: 4 },
+    dataLabels: { enabled: false },
+    tooltip: { y: { formatter: (value) => `${formatNumber(value)} colocados` } }
+  });
+  state.charts.homeIntermediacao.render();
+}
+
+function ensureHomeIntermediacaoData() {
+  const currentStatus = state.homeIntermediacaoData.status;
+  if (currentStatus === "loaded" || currentStatus === "loading") return;
+  if (!window.homeIntermediacao || typeof window.homeIntermediacao.loadData !== "function") {
+    state.homeIntermediacaoData.status = "error";
+    renderHomeIntermediacaoSection();
+    return;
+  }
+
+  state.homeIntermediacaoData.status = "loading";
+  window.homeIntermediacao
+    .loadData()
+    .then((data) => {
+      state.homeIntermediacaoData.status = "loaded";
+      state.homeIntermediacaoData.data = data;
+    })
+    .catch(() => {
+      state.homeIntermediacaoData.status = "error";
+    })
+    .finally(() => {
+      if (state.abaAtual === "indicadores") renderHomeIntermediacaoSection();
+    });
+}
+
 /** Gera insights automáticos a partir da série mensal (CAGED) + saldo por setor. */
 function buildHomeTendenciasInsights(monthly, setorRows) {
   const insights = [];
@@ -1653,10 +1879,14 @@ function renderHomeSections(rows) {
   renderHomeKpiRow(rows);
   renderHomeSetorSection(rows);
   renderHomeExploreCards();
+  renderHomeProgramsSection();
+  renderHomeIntermediacaoSection();
   renderHomePanoramaSection();
   renderHomeTrendChart();
   renderHomeTendencias(rows);
   ensureHomeTrendData();
+  ensureHomeProgramsData();
+  ensureHomeIntermediacaoData();
 }
 
 /** Ícone do cabeçalho = mesmo do item no menu lateral (MENU_META). */
