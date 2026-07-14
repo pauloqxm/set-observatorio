@@ -339,6 +339,113 @@
   min-height: 380px;
 }
 
+/* Qualificação */
+.section-map-ce--qualificacao .map-ce-toolbar--map-only {
+  display: block;
+}
+
+.section-map-ce--qualificacao .map-ce-layer-row__graduated,
+.section-map-ce--qualificacao .map-ce-layer-row__perfil,
+.section-map-ce--qualificacao .map-ce-layer-row__vai-vem,
+.section-map-ce--qualificacao .map-ce-layer-row__caged-grup,
+.section-map-ce--qualificacao .map-ce-layer-row__seguro-desemprego {
+  display: none;
+}
+
+.map-ce-layer-row__qualificacao {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-map-ce--qualificacao .map-ce-layer-row__qualificacao {
+  display: flex;
+}
+
+.map-ce-layer-row__toggle-wrap--qualificacao-cursos {
+  display: none;
+}
+
+.section-map-ce--qualificacao .map-ce-layer-row__toggle-wrap--qualificacao-cursos {
+  display: flex;
+}
+
+.map-ce-main__qualificacao-kpis {
+  grid-area: kpis;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  min-width: 0;
+  align-self: stretch;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.section-map-ce--qualificacao .map-ce-main__qualificacao-kpis {
+  display: flex;
+}
+
+.section-map-ce--qualificacao .map-ce-main {
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 288px);
+  grid-template-areas:
+    "map kpis"
+    "legend .";
+}
+
+.section-map-ce--qualificacao .map-ce-main__profile-kpis,
+.section-map-ce--qualificacao .map-ce-main__vai-vem-kpis,
+.section-map-ce--qualificacao .map-ce-main__seguro-desemprego-kpis,
+.section-map-ce--qualificacao .map-ce-main__kpis,
+.section-map-ce--qualificacao .map-ce-vv-charts-wrap,
+.section-map-ce--qualificacao .map-ce-cg-charts-wrap,
+.section-map-ce--qualificacao .map-ce-sd-charts-wrap,
+.section-map-ce--qualificacao .map-ce-charts-wrap,
+.section-map-ce--qualificacao .map-ce-rankings-wrap,
+.section-map-ce--qualificacao .map-ce-region-charts-wrap,
+.section-map-ce--qualificacao .map-ce-line-wrap,
+.section-map-ce--qualificacao .map-ce-profile-charts-wrap,
+.section-map-ce--qualificacao .map-ce-pib-line-wrap,
+.section-map-ce--qualificacao .map-ce-ceara-cred-line-wrap,
+.section-map-ce--qualificacao .map-ce-intermediacao-line-wrap {
+  display: none !important;
+}
+
+.section-map-ce--qualificacao .map-ce-main__qualificacao-kpis .map-ce-kpi-card--profile-standard {
+  display: flex !important;
+}
+
+.section-map-ce--qualificacao .map-ce-kpis-bar--profile {
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.section-map-ce--qualificacao #qfStatus {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  color: #5c678f;
+}
+
+.map-ce-qf-charts-wrap {
+  display: none;
+  margin-top: 18px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-map-ce--qualificacao .map-ce-qf-charts-wrap {
+  display: flex;
+}
+
+.section-map-ce--qualificacao .map-ce-cg-rankings-wrap {
+  border-color: rgba(5, 150, 105, 0.22);
+}
+
 /* CAGED Grupamentos — gráficos */
 .map-ce-cg-charts-wrap {
   display: none;

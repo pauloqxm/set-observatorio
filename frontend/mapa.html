@@ -68,17 +68,17 @@
         <div class="map-ce-filters-wrap">
           <p class="map-ce-filters-wrap__title">Filtros dos dados (CAGED)</p>
           <div class="map-ce-toolbar__filters map-ce-toolbar__filters--standalone">
-            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos qualificacao">
               <label class="map-ce-filter-label" for="mapFilterAno">Ano</label>
               <select id="mapFilterAno" class="map-ce-select-multi" multiple size="4" aria-label="Filtrar por ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterAnoClear">Limpar anos</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos">
+            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos qualificacao">
               <label class="map-ce-filter-label" for="mapFilterMes">Mês/ano</label>
               <select id="mapFilterMes" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar por mês e ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterMesClear">Limpar meses</button>
             </div>
-            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos seguro_desemprego">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos seguro_desemprego qualificacao">
               <label class="map-ce-filter-label" for="mapFilterRegiao">Região administrativa</label>
               <select
                 id="mapFilterRegiao"
@@ -123,7 +123,7 @@
               <select id="sdFilterQuinzena" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar Seguro Desemprego por quinzena"></select>
               <button type="button" class="map-ce-filter-btn" id="sdFilterQuinzenaClear">Limpar quinzenas</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos vai_vem seguro_desemprego">
+            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos vai_vem seguro_desemprego qualificacao">
               <label class="map-ce-filter-label" for="mapFilterMunicipio">Município</label>
               <input
                 type="search"
@@ -145,6 +145,7 @@
           </div>
           <p class="map-ce-filters-wrap__status" id="cgStatus" hidden></p>
           <p class="map-ce-filters-wrap__status" id="sdStatus" hidden></p>
+          <p class="map-ce-filters-wrap__status" id="qfStatus" hidden></p>
         </div>
 
         <div class="sec sec-map">
@@ -225,6 +226,20 @@
                   <option value="requerentes_web">Requerentes WEB</option>
                 </select>
               </div>
+              <div class="map-ce-layer-row__qualificacao">
+                <label class="map-ce-filter-label" for="mapQualificacaoExecutoraStyle">Camada municipal (Executora)</label>
+                <select id="mapQualificacaoExecutoraStyle" class="map-ce-layer-select" aria-label="Filtrar mapa por executora">
+                  <option value="todos" selected>Todas</option>
+                </select>
+                <label class="map-ce-filter-label" for="mapQualificacaoLayerStyle">Indicador no mapa</label>
+                <select id="mapQualificacaoLayerStyle" class="map-ce-layer-select" aria-label="Indicador graduado da Qualificação no mapa">
+                  <option value="cursos" selected>Cursos ofertados</option>
+                  <option value="vagas">Vagas ofertadas</option>
+                  <option value="inscritos">Inscritos</option>
+                  <option value="desistentes">Desistentes</option>
+                  <option value="concludentes">Concludentes</option>
+                </select>
+              </div>
               <div class="map-ce-layer-row__toggle-wrap">
                 <span class="map-ce-filter-label map-ce-filter-label--toggle">Sobrepor região</span>
                 <button
@@ -262,6 +277,32 @@
                 >
                   <span class="map-ce-toggle__track" aria-hidden="true"><span class="map-ce-toggle__thumb"></span></span>
                   <span class="map-ce-toggle__text">Unidades do IDT</span>
+                </button>
+              </div>
+              <div class="map-ce-layer-row__toggle-wrap map-ce-layer-row__toggle-wrap--qualificacao-cursos">
+                <span class="map-ce-filter-label map-ce-filter-label--toggle">Sobrepor</span>
+                <button
+                  type="button"
+                  id="mapToggleQualificacaoCursos"
+                  class="map-ce-toggle"
+                  aria-pressed="false"
+                  aria-label="Ativar ou desativar locais dos cursos no mapa"
+                >
+                  <span class="map-ce-toggle__track" aria-hidden="true"><span class="map-ce-toggle__thumb"></span></span>
+                  <span class="map-ce-toggle__text">Locais dos cursos</span>
+                </button>
+              </div>
+              <div class="map-ce-layer-row__toggle-wrap map-ce-layer-row__toggle-wrap--qualificacao-cursos">
+                <span class="map-ce-filter-label map-ce-filter-label--toggle">Sobrepor</span>
+                <button
+                  type="button"
+                  id="mapToggleQualificacaoHeat"
+                  class="map-ce-toggle"
+                  aria-pressed="false"
+                  aria-label="Ativar ou desativar mapa de calor dos locais dos cursos"
+                >
+                  <span class="map-ce-toggle__track" aria-hidden="true"><span class="map-ce-toggle__thumb"></span></span>
+                  <span class="map-ce-toggle__text">Mapa de calor</span>
                 </button>
               </div>
               <div class="map-ce-layer-row__toggle-wrap">
@@ -984,6 +1025,62 @@
               </div>
               <p class="map-ce-main__profile-kpis-note" id="sdKpiStatus" role="status">Carregando…</p>
             </section>
+            <section class="map-ce-main__qualificacao-kpis" aria-label="Indicadores Qualificação">
+              <p class="map-ce-main__kpis-title">
+                <span class="map-ce-main__kpis-title-inner">
+                  <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
+                  <span>KPIs da Qualificação</span>
+                </span>
+              </p>
+              <div class="map-ce-kpis-bar map-ce-kpis-bar--profile" id="mapCeQualificacaoKpis" aria-live="polite">
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-chalkboard-user"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Cursos ofertados</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="qfKpiCursos">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-briefcase"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Vagas ofertadas</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="qfKpiVagas">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Inscritos</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="qfKpiInscritos">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-user-xmark"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Desistentes</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="qfKpiDesistentes">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-user-graduate"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Concludentes</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="qfKpiConcludentes">—</strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              <p class="map-ce-main__profile-kpis-note" id="qfKpiStatus" role="status">Carregando…</p>
+            </section>
             <div class="map-ce-main__map-view">
               <div
                 id="mapCeRegioes"
@@ -1091,6 +1188,36 @@
               <div id="sdChartQuinzenaStacked" class="map-ce-line-block__chart map-ce-line-block__chart--stacked" aria-label="Gráfico empilhado de requerentes por quinzena e tipo de atendimento"></div>
             </div>
           </div>
+        </div>
+
+        <div class="map-ce-qf-charts-wrap">
+          <section class="map-ce-cg-rankings-wrap" aria-label="Ranking Qualificação por município e região">
+            <div class="map-ce-cg-rankings">
+              <div class="map-ce-cg-rankings__head">
+                <h3 class="map-ce-cg-rankings__title">Ranking por município e região</h3>
+                <p id="qfRankingsHeadHint" class="map-ce-cg-rankings__hint">
+                  Indicador selecionado no mapa · valor absoluto no recorte dos filtros
+                </p>
+                <div class="map-ce-rankings__toolbar">
+                  <label class="map-ce-filter-label" for="qfRankOrder">Ordenação</label>
+                  <select id="qfRankOrder" class="map-ce-layer-select map-ce-rankings__select" aria-label="Mostrar os 15 maiores ou os 15 menores valores nos gráficos por município e região">
+                    <option value="maiores">15 maiores</option>
+                    <option value="menores">15 menores</option>
+                  </select>
+                </div>
+              </div>
+              <div class="map-ce-cg-formalizacao-wrap">
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por município</h3>
+                  <div id="qfChartRankingMun" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por município"></div>
+                </article>
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por região</h3>
+                  <div id="qfChartRankingReg" class="map-ce-cg-chart-panel__chart" aria-label="Ranking por região"></div>
+                </article>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div class="map-ce-cg-charts-wrap">
@@ -1716,6 +1843,7 @@
   <script src="/static/js/vai-vem.js"></script>
   <script src="/static/js/caged-grupamentos.js"></script>
   <script src="/static/js/seguro-desemprego.js"></script>
+  <script src="/static/js/qualificacao.js"></script>
   <script src="/static/js/mapa-app.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ const MAP_TABS = {
   vai_vem:          { label: "Vai Vem",          icon: "fa-solid fa-bus" },
   caged_grupamentos:{ label: "CAGED Grupamentos", icon: "fa-solid fa-industry" },
   seguro_desemprego: { label: "Seguro Desemprego", icon: "fa-solid fa-shield-halved" },
+  qualificacao:      { label: "Qualificação",      icon: "fa-solid fa-graduation-cap" },
   series_historicas:{ label: "Intermediação",    icon: "fa-solid fa-chart-line" },
 };
 
@@ -83,6 +84,11 @@ const PAGE_META = {
     title: "Seguro Desemprego",
     desc: "Requerimentos de Seguro Desemprego por município e quinzena de competência, com filtros por ano, quinzena, região administrativa e município, e mapa graduado por volume de requerentes.",
     status: "Mapa + planilha Seguro Desemprego",
+  },
+  qualificacao: {
+    title: "Qualificação",
+    desc: "Cursos de qualificação profissional no Ceará: vagas ofertadas, inscritos, desistentes e concludentes por município, com filtros por data de término, executora, região e município.",
+    status: "Mapa + planilha Qualificação",
   },
   series_historicas: {
     title: "Intermediação",
@@ -174,6 +180,10 @@ function syncProfileLayerSelectForMode(sheetName) {
       continue;
     }
     if (sheetName === "seguro_desemprego") {
+      opt.hidden = true;
+      continue;
+    }
+    if (sheetName === "qualificacao") {
       opt.hidden = true;
       continue;
     }
@@ -276,7 +286,7 @@ const MAP_FILTER_SELECT_IDS = [
   "sdFilterQuinzena",
 ];
 /** IDs dos seletores de ordenação (15 maiores/menores) usados nos rankings. */
-const MAP_RANK_ORDER_SELECT_IDS = ["mapRankOrder", "cgRankOrder", "sdRankOrder"];
+const MAP_RANK_ORDER_SELECT_IDS = ["mapRankOrder", "cgRankOrder", "sdRankOrder", "qfRankOrder"];
 
 /** Mostra/esconde cada grupo de filtro conforme sua relação com a aba ativa (data-filter-tabs). */
 function syncFilterVisibilityForTab(sheetName) {
@@ -320,6 +330,7 @@ function syncMapSection() {
   const isVaiVem        = state.abaAtual === "vai_vem";
   const isCagedGrup     = state.abaAtual === "caged_grupamentos";
   const isSeguroDesemp  = state.abaAtual === "seguro_desemprego";
+  const isQualificacao  = state.abaAtual === "qualificacao";
   const isIntermediacao = state.abaAtual === "series_historicas";
   const isPerfilMode    = isPerfil || isPerfilEmpresas || isCearaCredi || isVaiVem || isIntermediacao;
 
@@ -329,6 +340,7 @@ function syncMapSection() {
   wrap.classList.toggle("section-map-ce--vai-vem",        isVaiVem);
   wrap.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
   wrap.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
+  wrap.classList.toggle("section-map-ce--qualificacao",   isQualificacao);
   wrap.classList.toggle("section-map-ce--intermediacao",  isIntermediacao);
 
   const filtersTitle = wrap.querySelector(".map-ce-filters-wrap__title");
@@ -345,6 +357,8 @@ function syncMapSection() {
               ? "Filtros do CAGED por grupamento (referência)"
             : isSeguroDesemp
               ? "Filtros do Seguro Desemprego (competência quinzenal)"
+            : isQualificacao
+              ? "Filtros da Qualificação (data de término)"
             : isIntermediacao
             ? "Filtros da intermediação"
             : "Filtros dos dados (CAGED)";
@@ -359,6 +373,7 @@ function syncMapSection() {
   window.vaiVemApi?.onPageActivate?.();
   window.cagedGrupamentosApi?.onPageActivate?.();
   window.seguroDesempregoApi?.onPageActivate?.();
+  window.qualificacaoApi?.onPageActivate?.();
 
   if (!isVaiVem) {
     window.vaiVemApi?.restoreFullMunicipioFilter?.();
@@ -368,6 +383,9 @@ function syncMapSection() {
   }
   if (!isSeguroDesemp) {
     window.seguroDesempregoApi?.restoreFullMunicipioFilter?.();
+  }
+  if (!isQualificacao) {
+    window.qualificacaoApi?.restoreFullMunicipioFilter?.();
   }
 
   if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;

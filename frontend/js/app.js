@@ -11,7 +11,7 @@ const MENU_META = {
   texto_apoio: { label: "Texto de Apoio", icon: "fa-solid fa-file-lines" },
   config: { label: "Configuração", icon: "fa-solid fa-gear" }
 };
-const HIDDEN_MENU_ITEMS = new Set(["texto_apoio", "config", "perfil_social", "dados_caged", "perfil_municipal", "perfil_empresas", "ceara_credi", "vai_vem", "caged_grupamentos", "seguro_desemprego", "series_historicas"]);
+const HIDDEN_MENU_ITEMS = new Set(["texto_apoio", "config", "perfil_social", "dados_caged", "perfil_municipal", "perfil_empresas", "ceara_credi", "vai_vem", "caged_grupamentos", "seguro_desemprego", "qualificacao", "series_historicas"]);
 /** Abas que aparecem apenas dentro do grupo do pai (ex.: Análises sob Página Inicial). */
 const NESTED_MENU_ITEMS = new Set(["analises", "autonomo_perfil", "autonomo_indicadores"]);
 /** Pai → filhos aninhados na ordem de exibição (filhos precisam existir em state.abas). */
