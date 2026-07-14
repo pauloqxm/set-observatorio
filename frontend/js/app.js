@@ -2,30 +2,37 @@ const API_ABAS = "/api/abas";
 const MENU_META = {
   indicadores: { label: "Página Inicial", icon: "fa-solid fa-house" },
   programas: { label: "Programas", icon: "fa-solid fa-address-card" },
-  projecoes: { label: "Projeções", icon: "fa-solid fa-arrow-trend-up" },
-  autonomo_detalhado: { label: "Autônomos", icon: "fa-solid fa-briefcase" },
-  autonomo_perfil: { label: "Perfil", icon: "fa-solid fa-user-check" },
-  autonomo_indicadores: { label: "Indicadores", icon: "fa-solid fa-gauge-high" },
-  capacitacao_detalhada: { label: "Capacitação", icon: "fa-solid fa-graduation-cap" },
   analises: { label: "Análises", icon: "fa-solid fa-magnifying-glass-chart" },
   texto_apoio: { label: "Texto de Apoio", icon: "fa-solid fa-file-lines" },
   config: { label: "Configuração", icon: "fa-solid fa-gear" }
 };
-const HIDDEN_MENU_ITEMS = new Set(["texto_apoio", "config", "perfil_social", "dados_caged", "perfil_municipal", "perfil_empresas", "ceara_credi", "vai_vem", "caged_grupamentos", "seguro_desemprego", "qualificacao", "series_historicas"]);
+const HIDDEN_MENU_ITEMS = new Set([
+  "texto_apoio",
+  "config",
+  "perfil_social",
+  "projecoes",
+  "autonomo_detalhado",
+  "autonomo_perfil",
+  "autonomo_indicadores",
+  "capacitacao_detalhada",
+  "dados_caged",
+  "perfil_municipal",
+  "perfil_empresas",
+  "ceara_credi",
+  "vai_vem",
+  "caged_grupamentos",
+  "seguro_desemprego",
+  "qualificacao",
+  "series_historicas",
+]);
 /** Abas que aparecem apenas dentro do grupo do pai (ex.: Análises sob Página Inicial). */
-const NESTED_MENU_ITEMS = new Set(["analises", "autonomo_perfil", "autonomo_indicadores"]);
+const NESTED_MENU_ITEMS = new Set(["analises"]);
 /** Pai → filhos aninhados na ordem de exibição (filhos precisam existir em state.abas). */
 const MENU_GROUP_CHILDREN = {
   indicadores: ["analises"],
-  autonomo_detalhado: ["autonomo_perfil", "autonomo_indicadores"]
 };
 const GROUP_BY_SHEET = {
   programas: "programa",
-  autonomo_detalhado: "ano",
-  autonomo_perfil: "categoria",
-  autonomo_indicadores: "indicador",
-  capacitacao_detalhada: "programa",
-  projecoes: "indicador",
   indicadores: "categoria",
   analises: "categoria",
   texto_apoio: "categoria",
@@ -1438,40 +1445,9 @@ function applyPageSubtitle() {
     return;
   }
 
-  if (state.abaAtual === "autonomo_detalhado") {
-    els.tituloPagina.textContent = "Intermediação dos serviços autônomos";
-    els.descricaoPagina.textContent =
-      "Últimos valores de serviços intermediados e volume financeiro, com série temporal nos gráficos.";
-    return;
-  }
-
   if (state.abaAtual === "programas") {
     els.descricaoPagina.textContent =
       "Cartões por programa, indicadores consolidados e participação nos programas.";
-    return;
-  }
-
-  if (state.abaAtual === "projecoes") {
-    els.descricaoPagina.textContent =
-      "Indicadores e leituras de projeção a partir dos dados publicados.";
-    return;
-  }
-
-  if (state.abaAtual === "capacitacao_detalhada") {
-    els.descricaoPagina.textContent =
-      "Participantes e totais por programa e eixo temático da capacitação.";
-    return;
-  }
-
-  if (state.abaAtual === "autonomo_perfil") {
-    els.descricaoPagina.textContent =
-      "Distribuição do perfil dos autônomos atendidos por categoria.";
-    return;
-  }
-
-  if (state.abaAtual === "autonomo_indicadores") {
-    els.descricaoPagina.textContent =
-      "Indicadores quantitativos da intermediação autônomo na base.";
     return;
   }
 
@@ -1547,61 +1523,10 @@ function renderKpis() {
     return;
   }
 
-  if (state.abaAtual === "autonomo_detalhado" && rows.length) {
-    const cols = Object.keys(rows[0]);
-    if (cols.includes("ano") && cols.includes("servicos") && cols.includes("volume_financeiro")) {
-      const latest = pickLatestAutonomoRow(rows);
-      if (latest) {
-        const anoLabel = formatAnoExibicao(latest.ano);
-        const servFmt = escapeHtml(
-          isNumericLike(latest.servicos)
-            ? formatNumber(toNumber(latest.servicos))
-            : String(latest.servicos ?? "—")
-        );
-        const volFmt = escapeHtml(formatCellValue(latest.volume_financeiro, "volume_financeiro", latest));
-        const metaObs = latest.observacao ? String(latest.observacao).trim() : "";
-        const metaFonte = latest.fonte ? String(latest.fonte).trim() : "";
-        const metaLine = [metaObs, metaFonte].filter(Boolean).join(" · ") || `Ano ${anoLabel}`;
-        els.kpis.className = "kpis sec sec-blue";
-        els.kpis.innerHTML = `
-    <div class="card">
-      <span class="label">Serviços intermediados (${anoLabel})</span>
-      <span class="value">${servFmt}</span>
-      <span class="meta">Último ano disponível na base</span>
-    </div>
-    <div class="card">
-      <span class="label">Volume financeiro (${anoLabel})</span>
-      <span class="value">${volFmt}</span>
-      <span class="meta">${escapeHtml(metaLine)}</span>
-    </div>`;
-        return;
-      }
-    }
-  }
-
   if (state.abaAtual === "series_historicas" && rows.length) {
     const cols = Object.keys(rows[0]);
     if (cols.includes("ano") && cols.includes("valor") && cols.includes("indicador")) {
       renderSeriesHistoricasKpiBars(rows);
-      return;
-    }
-  }
-
-  if (state.abaAtual === "capacitacao_detalhada" && rows.length) {
-    const cols = Object.keys(rows[0]);
-    if (cols.includes("participantes")) {
-      const gc =
-        GROUP_BY_SHEET.capacitacao_detalhada && cols.includes(GROUP_BY_SHEET.capacitacao_detalhada)
-          ? GROUP_BY_SHEET.capacitacao_detalhada
-          : ["programa", "categoria", "tema"].find((k) => cols.includes(k)) || "programa";
-      const sum = sumParticipantesCapacitacao(rows, gc);
-      els.kpis.className = "kpis sec sec-blue";
-      els.kpis.innerHTML = `
-    <div class="card">
-      <span class="label">Total de participantes</span>
-      <span class="value">${escapeHtml(formatNumber(sum))}</span>
-      <span class="meta">Soma da coluna participantes (sem a linha Total)</span>
-    </div>`;
       return;
     }
   }
@@ -1704,26 +1629,6 @@ function aggregateCountByKey(rows, key) {
   return map;
 }
 
-/** Linha agregada «Total» na coluna de grupo (ex.: programa = TOTAL). */
-function isTotalGroupLabel(groupKey) {
-  return normalizeTextForCompare(String(groupKey ?? "")) === "total";
-}
-
-function isTotalProgramRow(row, groupColumn) {
-  const key = groupColumn && row[groupColumn] != null ? row[groupColumn] : row.programa;
-  return isTotalGroupLabel(key);
-}
-
-/** Soma participantes excluindo linha TOTAL; se só existir TOTAL, usa essa linha. */
-function sumParticipantesCapacitacao(rows, groupColumn) {
-  const detail = rows.filter((r) => !isTotalProgramRow(r, groupColumn));
-  const source = detail.length ? detail : rows;
-  return source.reduce((acc, r) => {
-    if (!isNumericLike(r.participantes)) return acc;
-    return acc + toNumber(r.participantes);
-  }, 0);
-}
-
 function mountChart(chartKey, selector, options) {
   if (state.charts[chartKey]) state.charts[chartKey].destroy();
   const themeOptions = {
@@ -1749,19 +1654,6 @@ function mountChart(chartKey, selector, options) {
     ...options
   });
   state.charts[chartKey].render();
-}
-
-function pickLatestAutonomoRow(rows) {
-  const sorted = [...rows]
-    .filter((r) => r.ano != null && String(r.ano).trim() !== "")
-    .sort((a, b) => toNumber(b.ano) - toNumber(a.ano));
-  return sorted.length ? sorted[0] : null;
-}
-
-function sortAutonomoRowsByAno(rows) {
-  return [...rows]
-    .filter((r) => r.ano != null && String(r.ano).trim() !== "")
-    .sort((a, b) => toNumber(a.ano) - toNumber(b.ano));
 }
 
 function textoObservacoesLinha(row) {
@@ -1819,57 +1711,6 @@ function applyChartFootnotesIfApplicable(rows) {
   els.grafico2Nota.textContent = texto;
   els.grafico1Nota.hidden = false;
   els.grafico2Nota.hidden = false;
-}
-
-function renderAutonomoDetalhadoCharts(rows) {
-  const sorted = sortAutonomoRowsByAno(rows);
-  const anos = sorted.map((r) => formatAnoExibicao(r.ano));
-  const servicosData = sorted.map((r) => (isNumericLike(r.servicos) ? toNumber(r.servicos) : 0));
-  const volData = sorted.map((r) =>
-    isNumericLike(r.volume_financeiro) ? toNumber(r.volume_financeiro) : 0
-  );
-
-  els.tituloGrafico1.textContent = "Serviços intermediados por ano";
-  mountChart("grafico1", "#grafico1", {
-    chart: { type: "bar", background: "transparent", toolbar: { show: false } },
-    series: [{ name: "Serviços", data: servicosData.length ? servicosData : [0] }],
-    xaxis: { categories: anos.length ? anos : ["—"], labels: { style: { colors: "#4a578f" } } },
-    yaxis: {
-      labels: {
-        formatter: (val) => formatNumber(val)
-      }
-    },
-    tooltip: {
-      y: {
-        formatter: (val) => formatNumber(val)
-      }
-    },
-    plotOptions: { bar: { horizontal: false, borderRadius: 6, columnWidth: "55%" } },
-    colors: ["#2563eb"],
-    dataLabels: { enabled: true }
-  });
-
-  els.tituloGrafico2.textContent = "Evolução do volume financeiro por ano";
-  mountChart("grafico2", "#grafico2", {
-    chart: { type: "line", background: "transparent", toolbar: { show: false }, zoom: { enabled: false } },
-    series: [{ name: "Volume financeiro", data: volData.length ? volData : [0] }],
-    xaxis: { categories: anos.length ? anos : ["—"], labels: { style: { colors: "#4a578f" } } },
-    yaxis: {
-      labels: {
-        formatter: (val) => formatNumber(val, "R$")
-      }
-    },
-    tooltip: {
-      y: {
-        formatter: (val) => formatNumber(val, "R$")
-      }
-    },
-    stroke: { curve: "smooth", width: 3 },
-    markers: { size: 5 },
-    colors: ["#059669"]
-  });
-
-  applyChartFootnotesIfApplicable(rows);
 }
 
 function buildSeriesHistoricasSeriesData(filteredSubset) {
@@ -2072,17 +1913,6 @@ function renderCharts() {
   const columns = rows.length ? Object.keys(rows[0]) : [];
 
   if (
-    state.abaAtual === "autonomo_detalhado" &&
-    rows.length &&
-    columns.includes("ano") &&
-    columns.includes("servicos") &&
-    columns.includes("volume_financeiro")
-  ) {
-    renderAutonomoDetalhadoCharts(rows);
-    return;
-  }
-
-  if (
     state.abaAtual === "series_historicas" &&
     rows.length &&
     columns.includes("ano") &&
@@ -2107,10 +1937,7 @@ function renderCharts() {
   const labelEntity = normalizeCardTitle(labelColumn).toLowerCase();
 
   const groupMap = hasMetric ? aggregateByKey(rows, groupColumn, metricColumn) : aggregateCountByKey(rows, groupColumn);
-  let groupEntries = Object.entries(groupMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  if (state.abaAtual === "capacitacao_detalhada") {
-    groupEntries = groupEntries.filter(([k]) => !isTotalGroupLabel(k));
-  }
+  const groupEntries = Object.entries(groupMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const groupLabels = groupEntries.map((item) => item[0]);
   const groupValues = groupEntries.map((item) => item[1]);
 
@@ -2126,12 +1953,9 @@ function renderCharts() {
     colors: ["#4f8bff", "#18c985", "#ffb020", "#ff5d5d", "#a57bff", "#4dd0e1", "#f06292", "#cddc39"]
   });
 
-  let topRows = hasMetric
+  const topRows = hasMetric
     ? [...rows].sort((a, b) => toNumber(b[metricColumn]) - toNumber(a[metricColumn])).slice(0, 8)
     : rows.slice(0, 8);
-  if (state.abaAtual === "capacitacao_detalhada") {
-    topRows = topRows.filter((r) => !isTotalProgramRow(r, groupColumn));
-  }
 
   els.tituloGrafico2.textContent = hasMetric
     ? `Top ${pluralizePt(labelEntity)} por ${metricLabel}`
