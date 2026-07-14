@@ -70,7 +70,7 @@
       <i class="fa-solid fa-bars"></i>
     </button>
     <section class="content">
-      <div class="page-intro">
+      <div class="page-intro" id="pageIntro">
         <header class="header page-ident">
           <div class="page-ident__main">
             <span class="page-ident__icon" aria-hidden="true">
@@ -94,13 +94,82 @@
         </div>
       </section>
 
-      <section id="homePeriodoFiltroTop" class="top-filters hidden" aria-label="Filtro de referência temporal">
-        <div class="program-filter home-periodo-filter">
-          <label for="homeFiltroAno">Referência</label>
-          <select id="homeFiltroAno" aria-label="Ano de referência"></select>
-          <select id="homeFiltroMes" aria-label="Mês de referência"></select>
-        </div>
-      </section>
+      <div id="homeRedesign" class="home-redesign hidden">
+        <section class="home-hero" id="homeHero" aria-label="Apresentação do Observatório">
+          <div class="home-hero__inner">
+            <h1 class="home-hero__title">Observatório do Mercado de Trabalho do Ceará</h1>
+            <p class="home-hero__subtitle">
+              Uma plataforma inteligente para acompanhar a evolução do emprego, desemprego, programas de
+              qualificação, ocupações, projeções e indicadores do mercado de trabalho cearense.
+            </p>
+            <div class="home-hero__badges">
+              <span class="home-hero__badge">
+                <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                <span><span id="homeHeroBasesCount">—</span> bases integradas</span>
+              </span>
+              <span class="home-hero__badge">
+                <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
+                <span>Dados atualizados mensalmente</span>
+              </span>
+              <span class="home-hero__badge">
+                <i class="fa-solid fa-landmark" aria-hidden="true"></i>
+                <span>Governo do Estado do Ceará</span>
+              </span>
+            </div>
+            <div class="home-hero__ctas">
+              <button type="button" class="home-hero__btn home-hero__btn--primary" id="homeHeroCtaIndicadores">
+                Explorar Indicadores <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="home-hero__btn home-hero__btn--ghost" id="homeHeroCtaObservatorio">
+                Conhecer o Observatório
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="homePeriodoFiltroTop" class="top-filters hidden" aria-label="Filtro de referência temporal">
+          <div class="program-filter home-periodo-filter">
+            <label for="homeFiltroAno">Referência</label>
+            <select id="homeFiltroAno" aria-label="Ano de referência"></select>
+            <select id="homeFiltroMes" aria-label="Mês de referência"></select>
+          </div>
+        </section>
+
+        <section class="home-section" id="homeKpiSection">
+          <h2 class="home-section__title">Indicadores em destaque</h2>
+          <div class="home-kpi-row" id="homeKpiRow"></div>
+        </section>
+
+        <section class="home-section" id="homeTrendSection">
+          <h2 class="home-section__title">Como está o mercado de trabalho?</h2>
+          <p class="home-section__subtitle">Saldo de empregos formais nos últimos 12 meses (CAGED).</p>
+          <div class="home-trend-card">
+            <div id="homeTrendChart" class="home-trend-card__chart"></div>
+            <p class="home-trend-card__status" id="homeTrendStatus" hidden></p>
+          </div>
+        </section>
+
+        <section class="home-section" id="homeSetorWrap">
+          <h2 class="home-section__title">Saldo por setor</h2>
+          <div class="home-setor" id="homeSetorSection"></div>
+        </section>
+
+        <section class="home-section" id="homeExploreSection">
+          <h2 class="home-section__title">Explore o Observatório</h2>
+          <div class="home-explore-grid" id="homeExploreGrid"></div>
+        </section>
+
+        <section class="home-section" id="homePanoramaSection">
+          <h2 class="home-section__title">Panorama do Ceará</h2>
+          <p class="home-section__subtitle">Passe o mouse ou toque nos pontos para ver empregos e saldo do mês.</p>
+          <div class="home-panorama" id="homePanoramaMap"></div>
+        </section>
+
+        <section class="home-section" id="homeTendenciasSection">
+          <h2 class="home-section__title">Tendências</h2>
+          <div class="home-tendencias" id="homeTendenciasList"></div>
+        </section>
+      </div>
 
       <div class="section-kpis-header" id="sectionKpisHeader">
         <section class="section-label section-label-blue" id="labelKpis">Indicadores em destaque</section>
@@ -169,6 +238,14 @@
             </li>
           </ul>
         </div>
+        <div class="site-footer__box">
+          <h2>Sobre os dados</h2>
+          <p>Última atualização: <span id="footerMetaAtualizacao">—</span></p>
+          <p>Fonte: <span id="footerMetaFonte">Planilhas oficiais da SET/IDT (Google Sheets)</span></p>
+          <p>Periodicidade: <span id="footerMetaPeriodicidade">Mensal</span></p>
+          <p>Responsável técnico: <span id="footerMetaResponsavel">SET/IDT - Governo do Ceará</span></p>
+          <p>API dos dados: <a id="footerMetaApi" href="/api/abas" target="_blank" rel="noopener noreferrer">/api/abas</a></p>
+        </div>
         <div class="site-footer__box site-footer__copyright">
           <p>
             © 2017 - 2026 - Governo do Estado do Ceará<br>
@@ -179,6 +256,8 @@
     </div>
   </footer>
 
+  <script src="/static/js/home-trend.js"></script>
+  <script src="/static/js/home-panorama.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

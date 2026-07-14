@@ -455,327 +455,6 @@ a.menu-item {
   color: #5c678f;
 }
 
-.kpi-home {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 4px 2px;
-}
-
-.kpi-home__block {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.kpi-home__heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.kpi-home__heading-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #f25d53, #ff967a);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.15rem;
-  flex-shrink: 0;
-  box-shadow: 0 8px 18px rgba(242, 93, 83, 0.28);
-}
-
-.kpi-home__heading-icon--sec {
-  background: linear-gradient(145deg, #3646ff, #8898ff);
-  box-shadow: 0 8px 18px rgba(54, 70, 255, 0.22);
-}
-
-.kpi-home__title {
-  font-size: 1.08rem;
-  font-weight: 800;
-  color: #0a1248;
-  margin: 0;
-  letter-spacing: -0.02em;
-}
-
-.kpi-home__subtitle {
-  margin: 5px 0 0;
-  font-size: 0.83rem;
-  color: #667099;
-  line-height: 1.35;
-}
-
-.kpis--home-destaque {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-}
-
-.card--home-featured {
-  position: relative;
-  padding: 18px 52px 16px 16px;
-  border-width: 2px;
-  overflow: hidden;
-}
-
-.card--home-featured .card__ico {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  color: #fff;
-}
-
-.card--home-feat-ceara {
-  border-color: #0f766e;
-  box-shadow: 8px 10px 0 rgba(13, 148, 136, 0.28);
-  background: linear-gradient(165deg, rgba(13, 148, 136, 0.09) 0%, #fff 58%);
-}
-
-.card--home-feat-ceara .card__ico {
-  background: linear-gradient(145deg, #0d9488, #5eead4);
-}
-
-.card--home-feat-brasil {
-  border-color: #1d4ed8;
-  box-shadow: 8px 10px 0 rgba(29, 78, 216, 0.22);
-  background: linear-gradient(165deg, rgba(37, 99, 235, 0.07) 0%, #fff 58%);
-}
-
-.card--home-feat-brasil .card__ico {
-  background: linear-gradient(145deg, #2563eb, #93c5fd);
-}
-
-.card--home-feat-pop {
-  border-color: #6d28d9;
-  box-shadow: 8px 10px 0 rgba(124, 58, 237, 0.22);
-  background: linear-gradient(165deg, rgba(124, 58, 237, 0.08) 0%, #fff 58%);
-}
-
-.card--home-feat-pop .card__ico {
-  background: linear-gradient(145deg, #7c3aed, #d8b4fe);
-}
-
-.card--home-featured .label {
-  padding-right: 4px;
-}
-
-.card--home-featured .value {
-  font-size: 1.72rem;
-}
-
-.card--home-missing {
-  border-style: dashed;
-  opacity: 0.92;
-}
-
-.card--home-missing .value {
-  color: #8893b5;
-}
-
-.kpis--home-demais {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-}
-
-.card--home-demais {
-  border-color: #6b7bff;
-  box-shadow: 6px 8px 0 rgba(79, 92, 230, 0.2);
-  background: #fdfdff;
-  position: relative;
-  padding: 16px 48px 14px 16px;
-}
-
-.card--home-demais .card__ico--sm {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  font-size: 0.95rem;
-  border-radius: 10px;
-  background: linear-gradient(145deg, #ecefff, #f7f8ff);
-  color: #4f5fd4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card--home-demais .label {
-  color: #4d5594;
-}
-
-.card--home-empty {
-  grid-column: 1 / -1;
-  justify-items: center;
-  text-align: center;
-  padding: 18px;
-}
-
-/* Saldo por atividade econÃ´mica (pÃ¡gina inicial â€” Demais indicadores) */
-.saldo-atividade {
-  margin-top: 17px;
-  padding: 14px 15px 12px;
-  border-radius: 16px;
-  border: 1px solid #f0f2f6;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
-  background-color: #f8fafc;
-  background-image:
-    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, transparent 42%),
-    radial-gradient(circle at 88% 78%, rgba(241, 245, 249, 0.9) 0%, transparent 45%),
-    linear-gradient(165deg, #fbfcfe 0%, #f1f5f9 55%, #eef2f7 100%);
-}
-
-.saldo-atividade__title {
-  margin: 0 0 10px;
-  font-size: 1rem;
-  font-weight: 700;
-  font-style: italic;
-  color: #374151;
-  letter-spacing: 0.01em;
-}
-
-.saldo-atividade__chart {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.saldo-atividade__row {
-  display: grid;
-  grid-template-columns: minmax(96px, 130px) 1fr minmax(4.5rem, auto);
-  align-items: center;
-  gap: 7px 11px;
-}
-
-@media (max-width: 520px) {
-  .saldo-atividade__row {
-    grid-template-columns: minmax(72px, 92px) 1fr minmax(3.8rem, auto);
-    gap: 6px;
-  }
-
-  .saldo-atividade__title {
-    font-size: 0.93rem;
-    margin-bottom: 8px;
-  }
-
-  .saldo-atividade__name {
-    font-size: 0.78rem;
-  }
-
-  .saldo-atividade__value {
-    font-size: 0.8rem;
-  }
-}
-
-.saldo-atividade__name {
-  font-size: 0.88rem;
-  font-style: italic;
-  color: #9ca3af;
-  line-height: 1.2;
-}
-
-.saldo-atividade__tracks {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: stretch;
-  min-width: 0;
-  width: 100%;
-  gap: 0;
-}
-
-.saldo-atividade__half {
-  display: block;
-  min-width: 0;
-  width: 100%;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
-  overflow: hidden;
-}
-
-.saldo-atividade__half--neg {
-  border-radius: 9px 0 0 9px;
-}
-
-.saldo-atividade__half--neg .saldo-atividade__bar {
-  margin-left: auto;
-}
-
-.saldo-atividade__half--pos {
-  border-radius: 0 9px 9px 0;
-}
-
-.saldo-atividade__bar {
-  display: block;
-  height: 18px;
-  box-sizing: border-box;
-  max-width: 100%;
-  overflow: hidden;
-  transition: width 0.35s ease;
-}
-
-.saldo-atividade__bar--neg {
-  border-radius: 7px 0 0 7px;
-}
-
-.saldo-atividade__bar--pos {
-  border-radius: 0 7px 7px 0;
-}
-
-.saldo-atividade__axis {
-  display: block;
-  width: 3px;
-  align-self: stretch;
-  min-height: 18px;
-  border-radius: 1px;
-  background: linear-gradient(180deg, #cbd5e1, #94a3b8);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
-  z-index: 1;
-}
-
-.saldo-atividade__stripes--negativo {
-  background: #ef4444;
-}
-
-.saldo-atividade__stripes--servicos {
-  background: #2563eb;
-}
-
-.saldo-atividade__stripes--comercio {
-  background: #16a34a;
-}
-
-.saldo-atividade__stripes--construcao {
-  background: #d97706;
-}
-
-.saldo-atividade__stripes--industria {
-  background: #64748b;
-}
-
-.saldo-atividade__stripes--agro {
-  background: #3f3f46;
-}
-
-.saldo-atividade__value {
-  font-weight: 700;
-  font-size: 0.83rem;
-  font-variant-numeric: tabular-nums;
-  color: #1f2937;
-  text-align: right;
-}
-
-.saldo-atividade__value--neg {
-  color: #b91c1c;
-}
-
 .card {
   background: #fff;
   border: 2px solid var(--blue);
@@ -1633,7 +1312,7 @@ td {
 
 .site-footer__content {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1705,6 +1384,12 @@ td {
   letter-spacing: 0.03em;
 }
 
+@media (max-width: 1300px) {
+  .site-footer__content {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1100px) {
   .site-footer__wrapper {
     grid-template-columns: 1fr;
@@ -1727,4 +1412,582 @@ td {
   .site-footer__content {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   Reformulação da página inicial — design system isolado (apenas .home-*)
+   Fundo claro, cards brancos, sombra leve, azul reservado para ações.
+   Não reutiliza .card/.sec-blue/.panel-soft para não afetar outras abas.
+   ========================================================================== */
+
+.home-redesign {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  background: #f7f8fa;
+  border-radius: 28px;
+  padding: clamp(18px, 3vw, 36px);
+  margin-bottom: 8px;
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.home-section__title {
+  font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+  font-weight: 800;
+  color: #0f1a44;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.home-section__subtitle {
+  margin: -8px 0 0;
+  font-size: 0.92rem;
+  color: #64708f;
+  line-height: 1.5;
+}
+
+/* ---------- Hero ---------- */
+.home-hero {
+  background: linear-gradient(135deg, #0f1a44 0%, #1d3aa8 55%, #2f6df0 100%);
+  border-radius: 26px;
+  padding: clamp(32px, 5vw, 56px) clamp(24px, 5vw, 56px);
+  box-shadow: 0 18px 46px rgba(15, 26, 68, 0.24);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.16) 0%, transparent 45%),
+    radial-gradient(circle at 4% 92%, rgba(255, 255, 255, 0.1) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+.home-hero__inner {
+  position: relative;
+  max-width: 46rem;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.home-hero__title {
+  font-size: clamp(1.6rem, 3.4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.home-hero__subtitle {
+  font-size: clamp(0.95rem, 1.4vw, 1.08rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.86);
+  margin: 0;
+  max-width: 42rem;
+}
+
+.home-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.home-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.84rem;
+  font-weight: 600;
+  backdrop-filter: blur(2px);
+}
+
+.home-hero__badge i {
+  font-size: 0.95rem;
+  color: #bcd0ff;
+}
+
+.home-hero__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.home-hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 13px 22px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.home-hero__btn--primary {
+  background: #fff;
+  color: #1d3aa8;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.home-hero__btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+}
+
+.home-hero__btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.home-hero__btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ---------- KPIs unificados ---------- */
+.home-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .home-kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .home-kpi-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-kpi-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 22px 22px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.07);
+  border: 1px solid #eef0f6;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(20, 30, 70, 0.1);
+}
+
+.home-kpi-card__icon {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  color: #fff;
+  background: linear-gradient(145deg, #2f6df0, #6fa0ff);
+}
+
+.home-kpi-card--empregos .home-kpi-card__icon {
+  background: linear-gradient(145deg, #2f6df0, #6fa0ff);
+}
+
+.home-kpi-card--taxaCe .home-kpi-card__icon {
+  background: linear-gradient(145deg, #0d9488, #5eead4);
+}
+
+.home-kpi-card--taxaBr .home-kpi-card__icon {
+  background: linear-gradient(145deg, #7c3aed, #c4b5fd);
+}
+
+.home-kpi-card--saldo .home-kpi-card__icon {
+  background: linear-gradient(145deg, #64748b, #94a3b8);
+}
+
+.home-kpi-card--saldo.home-kpi-card--pos .home-kpi-card__icon {
+  background: linear-gradient(145deg, #16a34a, #4ade80);
+}
+
+.home-kpi-card--saldo.home-kpi-card--neg .home-kpi-card__icon {
+  background: linear-gradient(145deg, #dc2626, #f87171);
+}
+
+.home-kpi-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.home-kpi-card__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #7a84a6;
+}
+
+.home-kpi-card__value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #0f1a44;
+  line-height: 1.15;
+}
+
+.home-kpi-card--saldo.home-kpi-card--pos .home-kpi-card__value {
+  color: #16803d;
+}
+
+.home-kpi-card--saldo.home-kpi-card--neg .home-kpi-card__value {
+  color: #dc2626;
+}
+
+.home-kpi-card__meta {
+  font-size: 0.78rem;
+  color: #8992b0;
+}
+
+.home-kpi-card--missing {
+  opacity: 0.85;
+}
+
+.home-kpi-card--missing .home-kpi-card__value {
+  color: #a2a9c2;
+}
+
+/* ---------- Tendência mensal ---------- */
+.home-trend-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px 22px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.07);
+  border: 1px solid #eef0f6;
+}
+
+.home-trend-card__chart {
+  min-height: 260px;
+}
+
+.home-trend-card__status {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: #8992b0;
+  text-align: center;
+}
+
+/* ---------- Saldo por setor (restilizado) ---------- */
+.home-setor {
+  background: #fff;
+  border-radius: 20px;
+  padding: 22px 24px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.07);
+  border: 1px solid #eef0f6;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-setor__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr minmax(5rem, auto);
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.home-setor__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #414c72;
+}
+
+.home-setor__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home-setor__tracks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+}
+
+.home-setor__half {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  height: 20px;
+  background: #f3f4f8;
+  overflow: hidden;
+}
+
+.home-setor__half--neg {
+  border-radius: 10px 0 0 10px;
+}
+
+.home-setor__half--neg .home-setor__bar {
+  margin-left: auto;
+}
+
+.home-setor__half--pos {
+  border-radius: 0 10px 10px 0;
+}
+
+.home-setor__bar {
+  display: block;
+  height: 20px;
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+
+.home-setor__axis {
+  display: block;
+  width: 2px;
+  align-self: stretch;
+  min-height: 20px;
+  background: #d6dbe8;
+}
+
+.home-setor__value {
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: #1f2937;
+  text-align: right;
+}
+
+.home-setor__value--neg {
+  color: #dc2626;
+}
+
+@media (max-width: 620px) {
+  .home-setor__row {
+    grid-template-columns: minmax(88px, 110px) 1fr minmax(4rem, auto);
+    gap: 6px 10px;
+  }
+}
+
+/* ---------- Explore o Observatório ---------- */
+.home-explore-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .home-explore-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .home-explore-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-explore-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.07);
+  border: 1px solid #eef0f6;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.home-explore-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(20, 30, 70, 0.12);
+  border-color: #cddaff;
+}
+
+.home-explore-card__icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #fff;
+  background: linear-gradient(145deg, #2f6df0, #6fa0ff);
+}
+
+.home-explore-card__title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f1a44;
+  margin: 0;
+}
+
+.home-explore-card__desc {
+  font-size: 0.86rem;
+  color: #6b7599;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---------- Panorama do Ceará ---------- */
+.home-panorama {
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.07);
+  border: 1px solid #eef0f6;
+}
+
+.home-panorama__wrap {
+  position: relative;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.home-panorama__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.home-panorama__shape {
+  fill: #dbe6ff;
+  stroke: #aac2f5;
+  stroke-width: 1.2;
+}
+
+.home-panorama__hotspot {
+  cursor: pointer;
+  outline: none;
+}
+
+.home-panorama__dot {
+  fill: #2f6df0;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.home-panorama__dot-pulse {
+  fill: rgba(47, 109, 240, 0.28);
+  animation: home-panorama-pulse 2.2s ease-out infinite;
+  transform-origin: center;
+}
+
+.home-panorama__hotspot:hover .home-panorama__dot,
+.home-panorama__hotspot:focus .home-panorama__dot {
+  fill: #16a34a;
+}
+
+@keyframes home-panorama-pulse {
+  0% { transform: scale(0.7); opacity: 0.8; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+.home-panorama__tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #0f1a44;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 11rem;
+  box-shadow: 0 10px 24px rgba(15, 26, 68, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 2;
+}
+
+.home-panorama__tooltip--visible {
+  opacity: 1;
+}
+
+.home-panorama__tooltip-title {
+  font-size: 0.88rem;
+  margin-bottom: 2px;
+}
+
+/* ---------- Tendências ---------- */
+.home-tendencias {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-tendencias__empty {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  color: #8992b0;
+  font-size: 0.9rem;
+  border: 1px solid #eef0f6;
+}
+
+.home-tendencia-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.06);
+  border: 1px solid #eef0f6;
+}
+
+.home-tendencia-card__icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #fff;
+  background: linear-gradient(145deg, #2f6df0, #6fa0ff);
+}
+
+.home-tendencia-card__text {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: #2c3660;
+  padding-top: 6px;
 }

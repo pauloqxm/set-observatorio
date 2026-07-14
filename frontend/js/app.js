@@ -58,6 +58,46 @@ const HOME_KPI_DEMAIS_DEF = [
   }
 ];
 
+/** Cartões da seção "Explore o Observatório" (página inicial). */
+const HOME_EXPLORE_CARDS = [
+  {
+    title: "Análises",
+    desc: "Indicadores detalhados do mercado de trabalho.",
+    icon: "fa-solid fa-magnifying-glass-chart",
+    action: { type: "aba", aba: "analises" }
+  },
+  {
+    title: "Programas",
+    desc: "Cursos e qualificação profissional do IDT.",
+    icon: "fa-solid fa-address-card",
+    action: { type: "aba", aba: "programas" }
+  },
+  {
+    title: "Qualificação",
+    desc: "Cursos e qualificação profissional por município.",
+    icon: "fa-solid fa-graduation-cap",
+    action: { type: "url", url: "/mapa?aba=qualificacao" }
+  },
+  {
+    title: "Perfil Municipal",
+    desc: "Características da força de trabalho por município.",
+    icon: "fa-solid fa-city",
+    action: { type: "url", url: "/mapa?aba=perfil_municipal" }
+  },
+  {
+    title: "Dados CAGED",
+    desc: "Admissões, desligamentos e saldo por município.",
+    icon: "fa-solid fa-map-location-dot",
+    action: { type: "url", url: "/mapa?aba=dados_caged" }
+  },
+  {
+    title: "Mapa Interativo",
+    desc: "Visão geral por município e região.",
+    icon: "fa-solid fa-map",
+    action: { type: "url", url: "/mapa" }
+  }
+];
+
 /** KPIs prioritários da página inicial (texto da planilha sem acentos após normalize). */
 const HOME_KPI_DESTAQUE_DEF = [
   {
@@ -65,16 +105,14 @@ const HOME_KPI_DESTAQUE_DEF = [
     test(n) {
       return n.includes("desempreg") && n.includes("ceara") && !n.includes("brasil");
     },
-    icon: "fa-solid fa-location-dot",
-    cardClass: "card--home-feat-ceara"
+    icon: "fa-solid fa-location-dot"
   },
   {
     fallbackLabel: "Taxa desemprego Brasil",
     test(n) {
       return n.includes("desempreg") && n.includes("brasil");
     },
-    icon: "fa-solid fa-earth-americas",
-    cardClass: "card--home-feat-brasil"
+    icon: "fa-solid fa-earth-americas"
   }
 ];
 
@@ -88,7 +126,9 @@ const state = {
   programaSelecionado: "",
   /** Página inicial: { ano, mes } ou null para usar o período mais recente da base. */
   homeReferencia: null,
-  charts: { grafico1: null, grafico2: null, seriesKpiBar1: null, seriesKpiBar2: null }
+  charts: { grafico1: null, grafico2: null, seriesKpiBar1: null, seriesKpiBar2: null, homeTrend: null },
+  /** Cache do gráfico "Como está o mercado de trabalho?" (CAGED, últimos 12 meses). */
+  homeTrendData: { status: "idle", monthly: null }
 };
 
 /** Evita que listeners de change dos selects gravem mês errado durante repopulação programática. */
@@ -120,7 +160,24 @@ const els = {
   secaoAgrupamentos: document.getElementById("secaoAgrupamentos"),
   tituloAgrupamentos: document.getElementById("tituloAgrupamentos"),
   agrupamentosGrid: document.getElementById("agrupamentosGrid"),
-  menuOverlay: document.getElementById("menuOverlay")
+  menuOverlay: document.getElementById("menuOverlay"),
+  pageIntro: document.getElementById("pageIntro"),
+  homeRedesign: document.getElementById("homeRedesign"),
+  homeHeroBasesCount: document.getElementById("homeHeroBasesCount"),
+  homeHeroCtaIndicadores: document.getElementById("homeHeroCtaIndicadores"),
+  homeHeroCtaObservatorio: document.getElementById("homeHeroCtaObservatorio"),
+  homeKpiRow: document.getElementById("homeKpiRow"),
+  homeTrendChart: document.getElementById("homeTrendChart"),
+  homeTrendStatus: document.getElementById("homeTrendStatus"),
+  homeSetorSection: document.getElementById("homeSetorSection"),
+  homeExploreGrid: document.getElementById("homeExploreGrid"),
+  homePanoramaMap: document.getElementById("homePanoramaMap"),
+  homeTendenciasList: document.getElementById("homeTendenciasList"),
+  footerMetaAtualizacao: document.getElementById("footerMetaAtualizacao"),
+  footerMetaFonte: document.getElementById("footerMetaFonte"),
+  footerMetaPeriodicidade: document.getElementById("footerMetaPeriodicidade"),
+  footerMetaResponsavel: document.getElementById("footerMetaResponsavel"),
+  footerMetaApi: document.getElementById("footerMetaApi")
 };
 
 function isMobileSidebarViewport() {
@@ -1205,85 +1262,6 @@ function renderSeriesHistoricasKpiBars(rows) {
   mountSeriesHistoricasKpiStack("seriesKpiBar2", "#seriesKpiBarVagasCol", ["Vagas", "Colocados"], [vv, vc]);
 }
 
-function labelMatchesHomeDestaque(normalizedLabel) {
-  return HOME_KPI_DESTAQUE_DEF.some((def) => def.test(normalizedLabel));
-}
-
-function buildIndicadoresDestaqueCards(rows) {
-  if (!rows.length) return [];
-  const cols = Object.keys(rows[0]);
-  const labelCol = detectLabelColumn(cols);
-  const hasValor = cols.includes("valor");
-  const used = new Set();
-
-  return HOME_KPI_DESTAQUE_DEF.map((def) => {
-    const idx = rows.findIndex((row, i) => {
-      if (used.has(i)) return false;
-      const lab = normalizeTextForCompare(String(row[labelCol] || row.indicador || row.tema || row.categoria || ""));
-      return def.test(lab);
-    });
-    if (idx >= 0) {
-      used.add(idx);
-      const row = rows[idx];
-      const label = String(row[labelCol] || row.indicador || def.fallbackLabel);
-      const value =
-        hasValor && isNumericLike(row.valor) ? formatCellValue(row.valor, "valor", row) : "—";
-      const meta = formatIndicadorRowMeta(row) || row.fonte || "Valor na base";
-      return {
-        label,
-        value,
-        meta,
-        icon: def.icon,
-        cardClass: def.cardClass,
-        missing: false
-      };
-    }
-    return {
-      label: def.fallbackLabel,
-      value: "—",
-      meta: "Indicador nao encontrado na base",
-      icon: def.icon,
-      cardClass: def.cardClass,
-      missing: true
-    };
-  });
-}
-
-function buildIndicadoresDemaisCards(rows) {
-  if (!rows.length) return [];
-  const cols = Object.keys(rows[0]);
-  const labelCol = detectLabelColumn(cols);
-  const hasValor = cols.includes("valor");
-  const used = new Set();
-
-  return HOME_KPI_DEMAIS_DEF.map((def) => {
-    const idx = rows.findIndex((row, i) => {
-      if (used.has(i)) return false;
-      const lab = normalizeTextForCompare(String(row[labelCol] || row.indicador || row.tema || row.categoria || ""));
-      return def.test(lab);
-    });
-    if (idx >= 0) {
-      used.add(idx);
-      const row = rows[idx];
-      const label = String(row[labelCol] || row.indicador || def.fallbackLabel);
-      const value =
-        hasValor && isNumericLike(row.valor) ? formatCellValue(row.valor, "valor", row) : "—";
-      return {
-        label,
-        value,
-        meta: formatIndicadorRowMeta(row) || "Valor na base",
-        missing: false
-      };
-    }
-    return {
-      label: def.fallbackLabel,
-      value: "—",
-      meta: "Indicador nao encontrado na base",
-      missing: true
-    };
-  });
-}
-
 /** Séries para o gráfico horizontal estilo «saldo por atividade» (página inicial). */
 function buildSaldoPorAtividadeSeries(rows) {
   if (!rows.length) return null;
@@ -1385,42 +1363,300 @@ function formatSaldoAtividadeValor(n) {
   return fmt;
 }
 
-function renderSaldoPorAtividadeHtml(rows) {
+/** Cards unificados da linha de KPIs da home: Empregos com carteira, Saldo, Taxa CE, Taxa BR. */
+function buildHomeKpiRowCards(rows) {
+  if (!rows.length) return [];
+  const cols = Object.keys(rows[0]);
+  const labelCol = detectLabelColumn(cols);
+  const hasValor = cols.includes("valor");
+  const used = new Set();
+
+  const specs = [
+    { def: HOME_KPI_DEMAIS_DEF[0], icon: "fa-solid fa-briefcase", kind: "empregos" },
+    { def: HOME_KPI_DEMAIS_DEF[1], icon: "fa-solid fa-scale-balanced", kind: "saldo" },
+    { def: HOME_KPI_DESTAQUE_DEF[0], icon: HOME_KPI_DESTAQUE_DEF[0].icon, kind: "taxaCe" },
+    { def: HOME_KPI_DESTAQUE_DEF[1], icon: HOME_KPI_DESTAQUE_DEF[1].icon, kind: "taxaBr" }
+  ];
+
+  return specs.map((spec) => {
+    const idx = rows.findIndex((row, i) => {
+      if (used.has(i)) return false;
+      const lab = normalizeTextForCompare(String(row[labelCol] || row.indicador || row.tema || row.categoria || ""));
+      return spec.def.test(lab);
+    });
+    if (idx < 0) {
+      return {
+        label: spec.def.fallbackLabel,
+        value: "—",
+        meta: "Indicador não encontrado na base",
+        icon: spec.icon,
+        kind: spec.kind,
+        raw: null,
+        missing: true
+      };
+    }
+    used.add(idx);
+    const row = rows[idx];
+    const label = String(row[labelCol] || row.indicador || spec.def.fallbackLabel);
+    const raw = hasValor ? getRowNumericValor(row) : null;
+    const value = hasValor && isNumericLike(row.valor) ? formatCellValue(row.valor, "valor", row) : "—";
+    const meta = formatIndicadorRowMeta(row) || row.fonte || "Valor na base";
+    return { label, value, meta, icon: spec.icon, kind: spec.kind, raw, missing: false };
+  });
+}
+
+function renderHomeKpiRow(rows) {
+  if (!els.homeKpiRow) return;
+  const cards = buildHomeKpiRowCards(rows);
+  if (!cards.length) {
+    els.homeKpiRow.innerHTML = "";
+    return;
+  }
+  els.homeKpiRow.innerHTML = cards
+    .map((c) => {
+      let icon = c.icon;
+      let variant = `home-kpi-card--${c.kind}`;
+      if (c.kind === "saldo" && c.raw != null) {
+        const pos = c.raw >= 0;
+        variant += pos ? " home-kpi-card--pos" : " home-kpi-card--neg";
+        icon = pos ? "fa-solid fa-arrow-trend-up" : "fa-solid fa-arrow-trend-down";
+      }
+      return `
+    <article class="home-kpi-card ${variant}${c.missing ? " home-kpi-card--missing" : ""}">
+      <div class="home-kpi-card__icon" aria-hidden="true"><i class="${icon}"></i></div>
+      <div class="home-kpi-card__body">
+        <span class="home-kpi-card__label">${escapeHtml(c.label)}</span>
+        <span class="home-kpi-card__value">${escapeHtml(String(c.value))}</span>
+        <span class="home-kpi-card__meta">${escapeHtml(c.meta)}</span>
+      </div>
+    </article>`;
+    })
+    .join("");
+}
+
+/** Saldo por setor (restilizado): mesmas barras bidirecionais, novo visual. */
+function renderHomeSetorSection(rows) {
+  if (!els.homeSetorSection) return;
   const series = buildSaldoPorAtividadeSeries(rows);
-  if (!series) return "";
-
+  if (!series) {
+    els.homeSetorSection.innerHTML = `<p class="home-tendencias__empty">Sem dados de saldo por setor na base.</p>`;
+    return;
+  }
   const clampPct = (x) => Math.min(100, Math.max(0, Number(x) || 0));
-
-  const rowsHtml = series
+  const dotColors = {
+    "saldo-atividade__stripes--servicos": "#2563eb",
+    "saldo-atividade__stripes--comercio": "#16a34a",
+    "saldo-atividade__stripes--construcao": "#d97706",
+    "saldo-atividade__stripes--industria": "#64748b",
+    "saldo-atividade__stripes--agro": "#3f3f46"
+  };
+  els.homeSetorSection.innerHTML = series
     .map((item) => {
       const neg = item.raw !== null && item.raw < 0;
-      const valCls = neg ? " saldo-atividade__value--neg" : "";
+      const valCls = neg ? " home-setor__value--neg" : "";
       const wn = clampPct(item.widthPctNeg);
       const wp = clampPct(item.widthPctPos);
       const minNeg = item.raw !== null && wn > 0 ? "3px" : "0";
       const minPos = item.raw !== null && wp > 0 ? "3px" : "0";
+      const dotColor = dotColors[item.stripeClass] || "#2563eb";
       return `
-    <div class="saldo-atividade__row">
-      <span class="saldo-atividade__name">${escapeHtml(item.label)}</span>
-      <div class="saldo-atividade__tracks">
-        <div class="saldo-atividade__half saldo-atividade__half--neg">
-          <div class="saldo-atividade__bar saldo-atividade__bar--neg saldo-atividade__stripes--negativo" style="width: ${wn}%; min-width: ${minNeg}" aria-hidden="true"></div>
+    <div class="home-setor__row">
+      <span class="home-setor__name"><span class="home-setor__dot" style="background:${dotColor}" aria-hidden="true"></span>${escapeHtml(item.label)}</span>
+      <div class="home-setor__tracks">
+        <div class="home-setor__half home-setor__half--neg">
+          <div class="home-setor__bar" style="width: ${wn}%; min-width: ${minNeg}; background:#ef4444" aria-hidden="true"></div>
         </div>
-        <span class="saldo-atividade__axis" aria-hidden="true"></span>
-        <div class="saldo-atividade__half saldo-atividade__half--pos">
-          <div class="saldo-atividade__bar saldo-atividade__bar--pos ${item.stripeClass}" style="width: ${wp}%; min-width: ${minPos}" aria-hidden="true"></div>
+        <span class="home-setor__axis" aria-hidden="true"></span>
+        <div class="home-setor__half home-setor__half--pos">
+          <div class="home-setor__bar" style="width: ${wp}%; min-width: ${minPos}; background:${dotColor}" aria-hidden="true"></div>
         </div>
       </div>
-      <span class="saldo-atividade__value${valCls}">${escapeHtml(item.display)}</span>
+      <span class="home-setor__value${valCls}">${escapeHtml(item.display)}</span>
     </div>`;
     })
     .join("");
+}
 
-  return `
-    <div class="saldo-atividade">
-      <h4 class="saldo-atividade__title">Saldo por atividade econômica</h4>
-      <div class="saldo-atividade__chart">${rowsHtml}</div>
-    </div>`;
+function renderHomeExploreCards() {
+  if (!els.homeExploreGrid || els.homeExploreGrid.dataset.rendered === "1") return;
+  els.homeExploreGrid.dataset.rendered = "1";
+  els.homeExploreGrid.innerHTML = HOME_EXPLORE_CARDS
+    .map(
+      (card, idx) => `
+    <button type="button" class="home-explore-card" data-explore-idx="${idx}">
+      <div class="home-explore-card__icon" aria-hidden="true"><i class="${card.icon}"></i></div>
+      <h3 class="home-explore-card__title">${escapeHtml(card.title)}</h3>
+      <p class="home-explore-card__desc">${escapeHtml(card.desc)}</p>
+    </button>`
+    )
+    .join("");
+  els.homeExploreGrid.querySelectorAll(".home-explore-card").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const card = HOME_EXPLORE_CARDS[Number(btn.dataset.exploreIdx)];
+      if (!card) return;
+      if (card.action.type === "aba") {
+        loadAba(card.action.aba);
+      } else {
+        window.location.href = card.action.url;
+      }
+    });
+  });
+}
+
+function renderHomePanoramaSection() {
+  if (!els.homePanoramaMap) return;
+  if (!window.homePanorama || typeof window.homePanorama.render !== "function") return;
+  window.homePanorama.render(els.homePanoramaMap);
+}
+
+/** Gera insights automáticos a partir da série mensal (CAGED) + saldo por setor. */
+function buildHomeTendenciasInsights(monthly, setorRows) {
+  const insights = [];
+  const values = monthly && Array.isArray(monthly.values) ? monthly.values : [];
+  if (values.length) {
+    const last = values[values.length - 1];
+    const sign = last > 0 ? 1 : last < 0 ? -1 : 0;
+    let streak = 0;
+    for (let i = values.length - 1; i >= 0; i--) {
+      const s = values[i] > 0 ? 1 : values[i] < 0 ? -1 : 0;
+      if (s !== sign || sign === 0) break;
+      streak++;
+    }
+    if (sign > 0) {
+      insights.push({
+        icon: "fa-solid fa-arrow-trend-up",
+        text: `O Ceará registrou saldo positivo de empregos formais pelo ${streak}º mês consecutivo.`
+      });
+    } else if (sign < 0) {
+      insights.push({
+        icon: "fa-solid fa-arrow-trend-down",
+        text: `O Ceará registrou saldo negativo de empregos formais pelo ${streak}º mês consecutivo.`
+      });
+    }
+  }
+
+  const validSetor = (setorRows || []).filter((it) => it.raw !== null && it.raw !== undefined);
+  if (validSetor.length) {
+    const top = validSetor.reduce((a, b) => (b.raw > a.raw ? b : a));
+    if (top.raw > 0) {
+      insights.push({
+        icon: "fa-solid fa-trophy",
+        text: `O setor de ${top.label} liderou a geração de empregos no período, com saldo de ${formatSaldoAtividadeValor(top.raw)}.`
+      });
+    }
+    const worst = validSetor.reduce((a, b) => (b.raw < a.raw ? b : a));
+    if (worst.raw < 0) {
+      insights.push({
+        icon: "fa-solid fa-triangle-exclamation",
+        text: `O setor de ${worst.label} apresentou saldo negativo (${formatSaldoAtividadeValor(worst.raw)}) no período.`
+      });
+    }
+  }
+
+  return insights;
+}
+
+function renderHomeTendencias(rows) {
+  if (!els.homeTendenciasList) return;
+  const status = state.homeTrendData.status;
+  if (status !== "loaded") {
+    els.homeTendenciasList.innerHTML = `<p class="home-tendencias__empty">${
+      status === "error" ? "Não foi possível gerar as tendências agora." : "Calculando tendências…"
+    }</p>`;
+    return;
+  }
+  const setorSeries = buildSaldoPorAtividadeSeries(rows) || [];
+  const insights = buildHomeTendenciasInsights(state.homeTrendData.monthly, setorSeries);
+  if (!insights.length) {
+    els.homeTendenciasList.innerHTML = `<p class="home-tendencias__empty">Sem tendências identificadas para o período atual.</p>`;
+    return;
+  }
+  els.homeTendenciasList.innerHTML = insights
+    .map(
+      (it) => `
+    <article class="home-tendencia-card">
+      <div class="home-tendencia-card__icon" aria-hidden="true"><i class="${it.icon}"></i></div>
+      <p class="home-tendencia-card__text">${escapeHtml(it.text)}</p>
+    </article>`
+    )
+    .join("");
+}
+
+function renderHomeTrendChart() {
+  if (!els.homeTrendChart) return;
+  const status = state.homeTrendData.status;
+  if (els.homeTrendStatus) {
+    els.homeTrendStatus.hidden = status === "loaded";
+    els.homeTrendStatus.textContent =
+      status === "error" ? "Não foi possível carregar os dados do CAGED agora." : "Carregando dados do CAGED…";
+  }
+  if (status !== "loaded") return;
+  const { categories, values } = state.homeTrendData.monthly || { categories: [], values: [] };
+  if (state.charts.homeTrend) {
+    state.charts.homeTrend.destroy();
+    state.charts.homeTrend = null;
+  }
+  if (typeof ApexCharts === "undefined") return;
+  state.charts.homeTrend = new ApexCharts(els.homeTrendChart, {
+    chart: { type: "line", background: "transparent", toolbar: { show: false }, zoom: { enabled: false }, height: 260 },
+    series: [{ name: "Saldo de empregos", data: values }],
+    xaxis: { categories, labels: { style: { colors: "#7a84a6" } } },
+    yaxis: { labels: { formatter: (v) => formatNumber(v), style: { colors: "#7a84a6" } } },
+    stroke: { curve: "smooth", width: 3 },
+    markers: { size: 4 },
+    colors: ["#2f6df0"],
+    fill: {
+      type: "gradient",
+      gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0, stops: [0, 90, 100] }
+    },
+    grid: { borderColor: "#eef0f6" },
+    dataLabels: { enabled: false },
+    tooltip: { y: { formatter: (v) => formatNumber(v) } }
+  });
+  state.charts.homeTrend.render();
+}
+
+/** Busca (uma vez) os dados do CAGED usados no gráfico de tendência e nas tendências automáticas. */
+function ensureHomeTrendData() {
+  if (state.homeTrendData.status === "loaded" || state.homeTrendData.status === "loading") return;
+  if (!window.homeTrend || typeof window.homeTrend.loadData !== "function") {
+    state.homeTrendData.status = "error";
+    return;
+  }
+  state.homeTrendData.status = "loading";
+  window.homeTrend
+    .loadData()
+    .then((data) => {
+      state.homeTrendData.status = "loaded";
+      state.homeTrendData.monthly = data.monthly;
+    })
+    .catch(() => {
+      state.homeTrendData.status = "error";
+    })
+    .finally(() => {
+      if (state.abaAtual === "indicadores") {
+        renderHomeTrendChart();
+        renderHomeTendencias(state.dadosFiltrados || []);
+      }
+    });
+}
+
+function renderHomeHero() {
+  if (els.homeHeroBasesCount) {
+    els.homeHeroBasesCount.textContent = state.abas.length ? String(state.abas.length) : "—";
+  }
+}
+
+/** Monta toda a nova home (hero, KPIs, tendência, setor, explore, panorama, tendências). */
+function renderHomeSections(rows) {
+  renderHomeHero();
+  renderHomeKpiRow(rows);
+  renderHomeSetorSection(rows);
+  renderHomeExploreCards();
+  renderHomePanoramaSection();
+  renderHomeTrendChart();
+  renderHomeTendencias(rows);
+  ensureHomeTrendData();
 }
 
 /** Ícone do cabeçalho = mesmo do item no menu lateral (MENU_META). */
@@ -1538,65 +1774,8 @@ function renderKpis() {
   }
 
   if (state.abaAtual === "indicadores") {
-    const ref = resolveHomeReferencia(state.dadosAba);
-    const periodoLabel = formatHomePeriodoLabel(ref.year, ref.month);
-    const destaque = buildIndicadoresDestaqueCards(rows);
-    const demais = buildIndicadoresDemaisCards(rows);
-    const saldoAtividadeHtml = renderSaldoPorAtividadeHtml(rows);
-    const demaisSubtitle = periodoLabel
-      ? `Principais valores em destaque — ${periodoLabel}`
-      : "Principais valores em destaque na base";
-    els.kpis.className = "kpi-home sec sec-blue";
-    els.kpis.innerHTML = `
-      <div class="kpi-home__block kpi-home__block--destaque">
-        <div class="kpi-home__heading">
-          <span class="kpi-home__heading-icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
-          <div>
-            <h3 class="kpi-home__title">Mercado de trabalho em foco</h3>
-            <p class="kpi-home__subtitle">Taxas de desemprego no Ceará e no Brasil${periodoLabel ? ` · ${escapeHtml(periodoLabel)}` : ""}</p>
-          </div>
-        </div>
-        <div class="kpis kpis--home-destaque">
-          ${destaque
-            .map(
-              (c) => `
-            <div class="card card--home-featured ${c.cardClass}${c.missing ? " card--home-missing" : ""}">
-              <div class="card__ico" aria-hidden="true"><i class="${c.icon}"></i></div>
-              <span class="label">${escapeHtml(c.label)}</span>
-              <span class="value">${escapeHtml(String(c.value))}</span>
-              <span class="meta">${escapeHtml(c.meta)}</span>
-            </div>`
-            )
-            .join("")}
-        </div>
-      </div>
-      <div class="kpi-home__block kpi-home__block--demais">
-        <div class="kpi-home__heading">
-          <span class="kpi-home__heading-icon kpi-home__heading-icon--sec" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
-          <div>
-            <h3 class="kpi-home__title">Demais indicadores</h3>
-            <p class="kpi-home__subtitle">${escapeHtml(demaisSubtitle)}</p>
-          </div>
-        </div>
-        <div class="kpis kpis--home-demais">
-          ${
-            demais.length
-              ? demais
-                  .map(
-                    (card) => `
-            <div class="card card--home-demais${card.missing ? " card--home-missing" : ""}">
-              <div class="card__ico card__ico--sm" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></div>
-              <span class="label">${escapeHtml(card.label)}</span>
-              <span class="value">${escapeHtml(String(card.value))}</span>
-              <span class="meta">${escapeHtml(card.meta)}</span>
-            </div>`
-                  )
-                  .join("")
-              : `<div class="card card--home-demais card--home-empty"><span class="meta">Sem outros indicadores no ranking atual.</span></div>`
-          }
-        </div>
-        ${saldoAtividadeHtml}
-      </div>`;
+    els.kpis.innerHTML = "";
+    renderHomeSections(rows);
     return;
   }
 
@@ -2160,9 +2339,12 @@ function applyViewFilters() {
 }
 
 function setDestaqueSectionsVisibility() {
-  const hide = state.abaAtual === "analises";
+  const isHome = state.abaAtual === "indicadores";
+  const hide = state.abaAtual === "analises" || isHome;
   if (els.sectionKpisHeader) els.sectionKpisHeader.style.display = hide ? "none" : "";
   if (els.kpis) els.kpis.style.display = hide ? "none" : "";
+  if (els.pageIntro) els.pageIntro.classList.toggle("hidden", isHome);
+  if (els.homeRedesign) els.homeRedesign.classList.toggle("hidden", !isHome);
 }
 
 function renderAll() {
@@ -2223,6 +2405,31 @@ async function loadAba(sheetName) {
   }
 }
 
+/** Metadados do rodapé (última atualização, fonte, periodicidade, responsável, API). */
+async function loadHomeFooterMeta() {
+  try {
+    const response = await fetch("/api/meta");
+    if (!response.ok) throw new Error("Falha ao carregar metadados");
+    const meta = await response.json();
+    if (els.footerMetaAtualizacao) {
+      const d = meta.ultima_atualizacao ? new Date(meta.ultima_atualizacao) : null;
+      els.footerMetaAtualizacao.textContent =
+        d && !Number.isNaN(d.getTime())
+          ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d)
+          : "—";
+    }
+    if (els.footerMetaFonte && meta.fonte) els.footerMetaFonte.textContent = meta.fonte;
+    if (els.footerMetaPeriodicidade && meta.periodicidade) els.footerMetaPeriodicidade.textContent = meta.periodicidade;
+    if (els.footerMetaResponsavel && meta.responsavel_tecnico) els.footerMetaResponsavel.textContent = meta.responsavel_tecnico;
+    if (els.footerMetaApi && meta.api) {
+      els.footerMetaApi.textContent = meta.api;
+      els.footerMetaApi.href = meta.api;
+    }
+  } catch {
+    if (els.footerMetaAtualizacao) els.footerMetaAtualizacao.textContent = "Indisponível";
+  }
+}
+
 async function init() {
   try {
     const response = await fetch(API_ABAS);
@@ -2263,10 +2470,21 @@ async function init() {
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeMenu();
     });
+    if (els.homeHeroCtaIndicadores) {
+      els.homeHeroCtaIndicadores.addEventListener("click", () => {
+        document.getElementById("homeKpiSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    if (els.homeHeroCtaObservatorio) {
+      els.homeHeroCtaObservatorio.addEventListener("click", () => {
+        document.getElementById("homeExploreSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
     applySidebarModeForViewport();
     window.addEventListener("resize", () => {
       applySidebarModeForViewport();
     });
+    loadHomeFooterMeta();
     await loadAba(initialSheet);
   } catch (error) {
     els.statusPagina.textContent = "Erro de carga";

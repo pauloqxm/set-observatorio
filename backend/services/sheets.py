@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import logging
 import time
+from datetime import datetime
 from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -131,3 +132,17 @@ def get_sheet_data(sheet_name: str) -> list[dict[str, Any]]:
 
 def get_indicadores() -> list[dict[str, Any]]:
     return get_sheet_data("indicadores")
+
+
+def get_meta() -> dict[str, Any]:
+    """Metadados leves da base para o rodapé (Última atualização, fonte, etc.)."""
+    _load_workbook_cache()
+    return {
+        "ultima_atualizacao": (
+            datetime.fromtimestamp(_LAST_FETCH_TS).isoformat() if _LAST_FETCH_TS else None
+        ),
+        "fonte": "Planilhas oficiais da Secretaria do Trabalho do Estado do Ceará (SET) / IDT",
+        "periodicidade": "Mensal",
+        "responsavel_tecnico": "Secretaria do Trabalho do Estado do Ceará (SET) / Instituto de Desenvolvimento do Trabalho (IDT)",
+        "api": "/api/abas",
+    }

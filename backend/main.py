@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .services.sheets import get_indicadores, get_sheet_data, get_sheet_names
+from .services.sheets import get_indicadores, get_meta, get_sheet_data, get_sheet_names
 
 app = FastAPI(
     title="Portal de Empregabilidade",
@@ -74,6 +74,11 @@ def api_indicadores(
 def api_abas() -> dict:
     sheets = get_sheet_names()
     return {"total": len(sheets), "abas": sheets}
+
+
+@app.get("/api/meta")
+def api_meta() -> dict:
+    return get_meta()
 
 
 @app.get("/api/abas/{sheet_name}")
