@@ -339,6 +339,121 @@
   min-height: 380px;
 }
 
+/* Dinheiro na Mão */
+.section-map-ce--dinheiro-na-mao .map-ce-toolbar--map-only {
+  display: block;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__graduated,
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__perfil,
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__vai-vem,
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__caged-grup,
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__seguro-desemprego,
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__qualificacao {
+  display: none;
+}
+
+.map-ce-layer-row__dinheiro-na-mao {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-layer-row__dinheiro-na-mao {
+  display: flex;
+}
+
+.map-ce-main__dinheiro-na-mao-kpis {
+  grid-area: kpis;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #fffbeb 0%, #fff7ed 100%);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  min-width: 0;
+  align-self: stretch;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-main__dinheiro-na-mao-kpis {
+  display: flex;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-main {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-areas:
+    "map kpis"
+    "legend .";
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-main__profile-kpis,
+.section-map-ce--dinheiro-na-mao .map-ce-main__vai-vem-kpis,
+.section-map-ce--dinheiro-na-mao .map-ce-main__seguro-desemprego-kpis,
+.section-map-ce--dinheiro-na-mao .map-ce-main__qualificacao-kpis,
+.section-map-ce--dinheiro-na-mao .map-ce-main__kpis,
+.section-map-ce--dinheiro-na-mao .map-ce-vv-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-cg-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-sd-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-qf-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-rankings-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-region-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-line-wrap:not(.map-ce-dnm-line-wrap),
+.section-map-ce--dinheiro-na-mao .map-ce-profile-charts-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-pib-line-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-ceara-cred-line-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-intermediacao-line-wrap {
+  display: none !important;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-main__dinheiro-na-mao-kpis .map-ce-kpi-card--profile-standard {
+  display: flex !important;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-kpis-bar--profile {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.section-map-ce--dinheiro-na-mao #dnmStatus {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  color: #5c678f;
+}
+
+.map-ce-dnm-charts-wrap {
+  display: none;
+  margin-top: 18px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-dnm-charts-wrap {
+  display: flex;
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-cg-rankings-wrap {
+  border-color: rgba(217, 119, 6, 0.24);
+  background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-dnm-line-wrap {
+  display: block !important;
+  border-color: rgba(217, 119, 6, 0.2);
+  background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+}
+
+.section-map-ce--dinheiro-na-mao .map-ce-dnm-line-wrap .map-ce-line-block {
+  border: none;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Qualificação */
 .section-map-ce--qualificacao .map-ce-toolbar--map-only {
   display: block;
@@ -354,16 +469,29 @@
 
 .map-ce-layer-row__qualificacao {
   display: none;
-  flex-direction: column;
-  gap: 6px;
+  flex: 1 1 680px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
 }
 
 .section-map-ce--qualificacao .map-ce-layer-row__qualificacao {
   display: flex;
 }
 
+.map-ce-layer-row__qualificacao-filter {
+  display: flex;
+  flex: 1 1 190px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .map-ce-layer-row__toggle-wrap--qualificacao-cursos {
   display: none;
+}
+
+.map-ce-layer-row__toggle-wrap--qualificacao-cursos[hidden] {
+  display: none !important;
 }
 
 .section-map-ce--qualificacao .map-ce-layer-row__toggle-wrap--qualificacao-cursos {
@@ -406,7 +534,7 @@
 .section-map-ce--qualificacao .map-ce-charts-wrap,
 .section-map-ce--qualificacao .map-ce-rankings-wrap,
 .section-map-ce--qualificacao .map-ce-region-charts-wrap,
-.section-map-ce--qualificacao .map-ce-line-wrap,
+.section-map-ce--qualificacao .map-ce-line-wrap:not(.map-ce-qf-line-wrap),
 .section-map-ce--qualificacao .map-ce-profile-charts-wrap,
 .section-map-ce--qualificacao .map-ce-pib-line-wrap,
 .section-map-ce--qualificacao .map-ce-ceara-cred-line-wrap,
@@ -442,8 +570,136 @@
   display: flex;
 }
 
+.section-map-ce--qualificacao .map-ce-qf-line-wrap {
+  display: block;
+}
+
+.map-ce-qf-line-wrap .map-ce-line-block__chart {
+  min-height: 360px;
+}
+
 .section-map-ce--qualificacao .map-ce-cg-rankings-wrap {
   border-color: rgba(5, 150, 105, 0.22);
+}
+
+.map-ce-qf-projeto-wrap {
+  padding: 0;
+}
+
+.map-ce-qf-projeto-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 16px;
+}
+
+.map-ce-qf-projeto-grid > * {
+  min-width: 0;
+}
+
+.map-ce-qf-projeto-chart__canvas {
+  min-height: 400px;
+}
+
+.map-ce-qf-projeto-table.map-ce-vv-bar-panel--detail {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.map-ce-qf-projeto-table .map-ce-vv-bar-panel__hint {
+  margin: 0;
+  padding: 0 16px 10px;
+}
+
+.map-ce-qf-projeto-table__scroll {
+  flex: 1 1 auto;
+  min-height: 320px;
+  max-height: 360px;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.map-ce-qf-projeto-table__grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: transparent;
+}
+
+.map-ce-qf-projeto-table__grid th,
+.map-ce-qf-projeto-table__grid td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e7edf5;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.map-ce-qf-projeto-table__grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+  color: #1e3a5f;
+  font-weight: 700;
+  text-align: left;
+}
+
+.map-ce-qf-projeto-table__grid th:first-child,
+.map-ce-qf-projeto-table__grid td:first-child {
+  width: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.map-ce-qf-projeto-table__grid th:last-child,
+.map-ce-qf-projeto-table__grid td:last-child {
+  width: 96px;
+  text-align: right;
+}
+
+.map-ce-qf-projeto-table__grid tbody td:first-child {
+  color: #334155;
+  font-weight: 600;
+}
+
+.map-ce-qf-projeto-table__grid tbody td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #0f1a44;
+  white-space: nowrap;
+}
+
+/* Buffer entre marcador e rótulo da legenda do donut */
+.map-ce-qf-projeto-chart .apexcharts-legend-marker {
+  margin-right: 10px !important;
+}
+
+.map-ce-qf-projeto-chart .apexcharts-legend-series {
+  margin: 4px 0 !important;
+}
+
+.map-ce-qf-projeto-table__foot {
+  margin: 0;
+  padding: 8px 16px 12px;
+  text-align: right;
+  font-size: 0.74rem;
+  color: #64708f;
+}
+
+@media (max-width: 960px) {
+  .map-ce-qf-projeto-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* CAGED Grupamentos — gráficos */
@@ -2478,5 +2734,20 @@
   min-height: 420px;
   width: 100%;
   overflow: visible;
+}
+
+@media (max-width: 960px) {
+  .section-map-ce--dinheiro-na-mao .map-ce-main {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "kpis"
+      "map"
+      "legend";
+  }
+
+  .section-map-ce--dinheiro-na-mao .map-ce-kpis-bar--profile {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
 }
 

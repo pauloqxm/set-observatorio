@@ -138,6 +138,13 @@ const CE_SD_LAYER_CONFIG = {
   requerentes: { legendTitle: "Requerentes", field: "requerentes" },
   requerentes_web: { legendTitle: "Requerentes WEB", field: "requerentesWeb" },
 };
+const CE_DNM_PROP = "dinheiro_na_mao_metric";
+const CE_DNM_COLORS = ["#fffbeb", "#fde68a", "#fbbf24", "#d97706", "#92400e"];
+const CE_DNM_LAYER_CONFIG = {
+  operacoes: { legendTitle: "Total de operações", field: "operacoes", format: "int" },
+  valorOperacoes: { legendTitle: "Valor total das operações", field: "valorOperacoes", format: "currency" },
+  valorJuros: { legendTitle: "Valor dos juros", field: "valorJuros", format: "currency" },
+};
 const CE_QF_PROP = "qualificacao_metric";
 const CE_QF_COLORS = ["#ecfdf5", "#a7f3d0", "#34d399", "#059669", "#047857"];
 const CE_QF_LAYER_CONFIG = {
@@ -1190,6 +1197,7 @@ function ceGetSelectedProfileLayerKey() {
   if (ceIsVaiVemMode() || cePendingPageMode === "vai_vem") return CE_PROFILE_LAYER_KEYS[0];
   if (ceIsCagedGrupamentosMode() || cePendingPageMode === "caged_grupamentos") return CE_PROFILE_LAYER_KEYS[0];
   if (ceIsSeguroDesempregoMode() || cePendingPageMode === "seguro_desemprego") return CE_PROFILE_LAYER_KEYS[0];
+  if (ceIsDinheiroNaMaoMode() || cePendingPageMode === "dinheiro_na_mao") return CE_PROFILE_LAYER_KEYS[0];
   if (ceIsQualificacaoMode() || cePendingPageMode === "qualificacao") return CE_PROFILE_LAYER_KEYS[0];
   return v;
 }
@@ -1941,6 +1949,7 @@ function ceBuildSeguroDesempregoPopupHtml({ municipio, regiao, agg, accentColor 
     ? [
         ["Requerentes", agg.requerentes],
         ["Requerentes WEB", agg.requerentesWeb],
+        ["Requerentes Presencial", (Number(agg.requerentes) || 0) - (Number(agg.requerentesWeb) || 0)],
       ]
     : [];
   const fieldRows = rows
@@ -1970,6 +1979,100 @@ function ceBuildSeguroDesempregoPopupHtml({ municipio, regiao, agg, accentColor 
           fieldRows ||
           `<p class="map-ce-popup__empty">Sem requerimentos de Seguro Desemprego neste município nos filtros ativos.</p>`
         }
+      </div>
+    </section>
+  `;
+}
+
+function ceGetSelectedDinheiroNaMaoLayerKey() {
+  const value = document.getElementById("mapDinheiroNaMaoLayerStyle")?.value || "operacoes";
+  return Object.prototype.hasOwnProperty.call(CE_DNM_LAYER_CONFIG, value) ? value : "operacoes";
+}
+
+function ceMergeDinheiroNaMaoIntoGeojson(geojson, aggByCod, metricKey) {
+  const field = CE_DNM_LAYER_CONFIG[metricKey]?.field || "operacoes";
+  return {
+    type: "FeatureCollection",
+    features: (geojson.features || []).map((feature) => {
+      const code = ceGeoCodiToCodigoMunicipio(feature.properties?.GEO_CODI);
+      const aggregate = code != null ? aggByCod.get(code) : null;
+      const raw = aggregate?.[field];
+      const value = aggregate != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+      return {
+        ...feature,
+        properties: {
+          ...(feature.properties || {}),
+          [CE_DNM_PROP]: value,
+        },
+      };
+    }),
+  };
+}
+
+function ceApplyDinheiroNaMaoMapFillPaint() {
+  const map = ceMapRuntime.map;
+  if (!map?.getLayer("ce-regioes-fill")) return false;
+  const metricKey = ceMapRuntime.dinheiroNaMaoMetricKey || ceGetSelectedDinheiroNaMaoLayerKey();
+  const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_DNM_PROP, {});
+  map.setPaintProperty(
+    "ce-regioes-fill",
+    "fill-color",
+    ceBuildNumericFillExpr(CE_DNM_PROP, stats?.thresholds || [], CE_DNM_COLORS, ceMapRuntime.activeLegendClass)
+  );
+  map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.8);
+  return true;
+}
+
+function ceApplyDinheiroNaMaoLayer(aggByCod, metricKey) {
+  const map = ceMapRuntime.map;
+  if (!map?.getSource?.("ce-regioes") || !ceMapRuntime.geoJsonBase) return;
+  ceMapRuntime.dinheiroNaMaoAggByCod = aggByCod instanceof Map ? aggByCod : new Map();
+  ceMapRuntime.dinheiroNaMaoMetricKey = metricKey || ceGetSelectedDinheiroNaMaoLayerKey();
+  const merged = ceMergeDinheiroNaMaoIntoGeojson(
+    ceMapRuntime.geoJsonBase,
+    ceMapRuntime.dinheiroNaMaoAggByCod,
+    ceMapRuntime.dinheiroNaMaoMetricKey
+  );
+  ceMapRuntime.currentMergedGeoJson = merged;
+  try {
+    map.getSource("ce-regioes").setData(merged);
+    ceScheduleMapVisualizationRefresh();
+  } catch (error) {
+    console.warn("Atualizar mapa Dinheiro na Mão:", error);
+  }
+}
+
+function ceBuildDinheiroNaMaoPopupHtml({ municipio, regiao, agg, accentColor }) {
+  const rows = agg
+    ? [
+        ["Total de operações", ceFormatIntPt(Number(agg.operacoes) || 0)],
+        ["Valor das operações", ceFormatCurrencyPt(Number(agg.valorOperacoes) || 0)],
+        ["Valor dos juros", ceFormatCurrencyPt(Number(agg.valorJuros) || 0)],
+      ]
+    : [];
+  const fieldRows = rows
+    .map(
+      ([label, value]) => `
+        <div class="map-ce-popup__row">
+          <span class="map-ce-popup__label">
+            <span class="map-ce-popup__icon map-ce-popup__icon--label" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
+            ${ceEscapeHtml(label)}
+          </span>
+          <strong class="map-ce-popup__value map-ce-popup__value--metric">${ceEscapeHtml(value)}</strong>
+        </div>`
+    )
+    .join("");
+  return `
+    <section class="map-ce-popup" style="--map-popup-accent:${ceEscapeHtml(accentColor || "#d97706")}" role="group" aria-label="Detalhes do Dinheiro na Mão">
+      <header class="map-ce-popup__head">
+        <h4 class="map-ce-popup__title">
+          <span class="map-ce-popup__icon" aria-hidden="true"><i class="fa-solid fa-money-bill-transfer"></i></span>
+          ${ceEscapeHtml(municipio || "Município")}
+        </h4>
+        ${regiao ? `<p class="map-ce-popup__subtitle">${ceEscapeHtml(regiao)}</p>` : ""}
+      </header>
+      <div class="map-ce-popup__grid">
+        ${fieldRows || `<p class="map-ce-popup__empty">Sem operações neste município nos filtros ativos.</p>`}
       </div>
     </section>
   `;
@@ -2052,7 +2155,7 @@ function ceApplyQualificacaoLayer(aggByCod, metricKey) {
 
 function ceSetQualificacaoCursosOverlaysVisibility(map) {
   if (!map) return;
-  const inMode = ceIsQualificacaoMode();
+  const inMode = ceIsQualificacaoRoute() && ceIsQualificacaoMode();
   const layerId = ceGetQualificacaoCursosLayerId(map);
   if (layerId) {
     const onPts = inMode && ceIsQualificacaoCursosOverlayOn();
@@ -3053,6 +3156,10 @@ function ceGetActiveLegendThresholds() {
     const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_SD_PROP, {});
     return stats?.thresholds || [];
   }
+  if (ceIsDinheiroNaMaoMode()) {
+    const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_DNM_PROP, {});
+    return stats?.thresholds || [];
+  }
   if (ceIsQualificacaoMode()) {
     const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_QF_PROP, {});
     return stats?.thresholds || [];
@@ -3231,6 +3338,25 @@ function ceRenderFullLegend(metricKey) {
       st.min,
       st.max
     );
+  } else if (ceIsDinheiroNaMaoMode()) {
+    const layerKey = ceMapRuntime.dinheiroNaMaoMetricKey || ceGetSelectedDinheiroNaMaoLayerKey();
+    const cfg = CE_DNM_LAYER_CONFIG[layerKey] || CE_DNM_LAYER_CONFIG.operacoes;
+    const st = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_DNM_PROP, {});
+    ceUpdateLegendNumericGeneric(
+      el,
+      {
+        prop: CE_DNM_PROP,
+        colors: CE_DNM_COLORS,
+        legendTitle: cfg.legendTitle,
+        formatValue: (value) =>
+          cfg.format === "currency"
+            ? ceFormatCurrencyPt(Number(value))
+            : ceFormatIntPt(Number(value)),
+      },
+      st.thresholds,
+      st.min,
+      st.max
+    );
   } else if (ceIsQualificacaoMode()) {
     const layerKey = ceMapRuntime.qualificacaoMetricKey || ceGetSelectedQualificacaoLayerKey();
     const cfg = CE_QF_LAYER_CONFIG[layerKey] || CE_QF_LAYER_CONFIG.cursos;
@@ -3339,6 +3465,13 @@ function ceIsQualificacaoHeatOverlayOn() {
   return btn?.getAttribute("aria-pressed") === "true";
 }
 
+function ceResetQualificacaoCursoToggles() {
+  for (const id of ["mapToggleQualificacaoCursos", "mapToggleQualificacaoHeat"]) {
+    const btn = document.getElementById(id);
+    if (btn) btn.setAttribute("aria-pressed", "false");
+  }
+}
+
 function ceIsSedesOverlayOn() {
   const btn = document.getElementById("mapToggleSedes");
   return btn?.getAttribute("aria-pressed") === "true";
@@ -3390,9 +3523,25 @@ function ceIsSeguroDesempregoMode() {
   return root?.classList.contains("section-map-ce--seguro-desemprego") === true;
 }
 
+function ceIsDinheiroNaMaoMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--dinheiro-na-mao") === true;
+}
+
+function ceIsQualificacaoRoute() {
+  try {
+    return new URLSearchParams(window.location.search).get("aba") === "qualificacao";
+  } catch (_) {
+    return false;
+  }
+}
+
 function ceIsQualificacaoMode() {
   const root = document.getElementById("secaoMapaCe");
-  return root?.classList.contains("section-map-ce--qualificacao") === true;
+  return (
+    ceIsQualificacaoRoute() &&
+    root?.classList.contains("section-map-ce--qualificacao") === true
+  );
 }
 
 function ceIsPerfilEmpresasLayerKey(layerKey) {
@@ -3421,6 +3570,7 @@ function ceApplyPageModeClasses(sheetName) {
   const isVaiVem = sheetName === "vai_vem";
   const isCagedGrup = sheetName === "caged_grupamentos";
   const isSeguroDesemp = sheetName === "seguro_desemprego";
+  const isDinheiroNaMao = sheetName === "dinheiro_na_mao";
   const isQualificacao = sheetName === "qualificacao";
   const isPerfilMode = ceIsProfileMapPageMode(sheetName);
   root.classList.toggle("section-map-ce--perfil", isPerfilMode);
@@ -3430,7 +3580,9 @@ function ceApplyPageModeClasses(sheetName) {
   root.classList.toggle("section-map-ce--vai-vem", isVaiVem);
   root.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
   root.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
+  root.classList.toggle("section-map-ce--dinheiro-na-mao", isDinheiroNaMao);
   root.classList.toggle("section-map-ce--qualificacao", isQualificacao);
+  if (!isQualificacao) ceResetQualificacaoCursoToggles();
 }
 
 function ceSyncProfileLayerSelectForPage(sheetName) {
@@ -3463,6 +3615,10 @@ function ceSyncProfileLayerSelectForPage(sheetName) {
       continue;
     }
     if (sheetName === "qualificacao") {
+      opt.hidden = true;
+      continue;
+    }
+    if (sheetName === "dinheiro_na_mao") {
       opt.hidden = true;
       continue;
     }
@@ -3622,6 +3778,8 @@ function ceApplyVisualization() {
       ceApplyCagedGrupMapFillPaint();
     } else if (ceIsSeguroDesempregoMode()) {
       ceApplySeguroDesempregoMapFillPaint();
+    } else if (ceIsDinheiroNaMaoMode()) {
+      ceApplyDinheiroNaMaoMapFillPaint();
     } else if (ceIsQualificacaoMode()) {
       ceApplyQualificacaoMapFillPaint();
     } else if (isPerfil) {
@@ -6894,6 +7052,14 @@ function ceSyncMunicipiosFromRegioes() {
  * Set vazio = todos os meses presentes na base.
  */
 function cePopulateMesSelect(rows, selAnoForMonthList) {
+  if (ceIsDinheiroNaMaoMode() || cePendingPageMode === "dinheiro_na_mao") {
+    window.dinheiroNaMaoApi?.syncTemporalFilters?.();
+    return;
+  }
+  if (ceIsQualificacaoMode() || cePendingPageMode === "qualificacao") {
+    window.qualificacaoApi?.syncTemporalFilters?.();
+    return;
+  }
   const sel = document.getElementById("mapFilterMes");
   if (!sel) return;
   const prevSelected = new Set(Array.from(sel.selectedOptions).map((o) => o.value));
@@ -6928,6 +7094,14 @@ function ceRefreshMesOptionsFromAnoFilter() {
 }
 
 function cePopulateAnoSelect(rows) {
+  if (ceIsDinheiroNaMaoMode() || cePendingPageMode === "dinheiro_na_mao") {
+    window.dinheiroNaMaoApi?.syncTemporalFilters?.();
+    return;
+  }
+  if (ceIsQualificacaoMode() || cePendingPageMode === "qualificacao") {
+    window.qualificacaoApi?.syncTemporalFilters?.();
+    return;
+  }
   const sel = document.getElementById("mapFilterAno");
   if (!sel) return;
   const years = new Set();
@@ -6947,6 +7121,14 @@ function cePopulateAnoSelect(rows) {
 }
 
 function ceSyncTemporalFiltersForCurrentMode() {
+  if (ceIsDinheiroNaMaoMode() || cePendingPageMode === "dinheiro_na_mao") {
+    window.dinheiroNaMaoApi?.syncTemporalFilters?.();
+    return;
+  }
+  if (ceIsQualificacaoMode() || cePendingPageMode === "qualificacao") {
+    window.qualificacaoApi?.syncTemporalFilters?.();
+    return;
+  }
   const anoEl = document.getElementById("mapFilterAno");
   const mesEl = document.getElementById("mapFilterMes");
   const prevAno = new Set(Array.from(anoEl?.selectedOptions || []).map((o) => o.value));
@@ -7043,6 +7225,11 @@ function ceApplyMapFilters() {
 
   if (ceIsSeguroDesempregoMode()) {
     window.seguroDesempregoApi?.refresh?.();
+    return;
+  }
+
+  if (ceIsDinheiroNaMaoMode()) {
+    window.dinheiroNaMaoApi?.refresh?.();
     return;
   }
 
@@ -7357,6 +7544,8 @@ function ceWireMapFiltersDelegation() {
         window.cagedGrupamentosApi?.syncMunicipiosFromRegiao?.();
       } else if (ceIsSeguroDesempregoMode()) {
         window.seguroDesempregoApi?.syncMunicipiosFromRegiao?.();
+      } else if (ceIsDinheiroNaMaoMode()) {
+        window.dinheiroNaMaoApi?.syncMunicipiosFromRegiao?.();
       } else if (ceIsQualificacaoMode()) {
         window.qualificacaoApi?.syncMunicipiosFromRegiao?.();
       } else {
@@ -7366,7 +7555,9 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapFilterVaiVemRegiao" && ceIsVaiVemMode()) {
       window.vaiVemApi?.syncMunicipiosFromRegiao?.();
     }
-    if (t.id === "mapFilterAno" && !ceIsQualificacaoMode()) ceRefreshMesOptionsFromAnoFilter();
+    if (t.id === "mapFilterAno" && !ceIsQualificacaoMode() && !ceIsDinheiroNaMaoMode()) {
+      ceRefreshMesOptionsFromAnoFilter();
+    }
     if (t.id === "mapFilterMes" || t.id === "mapFilterAno" || t.id === "mapFilterMunicipio" || t.id === "mapFilterRegiao" || t.id === "mapFilterVaiVemRegiao") {
       ceMapRuntime.activeLegendClass = null;
       ceApplyMapFilters();
@@ -7391,6 +7582,10 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapSeguroDesempregoLayerStyle") {
       ceMapRuntime.activeLegendClass = null;
       window.seguroDesempregoApi?.refresh?.();
+    }
+    if (t.id === "mapDinheiroNaMaoLayerStyle") {
+      ceMapRuntime.activeLegendClass = null;
+      window.dinheiroNaMaoApi?.refresh?.();
     }
     if (t.id === "mapQualificacaoLayerStyle" || t.id === "mapQualificacaoExecutoraStyle") {
       ceMapRuntime.activeLegendClass = null;
@@ -7436,6 +7631,14 @@ function ceWireMapFiltersDelegation() {
       "#mapToggleRegiao, #mapTogglePlanejamento, #mapToggleUnidades, #mapToggleQualificacaoCursos, #mapToggleQualificacaoHeat, #mapToggleSedes"
     );
     if (toggleBtn) {
+      if (
+        (toggleBtn.id === "mapToggleQualificacaoCursos" || toggleBtn.id === "mapToggleQualificacaoHeat") &&
+        !ceIsQualificacaoMode()
+      ) {
+        ceResetQualificacaoCursoToggles();
+        ceSetQualificacaoCursosOverlaysVisibility(ceMapRuntime.map);
+        return;
+      }
       const next = toggleBtn.getAttribute("aria-pressed") !== "true";
       toggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
       if (toggleBtn.id === "mapToggleSedes") {
@@ -7467,6 +7670,8 @@ function ceWireMapFiltersDelegation() {
         window.cagedGrupamentosApi?.syncMunicipiosFromRegiao?.();
       } else if (ceIsSeguroDesempregoMode()) {
         window.seguroDesempregoApi?.syncMunicipiosFromRegiao?.();
+      } else if (ceIsDinheiroNaMaoMode()) {
+        window.dinheiroNaMaoApi?.syncMunicipiosFromRegiao?.();
       } else if (ceIsQualificacaoMode()) {
         window.qualificacaoApi?.syncMunicipiosFromRegiao?.();
       } else {
@@ -7485,6 +7690,8 @@ function ceWireMapFiltersDelegation() {
         window.cagedGrupamentosApi?.clearMunicipioSelection?.();
       } else if (ceIsSeguroDesempregoMode()) {
         window.seguroDesempregoApi?.clearMunicipioSelection?.();
+      } else if (ceIsDinheiroNaMaoMode()) {
+        window.dinheiroNaMaoApi?.clearMunicipioSelection?.();
       } else if (ceIsQualificacaoMode()) {
         window.qualificacaoApi?.clearMunicipioSelection?.();
       } else {
@@ -7510,6 +7717,8 @@ function ceWireMapFiltersDelegation() {
         window.cagedGrupamentosApi?.rebuildMunicipioOptions?.();
       } else if (ceIsSeguroDesempregoMode()) {
         window.seguroDesempregoApi?.rebuildMunicipioOptions?.();
+      } else if (ceIsDinheiroNaMaoMode()) {
+        window.dinheiroNaMaoApi?.rebuildMunicipioOptions?.();
       } else if (ceIsQualificacaoMode()) {
         window.qualificacaoApi?.rebuildMunicipioOptions?.();
       } else {
@@ -7804,6 +8013,9 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         } else if (ceIsSeguroDesempregoMode() || cePendingPageMode === "seguro_desemprego") {
           initialFill = "#e8eef5";
           initialFillOpacity = 0.52;
+        } else if (ceIsDinheiroNaMaoMode() || cePendingPageMode === "dinheiro_na_mao") {
+          initialFill = "#e8eef5";
+          initialFillOpacity = 0.52;
         } else if (ceIsQualificacaoMode() || cePendingPageMode === "qualificacao") {
           initialFill = "#e8eef5";
           initialFillOpacity = 0.52;
@@ -8023,7 +8235,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
 
         ceBuildSedeLabelMarkers(map, sedesFc);
 
-        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos" || cePendingPageMode === "seguro_desemprego" || cePendingPageMode === "qualificacao")) {
+        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos" || cePendingPageMode === "seguro_desemprego" || cePendingPageMode === "dinheiro_na_mao" || cePendingPageMode === "qualificacao")) {
           ceSetPageMode(cePendingPageMode);
         } else if (ceIsPerfilMunicipalMode()) {
           let mode = "perfil_municipal";
@@ -8032,6 +8244,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           else if (ceIsVaiVemMode()) mode = "vai_vem";
           else if (ceIsCagedGrupamentosMode()) mode = "caged_grupamentos";
           else if (ceIsSeguroDesempregoMode()) mode = "seguro_desemprego";
+          else if (ceIsDinheiroNaMaoMode()) mode = "dinheiro_na_mao";
           else if (ceIsQualificacaoMode()) mode = "qualificacao";
           else if (ceIsPerfilEmpresasMode()) mode = "perfil_empresas";
           ceSetPageMode(mode);
@@ -8057,7 +8270,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             if (idtHits && idtHits.length) return;
           }
           const qfCursosLayerId = ceGetQualificacaoCursosLayerId(map);
-          if (qfCursosLayerId) {
+          if (ceIsQualificacaoMode() && qfCursosLayerId) {
             const qfHits = map.queryRenderedFeatures(e.point, { layers: [qfCursosLayerId] });
             if (qfHits && qfHits.length) return;
           }
@@ -8095,6 +8308,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             const agg = cod != null ? ceMapRuntime.seguroDesempregoAggByCod?.get(cod) : null;
             accentColor = CE_SD_COLORS[Math.min(3, CE_SD_COLORS.length - 1)];
             popupHtml = ceBuildSeguroDesempregoPopupHtml({ municipio, regiao, agg, accentColor });
+          } else if (ceIsDinheiroNaMaoMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            const agg = cod != null ? ceMapRuntime.dinheiroNaMaoAggByCod?.get(cod) : null;
+            accentColor = CE_DNM_COLORS[Math.min(3, CE_DNM_COLORS.length - 1)];
+            popupHtml = ceBuildDinheiroNaMaoPopupHtml({ municipio, regiao, agg, accentColor });
           } else if (ceIsQualificacaoMode()) {
             const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
             const agg = cod != null ? ceMapRuntime.qualificacaoAggByCod?.get(cod) : null;
@@ -8160,7 +8378,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             if (idtHits && idtHits.length) return;
           }
           const qfCursosLayerId = ceGetQualificacaoCursosLayerId(map);
-          if (qfCursosLayerId) {
+          if (ceIsQualificacaoMode() && qfCursosLayerId) {
             const qfHits = map.queryRenderedFeatures(e.point, { layers: [qfCursosLayerId] });
             if (qfHits && qfHits.length) return;
           }
@@ -8181,6 +8399,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             window.seguroDesempregoApi?.selectSingleMunicipioFromMap?.(cod);
             return;
           }
+          if (ceIsDinheiroNaMaoMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            window.dinheiroNaMaoApi?.selectSingleMunicipioFromMap?.(cod);
+            return;
+          }
           if (ceIsQualificacaoMode()) {
             const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
             window.qualificacaoApi?.selectSingleMunicipioFromMap?.(cod);
@@ -8198,7 +8421,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           if (map.getLayer(CE_PLANEJAMENTO_LINE_LAYER_ID)) layers.push(CE_PLANEJAMENTO_LINE_LAYER_ID);
           if (idtLayerId) layers.push(idtLayerId);
           const qfCursosLayerId = ceGetQualificacaoCursosLayerId(map);
-          if (qfCursosLayerId) layers.push(qfCursosLayerId);
+          if (ceIsQualificacaoMode() && qfCursosLayerId) layers.push(qfCursosLayerId);
           if (map.getLayer(CE_SEDE_LAYER_ID)) layers.push(CE_SEDE_LAYER_ID);
           const hits = map.queryRenderedFeatures(e.point, {
             layers,
@@ -8217,6 +8440,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           if (ceIsSeguroDesempregoMode()) {
             window.seguroDesempregoApi?.clearMunicipioSelection?.();
             window.seguroDesempregoApi?.refresh?.();
+            return;
+          }
+          if (ceIsDinheiroNaMaoMode()) {
+            window.dinheiroNaMaoApi?.clearMunicipioSelection?.();
+            window.dinheiroNaMaoApi?.refresh?.();
             return;
           }
           if (ceIsQualificacaoMode()) {
@@ -8379,18 +8607,25 @@ function ceSetPageMode(sheetName) {
   }
   cePendingPageMode = sheetName;
 
-  if (ceIsProfileMapPageMode(sheetName) || sheetName === "caged_grupamentos" || sheetName === "seguro_desemprego" || sheetName === "qualificacao") {
-    ceApplyPageModeClasses(sheetName);
-    if (ceIsProfileMapPageMode(sheetName)) {
-      ceSyncProfileLayerSelectForPage(sheetName);
-    }
+  ceApplyPageModeClasses(sheetName);
+  const isQualificacao = sheetName === "qualificacao" && ceIsQualificacaoRoute();
+  if (!isQualificacao) ceResetQualificacaoCursoToggles();
+  if (ceIsProfileMapPageMode(sheetName)) {
+    ceSyncProfileLayerSelectForPage(sheetName);
   }
 
   const map = ceMapRuntime.map;
   if (!map?.getSource?.("ce-regioes")) return;
+  ceSetQualificacaoCursosOverlaysVisibility(map);
 
   ceSyncProfileLayerUi();
-  ceSyncTemporalFiltersForCurrentMode();
+  if (sheetName === "qualificacao") {
+    window.qualificacaoApi?.syncTemporalFilters?.();
+  } else if (sheetName === "dinheiro_na_mao") {
+    window.dinheiroNaMaoApi?.syncTemporalFilters?.();
+  } else {
+    ceSyncTemporalFiltersForCurrentMode();
+  }
   ceApplyMapFilters();
   ceResizeRegioesMap();
 }
@@ -8403,6 +8638,7 @@ window.ceRegioesMapApi = {
   applyVaiVemLayer: ceApplyVaiVemLayer,
   applyCagedGrupLayer: ceApplyCagedGrupLayer,
   applySeguroDesempregoLayer: ceApplySeguroDesempregoLayer,
+  applyDinheiroNaMaoLayer: ceApplyDinheiroNaMaoLayer,
   applyQualificacaoLayer: ceApplyQualificacaoLayer,
   applyQualificacaoCursosPoints: ceApplyQualificacaoCursosPoints,
   normMunKey: ceNormMunKey,

@@ -786,7 +786,8 @@ function sdComputeKpis(rows) {
     requerentes += row.requerentes;
     requerentesWeb += row.requerentesWeb;
   }
-  return { requerentes, requerentesWeb };
+  const requerentesPresencial = requerentes - requerentesWeb;
+  return { requerentes, requerentesWeb, requerentesPresencial };
 }
 
 function sdRenderKpis(kpis) {
@@ -796,6 +797,7 @@ function sdRenderKpis(kpis) {
   };
   set("sdKpiRequerentes", kpis.requerentes);
   set("sdKpiRequerentesWeb", kpis.requerentesWeb);
+  set("sdKpiRequerentesPresencial", kpis.requerentesPresencial);
 }
 
 function sdSetStatus(message) {
@@ -833,7 +835,7 @@ async function sdEnsureData() {
   if (sdState.loaded || sdState.loading) return;
   sdState.loading = true;
   sdSetStatus("Carregando planilha Seguro Desemprego…");
-  sdRenderKpis({ requerentes: NaN, requerentesWeb: NaN });
+  sdRenderKpis({ requerentes: NaN, requerentesWeb: NaN, requerentesPresencial: NaN });
   try {
     const res = await fetch(SEGURO_DESEMPREGO_CSV_URL, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

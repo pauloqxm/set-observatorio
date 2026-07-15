@@ -4,7 +4,8 @@ const MAP_TABS = {
   dados_caged:      { label: "Dados CAGED",      icon: "fa-solid fa-map-location-dot" },
   perfil_municipal: { label: "Perfil Municipal", icon: "fa-solid fa-city" },
   perfil_empresas:  { label: "Perfil Empresas",  icon: "fa-solid fa-building" },
-  ceara_credi:      { label: "Ceará Credi",      icon: "fa-solid fa-hand-holding-dollar" },
+  ceara_credi:      { label: "Ceará Credi",      icon: "fa-solid fa-money-bill-transfer" },
+  dinheiro_na_mao:  { label: "Dinheiro na Mão",  icon: "fa-solid fa-hand-holding-dollar" },
   vai_vem:          { label: "Vai Vem",          icon: "fa-solid fa-bus" },
   caged_grupamentos:{ label: "CAGED Grupamentos", icon: "fa-solid fa-industry" },
   seguro_desemprego: { label: "Seguro Desemprego", icon: "fa-solid fa-shield-halved" },
@@ -69,6 +70,11 @@ const PAGE_META = {
     title: "Ceará Credi",
     desc: "Mapa do programa Ceará Crédito: cadastradas, em atendimento, aprovadas e valor liberado por município, com filtros por ano, região e município, KPIs e gráficos de evolução anual.",
     status: "Mapa + Ceará Crédito",
+  },
+  dinheiro_na_mao: {
+    title: "Dinheiro na Mão",
+    desc: "Operações do programa Dinheiro na Mão por município: quantidade, valor principal e juros, com filtros por data de desembolso/contrato, região e município.",
+    status: "Mapa + planilha Dinheiro na Mão",
   },
   vai_vem: {
     title: "Vai Vem Trabalhador",
@@ -183,7 +189,7 @@ function syncProfileLayerSelectForMode(sheetName) {
       opt.hidden = true;
       continue;
     }
-    if (sheetName === "qualificacao") {
+    if (sheetName === "qualificacao" || sheetName === "dinheiro_na_mao") {
       opt.hidden = true;
       continue;
     }
@@ -286,7 +292,7 @@ const MAP_FILTER_SELECT_IDS = [
   "sdFilterQuinzena",
 ];
 /** IDs dos seletores de ordenação (15 maiores/menores) usados nos rankings. */
-const MAP_RANK_ORDER_SELECT_IDS = ["mapRankOrder", "cgRankOrder", "sdRankOrder", "qfRankOrder"];
+const MAP_RANK_ORDER_SELECT_IDS = ["mapRankOrder", "cgRankOrder", "sdRankOrder", "qfRankOrder", "dnmRankOrder"];
 
 /** Mostra/esconde cada grupo de filtro conforme sua relação com a aba ativa (data-filter-tabs). */
 function syncFilterVisibilityForTab(sheetName) {
@@ -327,6 +333,7 @@ function syncMapSection() {
   const isPerfil        = state.abaAtual === "perfil_municipal";
   const isPerfilEmpresas = state.abaAtual === "perfil_empresas";
   const isCearaCredi    = state.abaAtual === "ceara_credi";
+  const isDinheiroNaMao = state.abaAtual === "dinheiro_na_mao";
   const isVaiVem        = state.abaAtual === "vai_vem";
   const isCagedGrup     = state.abaAtual === "caged_grupamentos";
   const isSeguroDesemp  = state.abaAtual === "seguro_desemprego";
@@ -334,9 +341,20 @@ function syncMapSection() {
   const isIntermediacao = state.abaAtual === "series_historicas";
   const isPerfilMode    = isPerfil || isPerfilEmpresas || isCearaCredi || isVaiVem || isIntermediacao;
 
+  wrap.querySelectorAll(".map-ce-layer-row__toggle-wrap--qualificacao-cursos").forEach((control) => {
+    control.hidden = !isQualificacao;
+    control.setAttribute("aria-hidden", isQualificacao ? "false" : "true");
+    const button = control.querySelector("button");
+    if (button) {
+      button.disabled = !isQualificacao;
+      if (!isQualificacao) button.setAttribute("aria-pressed", "false");
+    }
+  });
+
   wrap.classList.toggle("section-map-ce--perfil",         isPerfilMode);
   wrap.classList.toggle("section-map-ce--perfil-empresas", isPerfilEmpresas);
   wrap.classList.toggle("section-map-ce--ceara-credi",    isCearaCredi);
+  wrap.classList.toggle("section-map-ce--dinheiro-na-mao", isDinheiroNaMao);
   wrap.classList.toggle("section-map-ce--vai-vem",        isVaiVem);
   wrap.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
   wrap.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
@@ -351,6 +369,8 @@ function syncMapSection() {
         ? "Filtros do perfil empresas"
         : isCearaCredi
           ? "Filtros do Ceará Credi"
+          : isDinheiroNaMao
+            ? "Filtros do Dinheiro na Mão (data de desembolso/contrato)"
           : isVaiVem
             ? "Filtros do Vai Vem (data da solicitação)"
             : isCagedGrup
@@ -374,6 +394,7 @@ function syncMapSection() {
   window.cagedGrupamentosApi?.onPageActivate?.();
   window.seguroDesempregoApi?.onPageActivate?.();
   window.qualificacaoApi?.onPageActivate?.();
+  window.dinheiroNaMaoApi?.onPageActivate?.();
 
   if (!isVaiVem) {
     window.vaiVemApi?.restoreFullMunicipioFilter?.();
@@ -386,6 +407,9 @@ function syncMapSection() {
   }
   if (!isQualificacao) {
     window.qualificacaoApi?.restoreFullMunicipioFilter?.();
+  }
+  if (!isDinheiroNaMao) {
+    window.dinheiroNaMaoApi?.restoreFullMunicipioFilter?.();
   }
 
   if (typeof maplibregl === "undefined" || !window.ceRegioesMapApi) return;

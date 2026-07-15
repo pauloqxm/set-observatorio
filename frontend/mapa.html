@@ -68,17 +68,17 @@
         <div class="map-ce-filters-wrap">
           <p class="map-ce-filters-wrap__title">Filtros dos dados (CAGED)</p>
           <div class="map-ce-toolbar__filters map-ce-toolbar__filters--standalone">
-            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos qualificacao">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos qualificacao">
               <label class="map-ce-filter-label" for="mapFilterAno">Ano</label>
               <select id="mapFilterAno" class="map-ce-select-multi" multiple size="4" aria-label="Filtrar por ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterAnoClear">Limpar anos</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos qualificacao">
+            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos qualificacao">
               <label class="map-ce-filter-label" for="mapFilterMes">Mês/ano</label>
               <select id="mapFilterMes" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar por mês e ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterMesClear">Limpar meses</button>
             </div>
-            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos seguro_desemprego qualificacao">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos seguro_desemprego qualificacao">
               <label class="map-ce-filter-label" for="mapFilterRegiao">Região administrativa</label>
               <select
                 id="mapFilterRegiao"
@@ -123,7 +123,7 @@
               <select id="sdFilterQuinzena" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar Seguro Desemprego por quinzena"></select>
               <button type="button" class="map-ce-filter-btn" id="sdFilterQuinzenaClear">Limpar quinzenas</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi series_historicas caged_grupamentos vai_vem seguro_desemprego qualificacao">
+            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos vai_vem seguro_desemprego qualificacao">
               <label class="map-ce-filter-label" for="mapFilterMunicipio">Município</label>
               <input
                 type="search"
@@ -146,6 +146,7 @@
           <p class="map-ce-filters-wrap__status" id="cgStatus" hidden></p>
           <p class="map-ce-filters-wrap__status" id="sdStatus" hidden></p>
           <p class="map-ce-filters-wrap__status" id="qfStatus" hidden></p>
+          <p class="map-ce-filters-wrap__status" id="dnmStatus" hidden></p>
         </div>
 
         <div class="sec sec-map">
@@ -226,19 +227,37 @@
                   <option value="requerentes_web">Requerentes WEB</option>
                 </select>
               </div>
+              <div class="map-ce-layer-row__dinheiro-na-mao">
+                <label class="map-ce-filter-label" for="mapDinheiroNaMaoLayerStyle">Indicador no mapa e rankings</label>
+                <select id="mapDinheiroNaMaoLayerStyle" class="map-ce-layer-select" aria-label="Indicador graduado do Dinheiro na Mão">
+                  <option value="operacoes" selected>Total de operações</option>
+                  <option value="valorOperacoes">Valor total das operações</option>
+                  <option value="valorJuros">Valor dos juros</option>
+                </select>
+              </div>
               <div class="map-ce-layer-row__qualificacao">
-                <label class="map-ce-filter-label" for="mapQualificacaoExecutoraStyle">Camada municipal (Executora)</label>
-                <select id="mapQualificacaoExecutoraStyle" class="map-ce-layer-select" aria-label="Filtrar mapa por executora">
-                  <option value="todos" selected>Todas</option>
-                </select>
-                <label class="map-ce-filter-label" for="mapQualificacaoLayerStyle">Indicador no mapa</label>
-                <select id="mapQualificacaoLayerStyle" class="map-ce-layer-select" aria-label="Indicador graduado da Qualificação no mapa">
-                  <option value="cursos" selected>Cursos ofertados</option>
-                  <option value="vagas">Vagas ofertadas</option>
-                  <option value="inscritos">Inscritos</option>
-                  <option value="desistentes">Desistentes</option>
-                  <option value="concludentes">Concludentes</option>
-                </select>
+                <div class="map-ce-layer-row__qualificacao-filter">
+                  <label class="map-ce-filter-label" for="mapQualificacaoExecutoraStyle">Camada municipal (Executora)</label>
+                  <select id="mapQualificacaoExecutoraStyle" class="map-ce-layer-select" aria-label="Filtrar mapa por executora">
+                    <option value="todos" selected>Todas</option>
+                  </select>
+                </div>
+                <div class="map-ce-layer-row__qualificacao-filter">
+                  <label class="map-ce-filter-label" for="mapQualificacaoProgramaStyle">Programa</label>
+                  <select id="mapQualificacaoProgramaStyle" class="map-ce-layer-select" aria-label="Filtrar mapa por programa">
+                    <option value="todos" selected>Todos</option>
+                  </select>
+                </div>
+                <div class="map-ce-layer-row__qualificacao-filter">
+                  <label class="map-ce-filter-label" for="mapQualificacaoLayerStyle">Indicador no mapa</label>
+                  <select id="mapQualificacaoLayerStyle" class="map-ce-layer-select" aria-label="Indicador graduado da Qualificação no mapa">
+                    <option value="cursos" selected>Cursos ofertados</option>
+                    <option value="vagas">Vagas ofertadas</option>
+                    <option value="inscritos">Inscritos</option>
+                    <option value="desistentes">Desistentes</option>
+                    <option value="concludentes">Concludentes</option>
+                  </select>
+                </div>
               </div>
               <div class="map-ce-layer-row__toggle-wrap">
                 <span class="map-ce-filter-label map-ce-filter-label--toggle">Sobrepor região</span>
@@ -1022,8 +1041,55 @@
                     </div>
                   </div>
                 </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-building"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Requerentes Presencial</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="sdKpiRequerentesPresencial">—</strong>
+                    </div>
+                  </div>
+                </article>
               </div>
               <p class="map-ce-main__profile-kpis-note" id="sdKpiStatus" role="status">Carregando…</p>
+            </section>
+            <section class="map-ce-main__dinheiro-na-mao-kpis" aria-label="Indicadores Dinheiro na Mão">
+              <p class="map-ce-main__kpis-title">
+                <span class="map-ce-main__kpis-title-inner">
+                  <i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i>
+                  <span>KPIs do Dinheiro na Mão</span>
+                </span>
+              </p>
+              <div class="map-ce-kpis-bar map-ce-kpis-bar--profile" id="mapCeDinheiroNaMaoKpis" aria-live="polite">
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-file-signature"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Total de operações</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="dnmKpiOperacoes">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-sack-dollar"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Valor das operações</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="dnmKpiValorOperacoes">—</strong>
+                    </div>
+                  </div>
+                </article>
+                <article class="map-ce-kpi-card map-ce-kpi-card--profile-standard">
+                  <span class="map-ce-kpi-card__icon" aria-hidden="true"><i class="fa-solid fa-percent"></i></span>
+                  <div class="map-ce-kpi-card__body">
+                    <span class="map-ce-kpi-card__label">Valor dos juros</span>
+                    <div class="map-ce-kpi-card__metrics">
+                      <strong class="map-ce-kpi-card__value" id="dnmKpiValorJuros">—</strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              <p class="map-ce-main__profile-kpis-note" id="dnmKpiStatus" role="status">Carregando…</p>
             </section>
             <section class="map-ce-main__qualificacao-kpis" aria-label="Indicadores Qualificação">
               <p class="map-ce-main__kpis-title">
@@ -1190,6 +1256,46 @@
           </div>
         </div>
 
+        <div class="map-ce-dnm-charts-wrap">
+          <section class="map-ce-cg-rankings-wrap" aria-label="Ranking Dinheiro na Mão por município e região">
+            <div class="map-ce-cg-rankings">
+              <div class="map-ce-cg-rankings__head">
+                <h3 class="map-ce-cg-rankings__title">Ranking por município e região</h3>
+                <p id="dnmRankingsHeadHint" class="map-ce-cg-rankings__hint">
+                  Indicador selecionado no mapa · valor absoluto no recorte dos filtros
+                </p>
+                <div class="map-ce-rankings__toolbar">
+                  <label class="map-ce-filter-label" for="dnmRankOrder">Ordenação</label>
+                  <select id="dnmRankOrder" class="map-ce-layer-select map-ce-rankings__select" aria-label="Ordenar rankings do Dinheiro na Mão">
+                    <option value="maiores">15 maiores</option>
+                    <option value="menores">15 menores</option>
+                  </select>
+                </div>
+              </div>
+              <div class="map-ce-cg-formalizacao-wrap">
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por município</h3>
+                  <div id="dnmChartRankingMun" class="map-ce-cg-chart-panel__chart" aria-label="Ranking Dinheiro na Mão por município"></div>
+                </article>
+                <article class="map-ce-cg-chart-panel">
+                  <h3 class="map-ce-cg-chart-panel__title">Por região</h3>
+                  <div id="dnmChartRankingReg" class="map-ce-cg-chart-panel__chart" aria-label="Ranking Dinheiro na Mão por região"></div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <div class="map-ce-line-wrap map-ce-dnm-line-wrap">
+            <div class="map-ce-line-block">
+              <h3 class="map-ce-line-block__title">Dinheiro na Mão — evolução mensal</h3>
+              <p class="map-ce-line-block__hint">
+                Valor total das operações e valor dos juros por DATA DESEMBOLSO / DATA CONTRATO · mesmos filtros ativos
+              </p>
+              <div id="dnmChartPeriodoLine" class="map-ce-line-block__chart" aria-label="Gráfico mensal financeiro do Dinheiro na Mão"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="map-ce-qf-charts-wrap">
           <section class="map-ce-cg-rankings-wrap" aria-label="Ranking Qualificação por município e região">
             <div class="map-ce-cg-rankings">
@@ -1218,6 +1324,46 @@
               </div>
             </div>
           </section>
+
+          <section class="map-ce-qf-projeto-wrap" aria-label="Qualificados por projeto">
+            <div class="map-ce-qf-projeto-grid">
+              <article class="map-ce-vv-bar-panel map-ce-vv-bar-panel--detail map-ce-qf-projeto-chart">
+                <h3 class="map-ce-vv-bar-panel__title">Gráfico — Qualificados por Projeto</h3>
+                <p class="map-ce-vv-bar-panel__hint">Concludentes por programa no recorte dos filtros ativos</p>
+                <div
+                  id="qfChartProjetoDonut"
+                  class="map-ce-vv-bar-panel__chart map-ce-vv-bar-panel__chart--donut map-ce-qf-projeto-chart__canvas"
+                  aria-label="Gráfico de rosca de qualificados por projeto"
+                ></div>
+              </article>
+              <article class="map-ce-vv-bar-panel map-ce-vv-bar-panel--detail map-ce-qf-projeto-table">
+                <h3 class="map-ce-vv-bar-panel__title">Quantidade de Qualificados por Projeto</h3>
+                <p class="map-ce-vv-bar-panel__hint">Soma de concludentes por programa</p>
+                <div class="map-ce-qf-projeto-table__scroll">
+                  <table class="map-ce-qf-projeto-table__grid">
+                    <thead>
+                      <tr>
+                        <th scope="col">descricao</th>
+                        <th scope="col">qtd</th>
+                      </tr>
+                    </thead>
+                    <tbody id="qfProjetoTableBody"></tbody>
+                  </table>
+                </div>
+                <p class="map-ce-qf-projeto-table__foot" id="qfProjetoTableFoot"></p>
+              </article>
+            </div>
+          </section>
+
+          <div class="map-ce-line-wrap map-ce-qf-line-wrap">
+            <div class="map-ce-line-block">
+              <h3 class="map-ce-line-block__title">Evolução mensal da Qualificação</h3>
+              <p id="qfChartPeriodoHint" class="map-ce-line-block__hint">
+                Indicador selecionado no mapa · evolução por mês · mesmos filtros ativos
+              </p>
+              <div id="qfChartPeriodoLine" class="map-ce-line-block__chart" aria-label="Gráfico de linha da Qualificação por período"></div>
+            </div>
+          </div>
         </div>
 
         <div class="map-ce-cg-charts-wrap">
@@ -1844,6 +1990,7 @@
   <script src="/static/js/caged-grupamentos.js"></script>
   <script src="/static/js/seguro-desemprego.js"></script>
   <script src="/static/js/qualificacao.js"></script>
+  <script src="/static/js/dinheiro-na-mao.js"></script>
   <script src="/static/js/mapa-app.js"></script>
 </body>
 </html>

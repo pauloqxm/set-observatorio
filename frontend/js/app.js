@@ -19,6 +19,7 @@ const HIDDEN_MENU_ITEMS = new Set([
   "perfil_municipal",
   "perfil_empresas",
   "ceara_credi",
+  "dinheiro_na_mao",
   "vai_vem",
   "caged_grupamentos",
   "seguro_desemprego",

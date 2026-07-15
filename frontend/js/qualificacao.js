@@ -3,6 +3,8 @@ const QUALIFICACAO_CSV_URL =
 
 const QF_MESES_SHORT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const QF_EXECUTORA_TODOS = "todos";
+const QF_PROGRAMA_TODOS = "todos";
+const QF_MIN_YEAR = 2024;
 const QF_METRIC_OPTIONS = [
   { key: "cursos", field: "cursos", label: "Cursos ofertados" },
   { key: "vagas", field: "vagas", label: "Vagas ofertadas" },
@@ -12,6 +14,8 @@ const QF_METRIC_OPTIONS = [
 ];
 const QF_BAR_RANKING_COLOR = "#2563eb";
 const QF_RANKING_TOP_N = 15;
+const QF_PROJETO_DONUT_TOP_N = 3;
+const QF_PROJETO_DONUT_COLORS = ["#a581c8", "#f8d662", "#87c159", "#9397a5"];
 
 const qfState = {
   rows: [],
@@ -20,6 +24,9 @@ const qfState = {
   error: null,
   municipiosList: [],
   executoras: [],
+  programas: [],
+  /** @type {Map<string, { label: string, count: number }[]>} */
+  executoraToProgramas: new Map(),
 };
 
 const qfFmt = new Intl.NumberFormat("pt-BR");
@@ -27,6 +34,8 @@ const qfFmt = new Intl.NumberFormat("pt-BR");
 const qfCharts = {
   rankMun: null,
   rankReg: null,
+  projetoDonut: null,
+  periodoLine: null,
 };
 
 function qfGetSelectedRankOrder() {
@@ -147,10 +156,12 @@ function qfUpdateRankingHints(order) {
   const metricLabel = qfMetricLabel(metricKey);
   const exec = qfGetSelectedExecutora();
   const execNote = exec === QF_EXECUTORA_TODOS ? "Todas as executoras" : exec;
+  const programa = qfGetSelectedPrograma();
+  const programaNote = programa === QF_PROGRAMA_TODOS ? "Todos os programas" : programa;
   const orderNote = qfRankOrderLabel(order);
   const headHint = document.getElementById("qfRankingsHeadHint");
   if (headHint) {
-    headHint.textContent = `${metricLabel} · ${execNote} · ${orderNote} · valor absoluto no recorte dos filtros · mesmos filtros do mapa`;
+    headHint.textContent = `${metricLabel} · ${execNote} · ${programaNote} · ${orderNote} · valor absoluto no recorte dos filtros`;
   }
 }
 
@@ -184,9 +195,299 @@ function qfUpdateRankingCharts(filtered) {
   }
 }
 
+function qfFormatChartPct(val) {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(val) || 0);
+}
+
+function qfEscapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function qfAggregateConcludentesByPrograma(rows) {
+  /** @type {Map<string, number>} */
+  const byPrograma = new Map();
+  for (const row of rows) {
+    const label = String(row.programa || "").trim() || "Sem projeto";
+    byPrograma.set(label, (byPrograma.get(label) || 0) + (Number(row.concludentes) || 0));
+  }
+  return [...byPrograma.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "pt-BR"));
+}
+
+function qfContrastTextColor(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m) return "#1f2d78";
+  const int = parseInt(m[1], 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#1f2d78" : "#ffffff";
+}
+
+function qfBuildProjetoDonutData(entries) {
+  if (!entries.length) {
+    return {
+      labels: ["Sem dados no filtro"],
+      series: [1],
+      colors: ["#cbd5e1"],
+      labelColors: ["#1f2d78"],
+      total: 0,
+      hasData: false,
+    };
+  }
+  const total = entries.reduce((sum, item) => sum + item.value, 0);
+  const top = entries.slice(0, QF_PROJETO_DONUT_TOP_N);
+  const rest = entries.slice(QF_PROJETO_DONUT_TOP_N);
+  const restSum = rest.reduce((sum, item) => sum + item.value, 0);
+  const labels = top.map((item) => item.label);
+  const series = top.map((item) => item.value);
+  if (restSum > 0) {
+    labels.push("Outro");
+    series.push(restSum);
+  }
+  const colors = QF_PROJETO_DONUT_COLORS.slice(0, labels.length);
+  return {
+    labels,
+    series,
+    colors,
+    labelColors: colors.map(qfContrastTextColor),
+    total,
+    hasData: true,
+  };
+}
+
+function qfRenderProjetoTable(entries) {
+  const body = document.getElementById("qfProjetoTableBody");
+  const foot = document.getElementById("qfProjetoTableFoot");
+  if (!body) return;
+  if (!entries.length) {
+    body.innerHTML = `<tr><td colspan="2">Sem dados no filtro</td></tr>`;
+    if (foot) foot.textContent = "0 linhas";
+    return;
+  }
+  body.innerHTML = entries
+    .map(
+      (item) => `
+    <tr>
+      <td>${qfEscapeHtml(item.label)}</td>
+      <td>${qfFmt.format(item.value)}</td>
+    </tr>`
+    )
+    .join("");
+  if (foot) {
+    const n = entries.length;
+    foot.textContent = `${n} ${n === 1 ? "linha" : "linhas"}`;
+  }
+}
+
+function qfUpdateProjetoDonutChart(entries) {
+  if (typeof ApexCharts === "undefined") return;
+  const el = document.getElementById("qfChartProjetoDonut");
+  if (!el) return;
+  qfDestroyChart("projetoDonut");
+  const { labels, series, colors, labelColors, total, hasData } = qfBuildProjetoDonutData(entries);
+  const chart = new ApexCharts(el, {
+    chart: {
+      type: "donut",
+      height: 400,
+      toolbar: { show: false },
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#1f2d78",
+    },
+    series,
+    labels,
+    colors,
+    legend: {
+      position: "left",
+      horizontalAlign: "left",
+      fontSize: "11px",
+      itemMargin: { horizontal: 10, vertical: 6 },
+      markers: {
+        width: 10,
+        height: 10,
+        offsetX: -4,
+        offsetY: 0,
+      },
+      formatter(seriesName, opts) {
+        const pct = opts.w.globals.seriesPercent[opts.seriesIndex] || 0;
+        return `${seriesName} — ${qfFormatChartPct(pct)}%`;
+      },
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: "62%",
+          labels: {
+            show: true,
+            name: { show: false },
+            value: { show: false },
+            total: {
+              show: true,
+              showAlways: true,
+              label: "TOTAL",
+              fontSize: "12px",
+              color: "#8992b0",
+              formatter: () => (hasData ? qfFmt.format(total) : "—"),
+            },
+          },
+        },
+        dataLabels: { offset: -12, minAngleToShowLabel: 12 },
+      },
+    },
+    dataLabels: {
+      enabled: hasData,
+      formatter: (_val, opts) => {
+        const raw = Number(opts.w.globals.series[opts.seriesIndex]) || 0;
+        const pct = total > 0 ? (raw / total) * 100 : 0;
+        if (pct < 3.5) return "";
+        return `${qfFmt.format(raw)}\n(${qfFormatChartPct(pct)}%)`;
+      },
+      style: {
+        fontSize: "10px",
+        fontWeight: 700,
+        colors: labelColors,
+      },
+      dropShadow: { enabled: false },
+    },
+    stroke: { width: 1, colors: ["#fff"] },
+    tooltip: {
+      y: {
+        formatter: (value) => {
+          const n = Number(value) || 0;
+          const pct = total > 0 ? (n / total) * 100 : 0;
+          return `${qfFmt.format(n)} (${qfFormatChartPct(pct)}%)`;
+        },
+      },
+    },
+  });
+  chart.render();
+  qfCharts.projetoDonut = chart;
+}
+
+function qfUpdateProjetoSection(filtered) {
+  const entries = qfAggregateConcludentesByPrograma(filtered);
+  qfUpdateProjetoDonutChart(entries);
+  qfRenderProjetoTable(entries);
+}
+
+function qfBuildPeriodoSeries(rows, metricField) {
+  const byMonth = new Map();
+  for (const row of rows) {
+    if (!row.mesAnoKey) continue;
+    const value = metricField === "cursos" ? 1 : Number(row[metricField]) || 0;
+    byMonth.set(row.mesAnoKey, (byMonth.get(row.mesAnoKey) || 0) + value);
+  }
+  const keys = [...byMonth.keys()].sort((a, b) => qfMesAnoKeyRank(a) - qfMesAnoKeyRank(b));
+  return {
+    categories: keys.map(qfMesAnoLabel),
+    values: keys.map((key) => byMonth.get(key) || 0),
+  };
+}
+
+function qfUpdatePeriodoLineChart(filtered) {
+  if (typeof ApexCharts === "undefined") return;
+  const el = document.getElementById("qfChartPeriodoLine");
+  if (!el) return;
+  qfDestroyChart("periodoLine");
+
+  const metricKey = qfGetSelectedMetricKey();
+  const metricField = qfGetMetricField(metricKey);
+  const metricLabel = qfMetricLabel(metricKey);
+  const { categories, values } = qfBuildPeriodoSeries(filtered, metricField);
+  const hasData = categories.length > 0;
+  const hint = document.getElementById("qfChartPeriodoHint");
+  if (hint) {
+    hint.textContent = `${metricLabel} por mês · mesmos filtros de ano, mês, município, região, executora e programa`;
+  }
+
+  const chart = new ApexCharts(el, {
+    chart: {
+      type: "line",
+      height: 360,
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#1f2d78",
+      animations: { speed: 300 },
+    },
+    series: [{
+      name: metricLabel,
+      data: hasData ? values : [0],
+    }],
+    colors: ["#059669"],
+    stroke: { curve: "smooth", width: 3 },
+    markers: {
+      size: 4,
+      strokeWidth: 2,
+      strokeColors: "#fff",
+      hover: { size: 6 },
+    },
+    xaxis: {
+      categories: hasData ? categories : ["Sem dados no filtro"],
+      labels: {
+        rotate: -45,
+        rotateAlways: categories.length > 12,
+        style: { fontSize: "11px", colors: "#475569" },
+      },
+    },
+    yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      labels: {
+        formatter: (value) => qfFmt.format(Math.round(Number(value) || 0)),
+        style: { fontSize: "11px", colors: "#475569" },
+      },
+    },
+    dataLabels: {
+      enabled: hasData,
+      formatter: (value) => {
+        const n = Number(value) || 0;
+        return n ? qfFmt.format(n) : "";
+      },
+      offsetY: -8,
+      style: { fontSize: "10px", fontWeight: 700, colors: ["#ffffff"] },
+      background: {
+        enabled: true,
+        foreColor: "#059669",
+        padding: 4,
+        borderRadius: 4,
+        borderWidth: 0,
+        opacity: 1,
+        dropShadow: { enabled: false },
+      },
+    },
+    grid: {
+      borderColor: "#d1fae5",
+      strokeDashArray: 4,
+      padding: { left: 8, right: 18, top: 24, bottom: 8 },
+    },
+    tooltip: {
+      shared: true,
+      intersect: false,
+      y: { formatter: (value) => qfFmt.format(Number(value) || 0) },
+    },
+    noData: { text: "Sem dados no filtro" },
+  });
+  chart.render();
+  qfCharts.periodoLine = chart;
+}
+
 function qfRefreshCharts() {
   if (!qfIsActivePage() || !qfState.loaded) return;
-  qfUpdateRankingCharts(qfFilterRows(qfState.rows));
+  const filtered = qfFilterRows(qfState.rows);
+  qfUpdateProjetoSection(filtered);
+  qfUpdatePeriodoLineChart(filtered);
+  qfUpdateRankingCharts(filtered);
 }
 
 function qfNormHeader(value) {
@@ -338,6 +639,7 @@ function qfParseCsvRows(text) {
     if (codigo == null) continue;
     const dateParts = qfParseDataTermino(cells[idxTermino] || "");
     if (!dateParts) continue;
+    if (dateParts.year < QF_MIN_YEAR) continue;
     const lat = idxLat >= 0 ? qfParseCoord(cells[idxLat]) : null;
     const lon = idxLon >= 0 ? qfParseCoord(cells[idxLon]) : null;
     const hasCoords =
@@ -409,12 +711,57 @@ function qfBuildMunicipiosIndex() {
     .sort((a, b) => a.municipio.localeCompare(b.municipio, "pt-BR"));
 }
 
+function qfProgramaLabel(value) {
+  return String(value || "").trim() || "Sem projeto";
+}
+
 function qfBuildExecutorasIndex() {
   const set = new Set();
   for (const row of qfState.rows) {
     if (row.executora) set.add(row.executora);
   }
   qfState.executoras = [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function qfBuildProgramasIndex() {
+  const set = new Set();
+  /** @type {Map<string, Map<string, number>>} */
+  const byExec = new Map();
+  for (const row of qfState.rows) {
+    const programa = qfProgramaLabel(row.programa);
+    set.add(programa);
+    const exec = String(row.executora || "").trim();
+    if (!exec) continue;
+    let counts = byExec.get(exec);
+    if (!counts) {
+      counts = new Map();
+      byExec.set(exec, counts);
+    }
+    counts.set(programa, (counts.get(programa) || 0) + 1);
+  }
+  qfState.programas = [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const execMap = new Map();
+  for (const [exec, counts] of byExec.entries()) {
+    const list = [...counts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"));
+    execMap.set(exec, list);
+  }
+  qfState.executoraToProgramas = execMap;
+}
+
+function qfGetProgramasForExecutora(executora) {
+  if (!executora || executora === QF_EXECUTORA_TODOS) {
+    return qfState.programas.map((label) => ({ label, count: 0 }));
+  }
+  return qfState.executoraToProgramas.get(executora) || [];
+}
+
+function qfPickProgramaForExecutora(executora) {
+  const list = qfGetProgramasForExecutora(executora);
+  if (!list.length) return QF_PROGRAMA_TODOS;
+  if (list.length === 1) return list[0].label;
+  return list[0].label;
 }
 
 function qfPopulateExecutoraSelect() {
@@ -435,11 +782,44 @@ function qfPopulateExecutoraSelect() {
   sel.value = [...sel.options].some((o) => o.value === prev) ? prev : QF_EXECUTORA_TODOS;
 }
 
+function qfPopulateProgramaSelect(preferredValue, { filterByExecutora = false } = {}) {
+  const sel = document.getElementById("mapQualificacaoProgramaStyle");
+  if (!sel) return;
+  const executora = qfGetSelectedExecutora();
+  const programas = filterByExecutora || executora !== QF_EXECUTORA_TODOS
+    ? qfGetProgramasForExecutora(executora)
+    : qfState.programas.map((label) => ({ label, count: 0 }));
+  const prev = preferredValue != null ? preferredValue : sel.value || QF_PROGRAMA_TODOS;
+  sel.innerHTML = "";
+  const optTodos = document.createElement("option");
+  optTodos.value = QF_PROGRAMA_TODOS;
+  optTodos.textContent = "Todos";
+  sel.appendChild(optTodos);
+  for (const item of programas) {
+    const opt = document.createElement("option");
+    opt.value = item.label;
+    opt.textContent = item.label;
+    sel.appendChild(opt);
+  }
+  const hasPrev = [...sel.options].some((o) => o.value === prev);
+  sel.value = hasPrev ? prev : QF_PROGRAMA_TODOS;
+}
+
+function qfSyncProgramaFromExecutora() {
+  const executora = qfGetSelectedExecutora();
+  if (executora === QF_EXECUTORA_TODOS) {
+    qfPopulateProgramaSelect(QF_PROGRAMA_TODOS, { filterByExecutora: false });
+    return;
+  }
+  const autoPrograma = qfPickProgramaForExecutora(executora);
+  qfPopulateProgramaSelect(autoPrograma, { filterByExecutora: true });
+}
+
 function qfPopulateAnoFilter() {
   const sel = document.getElementById("mapFilterAno");
   if (!sel) return;
   const prev = new Set(Array.from(sel.selectedOptions).map((o) => o.value));
-  const years = [...new Set(qfState.rows.map((r) => r.ano).filter((y) => Number.isFinite(y)))].sort(
+  const years = [...new Set(qfState.rows.map((r) => r.ano).filter((y) => Number.isFinite(y) && y >= QF_MIN_YEAR))].sort(
     (a, b) => a - b
   );
   sel.innerHTML = "";
@@ -586,6 +966,12 @@ function qfGetSelectedExecutora() {
   return v || QF_EXECUTORA_TODOS;
 }
 
+function qfGetSelectedPrograma() {
+  const el = document.getElementById("mapQualificacaoProgramaStyle");
+  const v = (el?.value || QF_PROGRAMA_TODOS).trim();
+  return v || QF_PROGRAMA_TODOS;
+}
+
 function qfGetSelectedMetricKey() {
   const el = document.getElementById("mapQualificacaoLayerStyle");
   const v = el?.value || "cursos";
@@ -606,6 +992,7 @@ function qfFilterRows(rows) {
   const muns = qfGetSelectedMunicipioCodes();
   const regs = qfGetSelectedRegioes();
   const exec = qfGetSelectedExecutora();
+  const programa = qfGetSelectedPrograma();
   let allowedByReg = null;
   if (regs.length && typeof window.ceRegioesMapApi?.getRegiaoToCodigos === "function") {
     allowedByReg = new Set();
@@ -623,6 +1010,8 @@ function qfFilterRows(rows) {
     if (muns.length && !muns.includes(String(row.codigo))) return false;
     if (allowedByReg && !allowedByReg.has(String(row.codigo))) return false;
     if (exec !== QF_EXECUTORA_TODOS && row.executora !== exec) return false;
+    const rowPrograma = qfProgramaLabel(row.programa);
+    if (programa !== QF_PROGRAMA_TODOS && rowPrograma !== programa) return false;
     return true;
   });
 }
@@ -731,7 +1120,9 @@ async function qfEnsureData() {
     qfState.error = null;
     qfBuildMunicipiosIndex();
     qfBuildExecutorasIndex();
+    qfBuildProgramasIndex();
     qfPopulateExecutoraSelect();
+    qfPopulateProgramaSelect();
     qfPopulateAnoFilter();
     qfRebuildMesFilter();
     qfSyncMunicipiosFromRegiao();
@@ -750,12 +1141,24 @@ function qfIsActivePage() {
   return document.getElementById("secaoMapaCe")?.classList.contains("section-map-ce--qualificacao") === true;
 }
 
+function qfSyncTemporalFilters() {
+  if (!qfState.loaded) {
+    const anoSel = document.getElementById("mapFilterAno");
+    const mesSel = document.getElementById("mapFilterMes");
+    if (anoSel) anoSel.innerHTML = "";
+    if (mesSel) mesSel.innerHTML = "";
+    return;
+  }
+  qfPopulateAnoFilter();
+  qfRebuildMesFilter();
+}
+
 function qfOnPageActivate() {
   if (!qfIsActivePage()) return;
   void qfEnsureData().then(() => {
     if (qfState.loaded) {
-      qfPopulateAnoFilter();
-      qfRebuildMesFilter();
+      qfSyncTemporalFilters();
+      qfPopulateProgramaSelect();
       qfSyncMunicipiosFromRegiao();
     }
     qfRefreshKpis();
@@ -786,7 +1189,11 @@ function qfBindFilters() {
       if (id === "mapFilterRegiao") qfSyncMunicipiosFromRegiao();
       qfRefreshAll();
     }
-    if (id === "mapQualificacaoExecutoraStyle" || id === "mapQualificacaoLayerStyle") {
+    if (id === "mapQualificacaoExecutoraStyle") {
+      qfSyncProgramaFromExecutora();
+      qfRefreshAll();
+    }
+    if (id === "mapQualificacaoProgramaStyle" || id === "mapQualificacaoLayerStyle") {
       qfRefreshAll();
     }
     if (id === "qfRankOrder") {
@@ -830,6 +1237,7 @@ window.qualificacaoApi = {
   refreshMap: qfRefreshMap,
   refreshCharts: qfRefreshCharts,
   destroyCharts: qfDestroyCharts,
+  syncTemporalFilters: qfSyncTemporalFilters,
   syncMunicipiosFromRegiao: qfSyncMunicipiosFromRegiao,
   clearMunicipioSelection: qfClearMunicipioSelection,
   selectSingleMunicipioFromMap: qfSelectSingleMunicipioFromMap,
