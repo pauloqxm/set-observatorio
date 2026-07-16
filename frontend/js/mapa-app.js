@@ -68,8 +68,8 @@ const PAGE_META = {
   },
   ceara_credi: {
     title: "Ceará Credi",
-    desc: "Mapa do programa Ceará Crédito: cadastradas, em atendimento, aprovadas e valor liberado por município, com filtros por ano, região e município, KPIs e gráficos de evolução anual.",
-    status: "Mapa + Ceará Crédito",
+    desc: "Mapa do programa Ceará Credi: cadastradas, em atendimento, aprovadas e valor liberado por município, com filtros por ano, região e município, KPIs e gráficos de evolução anual.",
+    status: "Mapa + Ceará Credi",
   },
   dinheiro_na_mao: {
     title: "Dinheiro na Mão",

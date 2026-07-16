@@ -247,8 +247,9 @@ const CE_PROFILE_LAYER_CONFIG = {
     ],
   },
   ceara_cred: {
-    gid: "2092565295",
-    label: "Ceará Crédito",
+    csvUrl:
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vRTxX3SN-bCMQyty2wj0A3_uwzfy5kBAh0Cwuc5cYLn1VxdrpU7n4phpN23xPz7zGUzsKp9rgMvbXR_/pub?gid=1454518536&single=true&output=csv",
+    label: "Ceará Credi",
     legendTitle: "Aprovadas",
     mapMetricKey: "aprovadas",
     /** Limiar fixo da última classe — municípios com valor ≥ este número vão para a classe 5 (mais escura). */
@@ -1178,7 +1179,9 @@ function ceGetCellByKeys(record, keys) {
 
 function ceBuildProfileLayerCsvUrl(layerKey) {
   const cfg = CE_PROFILE_LAYER_CONFIG[layerKey];
-  if (!cfg || !cfg.gid) return "";
+  if (!cfg) return "";
+  if (cfg.csvUrl) return cfg.csvUrl;
+  if (!cfg.gid) return "";
   return `${CE_PROFILE_LAYER_SOURCE_BASE_URL}${cfg.gid}`;
 }
 
@@ -2949,7 +2952,7 @@ function ceComputeProfileKpiTotals(mesSel, munSel, regSel, anoSel) {
   return totals;
 }
 
-/** Ceará Crédito: somar todas as referências do recorte (vários anos/meses no filtro). */
+/** Ceará Credi: somar todas as referências do recorte (vários anos/meses no filtro). */
 function ceShouldSumCearaCredPeriods() {
   return true;
 }
@@ -5580,7 +5583,7 @@ function ceCollectCearaCredYearsFromRows(rows) {
   return [...years].sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 }
 
-/** Linhas Ceará Crédito só com filtros espaciais (região/município), sem ano/mês globais. */
+/** Linhas Ceará Credi só com filtros espaciais (região/município), sem ano/mês globais. */
 function ceFilterCearaCredRowsForLineChart(rows, munSel, regSel) {
   return ceGetFilteredRows(rows, new Set(), munSel, regSel, new Set());
 }
@@ -5834,10 +5837,10 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
           });
         })
         .catch((err) => {
-          console.warn("Ceará Crédito linha:", err);
+          console.warn("Ceará Credi linha:", err);
         });
     } catch (err) {
-      console.warn("Ceará Crédito linha (config):", err);
+      console.warn("Ceará Credi linha (config):", err);
     }
   };
 

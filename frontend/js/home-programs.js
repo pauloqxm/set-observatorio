@@ -2,13 +2,13 @@
 
 /**
  * Módulo leve e isolado da página inicial: resume os números de três
- * programas hoje só visíveis dentro do mapa interativo (Ceará Crédito,
+ * programas hoje só visíveis dentro do mapa interativo (Ceará Credi,
  * Vai Vem e Qualificação Profissional), para os blocos "Outros programas
  * em destaque" da home.
  */
 
 const HP_CEARA_CREDI_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRY77niZrgeJpcmKNv8BWEUyetRRYARaBk-nRzUFqSvJbTF1OdkneesuAJOHWSg0FVwamjEBJsviFJz/pub?output=csv&single=true&gid=2092565295";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRTxX3SN-bCMQyty2wj0A3_uwzfy5kBAh0Cwuc5cYLn1VxdrpU7n4phpN23xPz7zGUzsKp9rgMvbXR_/pub?gid=1454518536&single=true&output=csv";
 
 const HP_VAI_VEM_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTG4lc2hb_XAenjE_ja8uQ5dzaAj9-b80hU_H1N0RvZ0jTQSXdkhEassrmQwUNryAqOeObP4C9ZhPHh/pub?gid=1946422191&single=true&output=csv";
@@ -129,7 +129,7 @@ function hpFormatMesAnoFromKey(key) {
   return `${HP_MESES_ABREV_PT[mi - 1]}/${ano}`;
 }
 
-/* ---------------------------- Ceará Crédito ---------------------------- */
+/* ----------------------------- Ceará Credi ----------------------------- */
 
 function hpParseCearaCrediRows(text) {
   const lines = hpSplitLines(text);
