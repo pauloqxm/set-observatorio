@@ -221,12 +221,12 @@ const CE_PROFILE_LAYER_CONFIG = {
     ],
   },
   emprego: {
-    gid: "348392125",
+    source: "caged_estoque",
     label: "Emprego",
-    legendTitle: "Emprego",
+    legendTitle: "Estoque (CAGED)",
     colors: ["#ecfeff", "#a5f3fc", "#22d3ee", "#0891b2", "#155e75"],
     popupFields: [
-      { label: "Pessoas", key: "pessoas", format: "int" },
+      { label: "Estoque", key: "pessoas", format: "int" },
       { label: "Referência", key: "referencia", format: "text" },
     ],
   },
@@ -1622,8 +1622,25 @@ function ceParseVinculoSexoCsvRows(text) {
   return rows;
 }
 
+function ceMapCagedRowsToEmpregoProfile(rows) {
+  return (rows || []).map((row) => ({
+    codigo: row.codigo,
+    municipio: row.municipio || "",
+    mesAno: row.mesAno || "",
+    mesAnoKey: row.mesAnoKey || ceMesAnoKey(row.mesAno),
+    pessoas: Number.isFinite(row.estoque) ? row.estoque : 0,
+    raw: {
+      referencia: row.mesAno || "",
+      pessoas: String(Number.isFinite(row.estoque) ? row.estoque : 0),
+    },
+  }));
+}
+
 function ceParseProfileLayerCsvRows(layerKey, text) {
   const cfg = CE_PROFILE_LAYER_CONFIG[layerKey];
+  if (cfg?.source === "caged_estoque" || cfg?.parseMode === "caged_estoque") {
+    return ceMapCagedRowsToEmpregoProfile(ceParseCagedCsvRows(text || ""));
+  }
   if (cfg?.parseMode === "ceara_cred") return ceParseCearaCredCsvRows(text || "");
   if (cfg?.parseMode === "mun_simples") return ceParseMunSimplesCsvRows(text || "");
   if (cfg?.parseMode === "empresa_grupamento") return ceParseEmpresaGrupamentoCsvRows(text || "");
@@ -7871,9 +7888,15 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         ceInitPlanejamentoPalette(planejamentoFc);
 
         try {
-          /* Exclui camadas de intermediação do loop de profile — são carregadas via CSV dedicado */
+          /* Exclui intermediação e camadas derivadas do CAGED (já carregado em CE_CAGED_CSV_URL). */
           const profileFetches = CE_PROFILE_LAYER_KEYS
-            .filter((key) => CE_PROFILE_LAYER_CONFIG[key]?.parseMode !== "intermediacao")
+            .filter((key) => {
+              const cfg = CE_PROFILE_LAYER_CONFIG[key];
+              if (!cfg) return false;
+              if (cfg.parseMode === "intermediacao") return false;
+              if (cfg.source === "caged_estoque" || cfg.parseMode === "caged_estoque") return false;
+              return Boolean(cfg.csvUrl || cfg.gid);
+            })
             .map((layerKey) =>
               fetch(ceBuildProfileLayerCsvUrl(layerKey), CE_FETCH_NO_CACHE)
                 .then((r) => (r.ok ? r.text() : ""))
@@ -7915,6 +7938,8 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               ceParseProfileLayerCsvRows(layerKey, text || ""),
             ])
           );
+          /* Emprego no Perfil Municipal reutiliza o estoque CAGED já carregado. */
+          ceMapRuntime.profileRowsByLayer.emprego = ceMapCagedRowsToEmpregoProfile(rows);
           /* Parseia o CSV de intermediação (Cod_posto → cod_ibge via CSV bruto das unidades IDT) */
           const postoCodIbgeMap = ceBuildPostoToIbgeMapFromCsv(idtCsvRes || "");
           Object.assign(
