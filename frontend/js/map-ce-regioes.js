@@ -6758,16 +6758,17 @@ function ceGetCurrentFilterRows() {
   return ceGetFilteredRows(ceGetCurrentTemporalRows(), mesSel, munSel, regSel, anoSel);
 }
 
-/** Soma admissões e desligamentos por rótulo mês/ano, ordenado cronologicamente. */
+/** Soma admissões, desligamentos e estoque por rótulo mês/ano, ordenado cronologicamente. */
 function ceAggregateAdmDeslPorMes(rows) {
-  /** @type {Map<string, { admissoes: number; desligamentos: number }>} */
+  /** @type {Map<string, { admissoes: number; desligamentos: number; estoque: number }>} */
   const m = new Map();
   for (const r of rows) {
     const k = ceRowMesAnoKey(r);
     if (!k) continue;
-    const cur = m.get(k) || { admissoes: 0, desligamentos: 0 };
+    const cur = m.get(k) || { admissoes: 0, desligamentos: 0, estoque: 0 };
     cur.admissoes += r.admissoes;
     cur.desligamentos += r.desligamentos;
+    cur.estoque += Number.isFinite(r.estoque) ? r.estoque : 0;
     m.set(k, cur);
   }
   const keys = [...m.keys()].sort((a, b) => ceMesAnoKeyRank(a) - ceMesAnoKeyRank(b));
@@ -6775,6 +6776,7 @@ function ceAggregateAdmDeslPorMes(rows) {
     categories: keys.map((k) => ceFormatMesAnoFromKey(k)),
     admissoes: keys.map((k) => m.get(k).admissoes),
     desligamentos: keys.map((k) => m.get(k).desligamentos),
+    estoque: keys.map((k) => m.get(k).estoque),
   };
 }
 
@@ -6814,12 +6816,13 @@ function ceUpdateMonthlyLineChart() {
   ceDestroyMonthlyLineChart();
 
   const rows = ceGetCurrentFilterRows();
-  const { categories, admissoes, desligamentos } = ceAggregateAdmDeslPorMes(rows);
+  const { categories, admissoes, desligamentos, estoque } = ceAggregateAdmDeslPorMes(rows);
 
   const hasData = categories.length > 0;
   const cats = hasData ? categories : ["Sem dados no filtro"];
   const adm = hasData ? admissoes : [0];
   const des = hasData ? desligamentos : [0];
+  const est = hasData ? estoque : [0];
 
   const chart = new ApexCharts(el, {
     chart: {
@@ -6834,6 +6837,7 @@ function ceUpdateMonthlyLineChart() {
     series: [
       { name: "Admissões", data: adm },
       { name: "Desligamentos", data: des },
+      { name: "Estoque", data: est },
     ],
     xaxis: {
       categories: cats,
@@ -6846,17 +6850,38 @@ function ceUpdateMonthlyLineChart() {
       axisBorder: { color: "#cbd5e1" },
       axisTicks: { show: false },
     },
-    yaxis: {
-      labels: {
-        formatter: (val) => ceFormatIntPt(Number(val)),
-        style: { fontSize: "11px", colors: "#475569" },
+    yaxis: [
+      {
+        seriesName: "Admissões",
+        title: { text: "Admissões / Desligamentos", style: { fontSize: "11px", color: "#64748b" } },
+        labels: {
+          formatter: (val) => ceFormatIntPt(Number(val)),
+          style: { fontSize: "11px", colors: "#475569" },
+        },
       },
-    },
+      {
+        seriesName: "Admissões",
+        show: false,
+      },
+      {
+        seriesName: "Estoque",
+        opposite: true,
+        title: { text: "Estoque", style: { fontSize: "11px", color: "#64748b" } },
+        labels: {
+          formatter: (val) => ceFormatIntPt(Number(val)),
+          style: { fontSize: "11px", colors: "#475569" },
+        },
+      },
+    ],
     stroke: {
       curve: "smooth",
-      width: 3,
+      width: [3, 3, 3],
     },
-    colors: [CE_METRIC_CONFIG.admissoes.colors[3], CE_METRIC_CONFIG.desligamentos.colors[3]],
+    colors: [
+      CE_METRIC_CONFIG.admissoes.colors[3],
+      CE_METRIC_CONFIG.desligamentos.colors[3],
+      CE_METRIC_CONFIG.estoque.colors[3],
+    ],
     markers: {
       size: hasData ? 4 : 0,
       strokeWidth: 2,
