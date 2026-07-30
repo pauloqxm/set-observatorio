@@ -851,10 +851,30 @@ function cgUpdateMunicipioLineChart(rows) {
   cgCharts.lineMun = chart;
 }
 
-function cgBuildSaldoGrupoSeries(rows) {
+/** Rótulo exibido no gráfico por grupamento (em «Todos» usa estoque, como no mapa). */
+function cgMetricChartDisplayLabel(metricKey) {
+  if (metricKey === CG_METRIC_TODOS_KEY) return "Estoque mensal";
+  return cgMetricLabel(metricKey);
+}
+
+/**
+ * Soma o indicador por grande grupamento.
+ * Estoque: apenas o mês mais recente do recorte (mesma regra dos KPIs/mapa).
+ */
+function cgBuildMetricGrupoSeries(rows, metricField) {
   const sums = new Map(CG_GRUPO_OPTIONS.map((g) => [g.key, 0]));
-  for (const row of rows) {
-    sums.set(row.grupoKey, (sums.get(row.grupoKey) || 0) + row.saldo);
+  if (metricField === "estoque") {
+    const latestKey = cgLatestMesAnoKeyInRows(rows);
+    for (const row of rows) {
+      if (!latestKey || row.mesAnoKey !== latestKey) continue;
+      sums.set(row.grupoKey, (sums.get(row.grupoKey) || 0) + row.estoque);
+    }
+  } else {
+    for (const row of rows) {
+      const v = row[metricField];
+      if (!Number.isFinite(v)) continue;
+      sums.set(row.grupoKey, (sums.get(row.grupoKey) || 0) + v);
+    }
   }
   return CG_GRUPO_OPTIONS.map((g) => ({
     label: g.label,
@@ -867,11 +887,31 @@ function cgUpdateSaldoChart(rows) {
   const el = document.getElementById("cgChartSaldoGrupo");
   if (!el) return;
   cgDestroyChart("saldo");
-  const items = cgBuildSaldoGrupoSeries(rows);
+
+  const metricKey = cgGetSelectedMetricKey();
+  const metricField = cgGetMetricField(metricKey);
+  const label = cgMetricChartDisplayLabel(metricKey);
+  const items = cgBuildMetricGrupoSeries(rows, metricField);
   const hasData = items.some((i) => i.value !== 0);
   const categories = hasData ? items.map((i) => i.label) : ["Sem dados no filtro"];
   const data = hasData ? items.map((i) => i.value) : [0];
   const height = Math.max(260, 48 + categories.length * 36);
+
+  const titleEl = document.getElementById("cgChartSaldoGrupoTitle");
+  const hintEl = document.getElementById("cgChartSaldoGrupoHint");
+  if (titleEl) {
+    titleEl.textContent = `${label} por Grande Grupamento de Atividade Econômica`;
+  }
+  if (hintEl) {
+    hintEl.textContent =
+      metricField === "estoque"
+        ? metricKey === CG_METRIC_TODOS_KEY
+          ? "Estoque no mês mais recente do recorte · indicador «Todos» usa estoque no mapa"
+          : "Estoque no mês mais recente do recorte dos filtros ativos"
+        : `Soma de ${label.toLowerCase()} no recorte dos filtros ativos`;
+  }
+  el.setAttribute("aria-label", `${label} por grande grupamento`);
+
   const chart = new ApexCharts(el, {
     chart: {
       type: "bar",
@@ -880,7 +920,7 @@ function cgUpdateSaldoChart(rows) {
       fontFamily: "system-ui, Segoe UI, sans-serif",
       foreColor: "#1f2d78",
     },
-    series: [{ name: "Saldo", data }],
+    series: [{ name: label, data }],
     colors: [CG_BAR_SALDO_COLOR],
     plotOptions: {
       bar: {
