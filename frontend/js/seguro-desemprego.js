@@ -36,6 +36,11 @@ const sdState = {
 };
 
 const sdFmt = new Intl.NumberFormat("pt-BR");
+const sdCurrencyFmt = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 2,
+});
 
 const sdCharts = {
   rankMun: null,
@@ -532,9 +537,14 @@ function sdQuinzenaLabel(key) {
 }
 
 function sdParseNumber(raw) {
-  const s = String(raw ?? "").trim();
+  const s = String(raw ?? "")
+    .trim()
+    .replace(/\s/g, "")
+    .replace(/R\$\s?/gi, "");
   if (!s) return 0;
-  const clean = s.replace(/\./g, "").replace(",", ".");
+  const clean = s.includes(",")
+    ? s.replace(/\./g, "").replace(",", ".")
+    : s;
   const n = Number(clean);
   return Number.isFinite(n) ? n : 0;
 }
@@ -569,6 +579,7 @@ function sdParseCsvRows(text) {
       competenciaRaw: comp.competenciaRaw,
       requerentes: sdParseNumber(pick(cells, "Requerentes")),
       requerentesWeb: sdParseNumber(pick(cells, "Requerentes_WEB")),
+      vrMedio: sdParseNumber(pick(cells, "Vr_Medio")),
     });
   }
   return rows;
@@ -782,22 +793,27 @@ function sdAggregateByCodigo(rows) {
 function sdComputeKpis(rows) {
   let requerentes = 0;
   let requerentesWeb = 0;
+  let valorEstimado = 0;
   for (const row of rows) {
     requerentes += row.requerentes;
     requerentesWeb += row.requerentesWeb;
+    const vr = Number.isFinite(row.vrMedio) ? row.vrMedio : 0;
+    const req = Number.isFinite(row.requerentes) ? row.requerentes : 0;
+    valorEstimado += vr * req;
   }
   const requerentesPresencial = requerentes - requerentesWeb;
-  return { requerentes, requerentesWeb, requerentesPresencial };
+  return { requerentes, requerentesWeb, requerentesPresencial, valorEstimado };
 }
 
 function sdRenderKpis(kpis) {
-  const set = (id, v) => {
+  const set = (id, v, fmt = sdFmt) => {
     const el = document.getElementById(id);
-    if (el) el.textContent = Number.isFinite(v) ? sdFmt.format(v) : "—";
+    if (el) el.textContent = Number.isFinite(v) ? fmt.format(v) : "—";
   };
   set("sdKpiRequerentes", kpis.requerentes);
   set("sdKpiRequerentesWeb", kpis.requerentesWeb);
   set("sdKpiRequerentesPresencial", kpis.requerentesPresencial);
+  set("sdKpiValorEstimado", kpis.valorEstimado, sdCurrencyFmt);
 }
 
 function sdSetStatus(message) {
@@ -835,7 +851,12 @@ async function sdEnsureData() {
   if (sdState.loaded || sdState.loading) return;
   sdState.loading = true;
   sdSetStatus("Carregando planilha Seguro Desemprego…");
-  sdRenderKpis({ requerentes: NaN, requerentesWeb: NaN, requerentesPresencial: NaN });
+  sdRenderKpis({
+    requerentes: NaN,
+    requerentesWeb: NaN,
+    requerentesPresencial: NaN,
+    valorEstimado: NaN,
+  });
   try {
     const res = await fetch(SEGURO_DESEMPREGO_CSV_URL, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
