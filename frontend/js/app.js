@@ -144,8 +144,8 @@ const HOME_PROGRAM_CARDS_DEF = [
     variant: "qualificacao",
     url: "/mapa?aba=qualificacao",
     kpis: [
-      { key: "cursos", label: "Cursos ofertados", format: "int" },
-      { key: "vagas", label: "Vagas ofertadas", format: "int" },
+      { key: "cursos", label: "Cursos concluídos", format: "int" },
+      { key: "concludentes", label: "Concludentes", format: "int" },
       { key: "municipios", label: "Municípios atendidos", format: "int" }
     ]
   }

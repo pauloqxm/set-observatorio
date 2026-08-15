@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .services.sheets import get_indicadores, get_meta, get_sheet_data, get_sheet_names
+from .services.home_qualificacao import get_qualificacao_home_summary
 
 app = FastAPI(
     title="Portal de Empregabilidade",
@@ -79,6 +80,14 @@ def api_abas() -> dict:
 @app.get("/api/meta")
 def api_meta() -> dict:
     return get_meta()
+
+
+@app.get("/api/home/qualificacao")
+def api_home_qualificacao() -> dict:
+    try:
+        return get_qualificacao_home_summary()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.get("/api/abas/{sheet_name}")

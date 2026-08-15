@@ -511,6 +511,22 @@ function hpFetchText(url, timeoutMs = 90000) {
     .finally(() => clearTimeout(timer));
 }
 
+function hpLoadQualificacaoSummary() {
+  return hpFetchText("/api/home/qualificacao", 60000)
+    .then((text) => JSON.parse(text))
+    .then((payload) => {
+      if (!payload || typeof payload !== "object") throw new Error("payload inválido");
+      return {
+        status: "ok",
+        cursos: Number(payload.cursos) || 0,
+        vagas: Number(payload.vagas) || 0,
+        concludentes: Number(payload.concludentes) || 0,
+        municipios: Number(payload.municipios) || 0,
+        referenciaLabel: String(payload.referenciaLabel || ""),
+      };
+    });
+}
+
 function hpLoadSource(url, parse, summarize) {
   return hpFetchText(url)
     .then((text) => ({ status: "ok", ...summarize(parse(text)) }))
@@ -546,15 +562,22 @@ function homeProgramsLoadData(onUpdate) {
   };
 
   const sources = [
-    ["qualificacao", HP_QUALIFICACAO_CSV_URL, hpParseQualificacaoRows, hpSummarizeQualificacao],
     ["cearaCredi", HP_CEARA_CREDI_CSV_URL, hpParseCearaCrediRows, hpSummarizeCearaCredi],
     ["dinheiroNaMao", HP_DINHEIRO_NA_MAO_CSV_URL, hpParseDinheiroNaMaoRows, hpSummarizeDinheiroNaMao],
     ["vaiVem", HP_VAI_VEM_CSV_URL, hpParseVaiVemRows, hpSummarizeVaiVem],
   ];
 
-  _homeProgramsPromise = Promise.all(
-    sources.map(([key, url, parse, summarize]) => hpLoadSource(url, parse, summarize).then((value) => publish(key, value)))
-  ).then(() => data);
+  const tasks = [
+    hpLoadQualificacaoSummary()
+      .catch((err) => {
+        console.error("[home-programs] qualificacao api", err);
+        return { status: "error" };
+      })
+      .then((value) => publish("qualificacao", value)),
+    ...sources.map(([key, url, parse, summarize]) => hpLoadSource(url, parse, summarize).then((value) => publish(key, value))),
+  ];
+
+  _homeProgramsPromise = Promise.all(tasks).then(() => data);
 
   return _homeProgramsPromise;
 }
