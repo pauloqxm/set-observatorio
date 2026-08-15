@@ -1460,6 +1460,12 @@
   color: #065f46;
 }
 
+.map-ce-ceara-cred-line-wrap .map-ce-ceara-cred-line-block--mun {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(5, 150, 105, 0.2);
+}
+
 .map-ce-ceara-line-filters {
   display: flex;
   flex-wrap: wrap;
