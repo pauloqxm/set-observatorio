@@ -2374,7 +2374,9 @@ function ceComputePropStats(geojson, prop, options = {}) {
   vals.sort((a, b) => a - b);
   const min = vals[0];
   const max = vals[vals.length - 1];
-  if (min === max) return { thresholds: [], min, max };
+  /* Mesmo com valor uniforme (ex.: todos 0 no recorte), devolve 4 quebras
+     para a legenda/mapa não caírem em “Sem valores para classificar”. */
+  if (min === max) return { thresholds: [min, min, min, min], min, max };
 
   const fixedLast = options.fixedLastThreshold;
   if (Number.isFinite(fixedLast)) {
@@ -3223,8 +3225,12 @@ function ceBuildNumericFillExpr(prop, thresholds, colors, activeIdx = null) {
     ? colors.map((c, i) => (i === activeIdx ? c : CE_LEGEND_DIM_COLOR))
     : colors;
   const stepThresholds = ceBuildStrictStepThresholds(thresholds);
+  const rawBreaks = Array.isArray(thresholds) ? thresholds.slice(0, 4).map(Number) : [];
+  const uniformBreaks =
+    rawBreaks.length >= 1 &&
+    rawBreaks.every((v) => Number.isFinite(v) && v === rawBreaks[0]);
 
-  if (!stepThresholds.length) {
+  if (!stepThresholds.length || uniformBreaks) {
     return [
       "case",
       ["==", ["get", prop], ["literal", null]],
@@ -3333,6 +3339,25 @@ function ceUpdateLegendNumeric(el, metricKey, thresholds, minV, maxV) {
   }, thresholds, minV, maxV);
 }
 
+function ceCollectLegendNomesForProp(prop) {
+  const nomes = [];
+  let count = 0;
+  for (const f of ceMapRuntime.currentMergedGeoJson?.features || []) {
+    const v = ceGetFiniteFeatureNumber(f.properties, prop);
+    if (v === null) continue;
+    count += 1;
+    const { municipio } = cePropsMunReg(f.properties);
+    const nome =
+      municipio ||
+      f.properties?.Município ||
+      f.properties?.Municipio ||
+      f.properties?.MUNICIPIO;
+    if (nome) nomes.push(nome);
+  }
+  nomes.sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return { count, nomes };
+}
+
 function ceUpdateLegendNumericGeneric(el, cfg, thresholds, minV, maxV) {
   if (!el) return;
   if (!cfg?.prop || !cfg?.colors || !thresholds.length) {
@@ -3347,8 +3372,15 @@ function ceUpdateLegendNumericGeneric(el, cfg, thresholds, minV, maxV) {
   const activeIdx = ceMapRuntime.activeLegendClass;
   let ranges;
   if (minV === maxV) {
+    const uniform = ceCollectLegendNomesForProp(cfg.prop);
     ranges = [
-      { label: fmt(minV), color: colors[4], count: groups[4].count, nomes: groups[4].nomes },
+      {
+        label: fmt(minV),
+        color: colors[Math.min(4, colors.length - 1)],
+        count: uniform.count,
+        nomes: uniform.nomes,
+        classIdx: 4,
+      },
     ];
   } else {
     ranges = [
@@ -3378,7 +3410,8 @@ function ceUpdateLegendNumericGeneric(el, cfg, thresholds, minV, maxV) {
       ${ranges
         .map(
           (r, i) => {
-            const isActive = activeIdx === i;
+            const classIdx = Number.isInteger(r.classIdx) ? r.classIdx : i;
+            const isActive = activeIdx === classIdx;
             const isDimmed = activeIdx !== null && !isActive;
             const cls = [
               "map-ce-legend__item",
@@ -3386,7 +3419,7 @@ function ceUpdateLegendNumericGeneric(el, cfg, thresholds, minV, maxV) {
               isActive ? "map-ce-legend__item--active" : "",
               isDimmed ? "map-ce-legend__item--dimmed" : "",
             ].filter(Boolean).join(" ");
-            return `<span class="${cls}" data-legend-class="${i}" role="button" tabindex="0" title="${ceEscapeHtml(isActive ? "Clique para ver todas as classes" : "Clique para destacar esta classe")}">
+            return `<span class="${cls}" data-legend-class="${classIdx}" role="button" tabindex="0" title="${ceEscapeHtml(isActive ? "Clique para ver todas as classes" : "Clique para destacar esta classe")}">
               <span class="map-ce-legend__item-body">
                 <span class="map-ce-legend__item-line map-ce-legend__item-line--legend">
                   <span class="map-ce-legend__swatch" style="background:${r.color}"></span>
@@ -5153,175 +5186,190 @@ function ceBindCearaCredTableControls() {
 }
 
 function ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder) {
-  const filtered = ceMapRuntime.lastProfileFilteredByLayer?.ceara_cred || [];
-  const sub = ceSumCearaCredKpiFromRows(filtered);
-  const allMunRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder);
-  ceUpdateCearaCredFunnel(sub, allMunRows.length);
+  try {
+    const filtered = ceMapRuntime.lastProfileFilteredByLayer?.ceara_cred || [];
+    const sub = ceSumCearaCredKpiFromRows(filtered);
+    const allMunRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder);
+    ceUpdateCearaCredFunnel(sub, allMunRows.length);
 
-  const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder).map((r) => ({
-    label: r.label,
-    taxa: ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas),
-    ticket: ceCearaCredTicket(r.values.valor_liberado, r.values.aprovadas),
-  }));
+    const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder).map((r) => ({
+      label: r.label,
+      taxa: ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas),
+      ticket: ceCearaCredTicket(r.values.valor_liberado, r.values.aprovadas),
+    }));
 
-  const taxaEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTaxaRegiao);
-  if (taxaEl) {
-    const chart = ceCreateCearaCredSingleBarChart(taxaEl, regRows, {
-      valueKey: "taxa",
-      format: "percent",
-      color: CE_CEARA_CRED_CHART_COLORS[2],
-      seriesName: "Taxa de aprovação",
-    });
-    chart.render();
-    ceMapRuntime.profileSummaryCharts.cearaTaxaRegiao = chart;
-  }
+    const taxaEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTaxaRegiao);
+    if (taxaEl) {
+      const chart = ceCreateCearaCredSingleBarChart(taxaEl, regRows, {
+        valueKey: "taxa",
+        format: "percent",
+        color: CE_CEARA_CRED_CHART_COLORS[2],
+        seriesName: "Taxa de aprovação",
+      });
+      chart.render();
+      ceMapRuntime.profileSummaryCharts.cearaTaxaRegiao = chart;
+    }
 
-  const ticketEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTicketRegiao);
-  if (ticketEl) {
-    const chart = ceCreateCearaCredSingleBarChart(ticketEl, regRows, {
-      valueKey: "ticket",
-      format: "currency",
-      color: CE_CEARA_CRED_CHART_COLORS[0],
-      seriesName: "Ticket médio",
-    });
-    chart.render();
-    ceMapRuntime.profileSummaryCharts.cearaTicketRegiao = chart;
-  }
+    const ticketEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTicketRegiao);
+    if (ticketEl) {
+      const chart = ceCreateCearaCredSingleBarChart(ticketEl, regRows, {
+        valueKey: "ticket",
+        format: "currency",
+        color: CE_CEARA_CRED_CHART_COLORS[0],
+        seriesName: "Ticket médio",
+      });
+      chart.render();
+      ceMapRuntime.profileSummaryCharts.cearaTicketRegiao = chart;
+    }
 
-  const scatterEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaScatter);
-  if (scatterEl && typeof ApexCharts !== "undefined") {
-    const scatterRows = [...allMunRows]
-      .sort((a, b) => (b.values.cadastradas || 0) - (a.values.cadastradas || 0))
-      .slice(0, 20)
-      .map((r) => {
-        const taxa = ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas);
-        return {
-          x: Number(r.values.cadastradas) || 0,
-          y: taxa == null ? 0 : taxa,
-          z: Math.max(Number(r.values.valor_liberado) || 0, 1),
-          name: r.label,
-          taxa,
-        };
-      })
-      .filter((p) => p.x > 0 && p.taxa != null);
-    const mean =
-      scatterRows.length > 0
-        ? scatterRows.reduce((s, p) => s + p.y, 0) / scatterRows.length
-        : 0;
-    const maxValor = Math.max(...scatterRows.map((p) => p.z), 1);
-    const chart = new ApexCharts(scatterEl, {
-      chart: {
-        type: "bubble",
-        height: 360,
-        toolbar: { show: false },
-        fontFamily: "system-ui, Segoe UI, sans-serif",
-        foreColor: "#065f46",
-      },
-      series: [
-        {
-          name: "Municípios",
-          data: scatterRows.map((p) => ({
-            x: p.x,
-            y: p.y,
-            z: 12 + (p.z / maxValor) * 36,
-            name: p.name,
-            valor: p.z,
-          })),
-        },
-      ],
-      colors: [CE_CEARA_CRED_CHART_COLORS[0]],
-      xaxis: {
-        title: { text: "Cadastradas", style: { fontSize: "12px", color: "#047857" } },
-        labels: { formatter: (v) => ceFormatIntPt(Number(v)), style: { fontSize: "11px" } },
-        min: 0,
-      },
-      yaxis: {
-        title: { text: "Taxa de aprovação (%)", style: { fontSize: "12px", color: "#047857" } },
-        labels: { formatter: (v) => ceFormatPercentPt(Number(v)), style: { fontSize: "11px" } },
-        min: 0,
-      },
-      dataLabels: { enabled: false },
-      grid: { borderColor: "#d1fae5" },
-      legend: { show: false },
-      annotations: mean
-        ? {
-            yaxis: [
-              {
-                y: mean,
-                borderColor: CE_CEARA_CRED_CHART_COLORS[2],
-                strokeDashArray: 6,
-                label: {
-                  text: `média ${ceFormatPercentPt(mean)}`,
-                  style: { color: "#fff", background: CE_CEARA_CRED_CHART_COLORS[2], fontSize: "10px" },
-                },
-              },
-            ],
-          }
-        : {},
-      tooltip: {
-        custom: ({ seriesIndex, dataPointIndex, w }) => {
-          const p = w.config.series[seriesIndex]?.data?.[dataPointIndex];
-          if (!p) return "";
-          return `<div class="map-ce-popup" style="padding:8px 10px">
+    const scatterEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaScatter);
+    if (scatterEl && typeof ApexCharts !== "undefined") {
+      try {
+        const scatterRows = [...allMunRows]
+          .sort((a, b) => (b.values.cadastradas || 0) - (a.values.cadastradas || 0))
+          .slice(0, 20)
+          .map((r) => {
+            const taxa = ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas);
+            return {
+              x: Number(r.values.cadastradas) || 0,
+              y: taxa == null ? 0 : taxa,
+              z: Math.max(Number(r.values.valor_liberado) || 0, 1),
+              name: r.label,
+              taxa,
+            };
+          })
+          .filter((p) => p.x > 0 && p.taxa != null);
+        const mean =
+          scatterRows.length > 0
+            ? scatterRows.reduce((s, p) => s + p.y, 0) / scatterRows.length
+            : 0;
+        const maxValor = Math.max(1, ...scatterRows.map((p) => p.z));
+        const chart = new ApexCharts(scatterEl, {
+          chart: {
+            type: "bubble",
+            height: 360,
+            toolbar: { show: false },
+            fontFamily: "system-ui, Segoe UI, sans-serif",
+            foreColor: "#065f46",
+          },
+          series: [
+            {
+              name: "Municípios",
+              data: scatterRows.map((p) => ({
+                x: p.x,
+                y: p.y,
+                z: 12 + (p.z / maxValor) * 36,
+                name: p.name,
+                valor: p.z,
+              })),
+            },
+          ],
+          colors: [CE_CEARA_CRED_CHART_COLORS[0]],
+          xaxis: {
+            title: { text: "Cadastradas", style: { fontSize: "12px", color: "#047857" } },
+            labels: { formatter: (v) => ceFormatIntPt(Number(v)), style: { fontSize: "11px" } },
+            min: 0,
+          },
+          yaxis: {
+            title: { text: "Taxa de aprovação (%)", style: { fontSize: "12px", color: "#047857" } },
+            labels: { formatter: (v) => ceFormatPercentPt(Number(v)), style: { fontSize: "11px" } },
+            min: 0,
+          },
+          dataLabels: { enabled: false },
+          grid: { borderColor: "#d1fae5" },
+          legend: { show: false },
+          annotations: mean
+            ? {
+                yaxis: [
+                  {
+                    y: mean,
+                    borderColor: CE_CEARA_CRED_CHART_COLORS[2],
+                    strokeDashArray: 6,
+                    label: {
+                      text: `média ${ceFormatPercentPt(mean)}`,
+                      style: { color: "#fff", background: CE_CEARA_CRED_CHART_COLORS[2], fontSize: "10px" },
+                    },
+                  },
+                ],
+              }
+            : {},
+          tooltip: {
+            custom: ({ seriesIndex, dataPointIndex, w }) => {
+              const p = w.config.series[seriesIndex]?.data?.[dataPointIndex];
+              if (!p) return "";
+              return `<div class="map-ce-popup" style="padding:8px 10px">
             <strong>${ceEscapeHtml(p.name || "")}</strong><br/>
             Cadastradas: ${ceFormatIntPt(p.x)}<br/>
             Taxa: ${ceFormatPercentPt(p.y)}<br/>
             Valor: ${ceFormatCurrencyPt(p.valor ?? p.z)}
           </div>`;
-        },
-      },
-    });
-    chart.render();
-    ceMapRuntime.profileSummaryCharts.cearaScatter = chart;
-  }
+            },
+          },
+        });
+        chart.render();
+        ceMapRuntime.profileSummaryCharts.cearaScatter = chart;
+      } catch (err) {
+        console.warn("Ceará Credi scatter:", err);
+      }
+    }
 
-  if (!ceMapRuntime.cearaCredTable) {
-    ceMapRuntime.cearaCredTable = { sortKey: "aprovadas", sortDir: "desc", search: "" };
+    if (!ceMapRuntime.cearaCredTable) {
+      ceMapRuntime.cearaCredTable = { sortKey: "aprovadas", sortDir: "desc", search: "" };
+    }
+    ceMapRuntime.cearaCredTable.rows = ceBuildCearaCredTableRows(allMunRows);
+    ceBindCearaCredTableControls();
+    ceRenderCearaCredMunTable();
+  } catch (err) {
+    console.warn("Ceará Credi painel extra:", err);
   }
-  ceMapRuntime.cearaCredTable.rows = ceBuildCearaCredTableRows(allMunRows);
-  ceBindCearaCredTableControls();
-  ceRenderCearaCredMunTable();
 }
 
 function ceUpdateCearaCredSummaryCharts(aggByLayer, sortOrder) {
-  const munEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaMunicipio);
-  const regEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaRegiao);
-  if (!munEl || !regEl) return;
+  try {
+    const munEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaMunicipio);
+    const regEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaRegiao);
+    if (!munEl || !regEl) {
+      ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder);
+      return;
+    }
 
-  const seriesDefs = CE_CEARA_CRED_KPI_METRICS.map((m, i) => ({
-    key: m.key,
-    name: m.label,
-    format: m.format,
-  }));
-  const munRankN = 20;
-  const munRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder).slice(0, munRankN);
-  const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder);
+    const seriesDefs = CE_CEARA_CRED_KPI_METRICS.map((m, i) => ({
+      key: m.key,
+      name: m.label,
+      format: m.format,
+    }));
+    const munRankN = 20;
+    const munRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder).slice(0, munRankN);
+    const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder);
 
-  const munChart = ceCreateProfileGroupedBarChart(munEl, munRows, {
-    seriesDefs,
-    colors: CE_CEARA_CRED_CHART_COLORS,
-  });
-  const regChart = ceCreateProfileGroupedBarChart(regEl, regRows, {
-    seriesDefs,
-    colors: CE_CEARA_CRED_CHART_COLORS,
-  });
+    const munChart = ceCreateProfileGroupedBarChart(munEl, munRows, {
+      seriesDefs,
+      colors: CE_CEARA_CRED_CHART_COLORS,
+    });
+    const regChart = ceCreateProfileGroupedBarChart(regEl, regRows, {
+      seriesDefs,
+      colors: CE_CEARA_CRED_CHART_COLORS,
+    });
 
-  munChart.render();
-  regChart.render();
+    munChart.render();
+    regChart.render();
 
-  ceMapRuntime.profileSummaryCharts.cearaMunicipio = munChart;
-  ceMapRuntime.profileSummaryCharts.cearaRegiao = regChart;
+    ceMapRuntime.profileSummaryCharts.cearaMunicipio = munChart;
+    ceMapRuntime.profileSummaryCharts.cearaRegiao = regChart;
 
-  const munRankLabel = sortOrder === "asc" ? "20 menores" : "20 maiores";
-  const munPanelTitle = munEl.closest(".map-ce-profile-charts__panel")?.querySelector(".map-ce-profile-charts__panel-title");
-  if (munPanelTitle) {
-    const legendNote = ceMapRuntime.activeLegendClass !== null ? " · classe selecionada na legenda" : "";
-    munPanelTitle.textContent = `Indicadores por município · ${munRankLabel}${legendNote}`;
-  }
-  const sortBtn = document.getElementById("mapProfileSortToggleCeara");
-  if (sortBtn) {
-    sortBtn.textContent = munRankLabel;
-    sortBtn.dataset.order = sortOrder;
+    const munRankLabel = sortOrder === "asc" ? "20 menores" : "20 maiores";
+    const munPanelTitle = munEl.closest(".map-ce-profile-charts__panel")?.querySelector(".map-ce-profile-charts__panel-title");
+    if (munPanelTitle) {
+      const legendNote = ceMapRuntime.activeLegendClass !== null ? " · classe selecionada na legenda" : "";
+      munPanelTitle.textContent = `Indicadores por município · ${munRankLabel}${legendNote}`;
+    }
+    const sortBtn = document.getElementById("mapProfileSortToggleCeara");
+    if (sortBtn) {
+      sortBtn.textContent = munRankLabel;
+      sortBtn.dataset.order = sortOrder;
+    }
+  } catch (err) {
+    console.warn("Ceará Credi barras:", err);
   }
   ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder);
 }
@@ -6042,10 +6090,7 @@ function ceDestroyProfileCearaCredValorLineChart() {
     ceMapRuntime.profileCearaCredValorLineChart = null;
   }
   const el = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaValorLine);
-  if (el) {
-    el.innerHTML = "";
-    el.hidden = true;
-  }
+  if (el) el.innerHTML = "";
 }
 
 function ceDestroyProfileCearaCredLineChart() {
@@ -6160,7 +6205,7 @@ function ceCearaCredSeriesFromBucketMap(keys, byKey, metricKeys) {
     _color: def.color,
     _key: def.key,
   }));
-  const hasAnyValue = series.some((s) => s.data.some((v) => Number(v) > 0));
+  const hasAnyValue = series.length > 0 && keys.length > 0;
   return { series, hasRows: hasAnyValue };
 }
 
@@ -6375,7 +6420,7 @@ function ceBuildCearaCredMunicipioCompareSeries(rows, metricKey, grain, codigos)
     name: ceCearaCredMunicipioLabel(cod, rows),
     data: keys.length ? keys.map((k) => byPeriod.get(k)?.get(cod) ?? 0) : [0],
   }));
-  const hasData = keys.length > 0 && series.some((s) => s.data.some((v) => Number(v) !== 0));
+  const hasData = keys.length > 0 && series.length > 0;
   return { categories, series, hasData };
 }
 
@@ -6516,7 +6561,7 @@ function ceUpdateProfileCearaCredMunLineChart() {
     }
   };
 
-  requestAnimationFrame(renderChart);
+  requestAnimationFrame(() => requestAnimationFrame(renderChart));
 }
 
 function ceRefreshCearaCredLineChart() {
@@ -6590,10 +6635,13 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
 
   ceDestroyProfileCearaCredLineChart();
   ceDestroyProfileCearaCredValorLineChart();
+  const valorEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaValorLine);
   el.hidden = !showCounts;
+  if (valorEl) valorEl.hidden = !showValor;
   if (!showChart) return;
 
   const renderOne = (targetEl, seriesMeta, runtimeKey) => {
+    if (!targetEl) return;
     try {
       const chart = new ApexCharts(targetEl, ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain));
       chart
@@ -6614,13 +6662,12 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
     }
   };
 
-  const valorEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaValorLine);
+  /* ApexCharts precisa do container visível e com altura; espera o layout. */
   requestAnimationFrame(() => {
-    if (showCounts) renderOne(el, countSeries, "profileCearaCredLineChart");
-    if (valorEl) {
-      valorEl.hidden = !showValor;
+    requestAnimationFrame(() => {
+      if (showCounts) renderOne(el, countSeries, "profileCearaCredLineChart");
       if (showValor) renderOne(valorEl, valorSeries, "profileCearaCredValorLineChart");
-    }
+    });
   });
 }
 
@@ -8048,20 +8095,6 @@ function ceApplyMapFilters() {
     const { aggByLayer, filteredByLayer } = ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel);
     ceMapRuntime.lastProfileAggByLayer = aggByLayer;
     ceMapRuntime.lastProfileFilteredByLayer = filteredByLayer;
-    ceUpdateProfileKpis(ceComputeProfileKpiMetricsFromAgg(aggByLayer, filteredByLayer, munSel, regSel));
-    ceUpdateProfileSummaryCharts(aggByLayer);
-    ceUpdateProfileCearaCredLineChart(munSel, regSel);
-    ceUpdateProfilePibLineChart(
-      filteredByLayer[ceGetSelectedProfileLayerKey()] || [],
-      anoSel
-    );
-    if (ceIsIntermediacaoMode()) {
-      ceUpdateIntermediacaoLineChart(munSel, regSel, anoSel);
-    } else {
-      ceDestroyIntermediacaoLineChart();
-    }
-
-    if (!map || !map.getSource("ce-regioes")) return;
 
     const profileRows = ceMapRuntime.profileRowsByLayer[ceGetSelectedProfileLayerKey()] || [];
     const filteredProfile = ceGetFilteredRows(profileRows, mesSel, munSel, regSel, anoSel);
@@ -8079,11 +8112,47 @@ function ceApplyMapFilters() {
       { nullifyZero: isIntermedicaoOnMap }
     );
     ceMapRuntime.currentMergedGeoJson = mergedProfile;
+    if (map?.getSource("ce-regioes")) {
+      try {
+        map.getSource("ce-regioes").setData(mergedProfile);
+        ceScheduleMapVisualizationRefresh();
+      } catch (e) {
+        console.warn("Atualizar mapa Perfil Municipal:", e);
+      }
+    }
+
     try {
-      map.getSource("ce-regioes").setData(mergedProfile);
-      ceScheduleMapVisualizationRefresh();
+      ceUpdateProfileKpis(ceComputeProfileKpiMetricsFromAgg(aggByLayer, filteredByLayer, munSel, regSel));
     } catch (e) {
-      console.warn("Atualizar mapa Perfil Municipal:", e);
+      console.warn("KPIs Perfil Municipal:", e);
+    }
+    try {
+      ceUpdateProfileSummaryCharts(aggByLayer);
+    } catch (e) {
+      console.warn("Gráficos Perfil Municipal:", e);
+    }
+    try {
+      ceUpdateProfileCearaCredLineChart(munSel, regSel);
+      ceUpdateProfileCearaCredMunLineChart();
+    } catch (e) {
+      console.warn("Linhas Ceará Credi:", e);
+    }
+    try {
+      ceUpdateProfilePibLineChart(
+        filteredByLayer[ceGetSelectedProfileLayerKey()] || [],
+        anoSel
+      );
+    } catch (e) {
+      console.warn("Linha PIB:", e);
+    }
+    try {
+      if (ceIsIntermediacaoMode()) {
+        ceUpdateIntermediacaoLineChart(munSel, regSel, anoSel);
+      } else {
+        ceDestroyIntermediacaoLineChart();
+      }
+    } catch (e) {
+      console.warn("Linha intermediação:", e);
     }
     return;
   }
