@@ -516,6 +516,48 @@ function formatIndicadorRowMeta(row) {
   );
 }
 
+/** Ordena textos de período (ex.: "2T 2026", "2º trimestre 2026", "Junho de 2026"). */
+function parsePeriodoSortKey(raw) {
+  const text = String(raw ?? "").trim();
+  if (!text) return -1;
+  const yearMatch = text.match(/(20\d{2}|\d{4})/);
+  const year = yearMatch ? Number(yearMatch[1]) : 0;
+  const quarterMatch =
+    text.match(/(\d)\s*[ºoª°]?\s*[Tt](?:rimestre)?/) || text.match(/\b[Tt]\s*(\d)\b/);
+  if (quarterMatch) {
+    const q = Number(quarterMatch[1]);
+    if (q >= 1 && q <= 4) return year * 100 + q * 25;
+  }
+  const p = parseIndicadorRowPeriod({ periodo: text, ano: year || null, mes: null });
+  if (p?.sortKey) return p.sortKey;
+  return year * 100;
+}
+
+function pickLatestIndicadorRowByPeriodo(rows, testFn, labelCol) {
+  let best = null;
+  let bestKey = -1;
+  for (const row of rows || []) {
+    const lab = indicadorRowLabelKey(row, labelCol);
+    if (!testFn(lab)) continue;
+    const periodoKey = parsePeriodoSortKey(row.periodo);
+    const parsed = parseIndicadorRowPeriod(row);
+    const sortKey = periodoKey >= 0 ? periodoKey : parsed?.sortKey ?? -1;
+    if (!best || sortKey >= bestKey) {
+      best = row;
+      bestKey = sortKey;
+    }
+  }
+  return best;
+}
+
+function formatPnadPeriodoMeta(row) {
+  const periodo = row?.periodo != null ? String(row.periodo).trim() : "";
+  const base = periodo || formatIndicadorRowMeta(row) || "";
+  if (!base) return "PNAD";
+  if (/\bpnad\b/i.test(base)) return base;
+  return `${base} | PNAD`;
+}
+
 function indicadorRowLabelKey(row, labelCol) {
   return normalizeTextForCompare(
     String(row[labelCol] || row.indicador || row.tema || row.categoria || "")
@@ -1422,8 +1464,10 @@ function formatSaldoAtividadeValor(n) {
 
 /** Cards unificados da linha de KPIs da home: Empregos com carteira, Saldo, Taxa CE, Taxa BR. */
 function buildHomeKpiRowCards(rows) {
-  if (!rows.length) return [];
-  const cols = Object.keys(rows[0]);
+  if (!rows.length && !(state.dadosAba || []).length) return [];
+  const pnadPool = (state.dadosAba || []).length ? state.dadosAba : rows;
+  const sample = rows[0] || pnadPool[0];
+  const cols = Object.keys(sample || {});
   const labelCol = detectLabelColumn(cols);
   const hasValor = cols.includes("valor");
   const used = new Set();
@@ -1436,12 +1480,21 @@ function buildHomeKpiRowCards(rows) {
   ];
 
   return specs.map((spec) => {
-    const idx = rows.findIndex((row, i) => {
-      if (used.has(i)) return false;
-      const lab = normalizeTextForCompare(String(row[labelCol] || row.indicador || row.tema || row.categoria || ""));
-      return spec.def.test(lab);
-    });
-    if (idx < 0) {
+    const isPnad = spec.kind === "taxaCe" || spec.kind === "taxaBr";
+    let row = null;
+    if (isPnad) {
+      row = pickLatestIndicadorRowByPeriodo(pnadPool, spec.def.test, labelCol);
+    } else {
+      const idx = rows.findIndex((item, i) => {
+        if (used.has(i)) return false;
+        return spec.def.test(indicadorRowLabelKey(item, labelCol));
+      });
+      if (idx >= 0) {
+        used.add(idx);
+        row = rows[idx];
+      }
+    }
+    if (!row) {
       return {
         label: spec.def.fallbackLabel,
         value: "—",
@@ -1452,12 +1505,12 @@ function buildHomeKpiRowCards(rows) {
         missing: true
       };
     }
-    used.add(idx);
-    const row = rows[idx];
     const label = String(row[labelCol] || row.indicador || spec.def.fallbackLabel);
     const raw = hasValor ? getRowNumericValor(row) : null;
     const value = hasValor && isNumericLike(row.valor) ? formatCellValue(row.valor, "valor", row) : "—";
-    const meta = formatIndicadorRowMeta(row) || row.fonte || "Valor na base";
+    const meta = isPnad
+      ? formatPnadPeriodoMeta(row)
+      : formatIndicadorRowMeta(row) || row.fonte || "Valor na base";
     return { label, value, meta, icon: spec.icon, kind: spec.kind, raw, missing: false };
   });
 }
