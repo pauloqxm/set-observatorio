@@ -144,11 +144,12 @@ function hpParseDataTerminoParts(raw) {
     if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2200) return null;
     return { year, month, day, mesAnoKey: `${year}-${String(month).padStart(2, "0")}` };
   }
-  const parts = s.split("/");
+  const cleaned = s.replace(/\s+\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?.*$/, "").trim();
+  const parts = cleaned.split("/");
   if (parts.length === 3) {
-    let day = Number(parts[0]);
-    let month = Number(parts[1]);
-    const year = Number(parts[2]);
+    let day = parseInt(parts[0], 10);
+    let month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
     if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
     if (month > 12 && day >= 1 && day <= 12) {
       const tmp = month;
@@ -352,11 +353,22 @@ function hpSummarizeVaiVem(rows) {
 
 /* ---------------------------- Qualificação ------------------------------ */
 
+function hpNormalizeKeyCompact(raw) {
+  return hpNormalizeKey(raw).replace(/[aeiou]/g, "");
+}
+
 function hpQfHeaderIndex(header, candidates) {
-  const map = new Map(header.map((h, i) => [hpNormalizeKey(h), i]));
+  const norms = header.map((h) => hpNormalizeKey(h));
+  const map = new Map(norms.map((h, i) => [h, i]));
   for (const c of candidates) {
     const idx = map.get(hpNormalizeKey(c));
     if (idx != null) return idx;
+  }
+  for (const c of candidates) {
+    const compact = hpNormalizeKeyCompact(c);
+    if (!compact) continue;
+    const idx = norms.findIndex((h) => h && hpNormalizeKeyCompact(h) === compact);
+    if (idx >= 0) return idx;
   }
   return -1;
 }
@@ -370,6 +382,7 @@ function hpParseQualificacaoRows(text) {
   const idxInscritos = hpQfHeaderIndex(header, ["INSCRITOS"]);
   const idxConcludentes = hpQfHeaderIndex(header, ["CONCLUDENTES"]);
   const idxTermino = hpQfHeaderIndex(header, ["DATA TÉRMINO", "DATA TERMINO", "Data Término", "data_termino"]);
+  const idxStatus = hpQfHeaderIndex(header, ["STATUS"]);
   if (idxCod < 0) return [];
   const bucket = { latestKey: "", rows: [] };
   for (let i = 1; i < lines.length; i++) {
@@ -378,7 +391,11 @@ function hpParseQualificacaoRows(text) {
     const codigo = hpNormalizeCodigoMunicipio(cells[idxCod]);
     if (codigo == null) continue;
     const dateParts = idxTermino >= 0 ? hpParseDataTerminoParts(cells[idxTermino]) : null;
-    if (!hpIsQualificacaoTurmaConcluida(dateParts)) continue;
+    const statusNorm = idxStatus >= 0 ? hpNormText(cells[idxStatus]) : "";
+    const concluida = idxStatus >= 0
+      ? statusNorm.includes("conclu")
+      : hpIsQualificacaoTurmaConcluida(dateParts);
+    if (!concluida || !dateParts) continue;
     hpPushIfLatestMonth(bucket, {
       codigo,
       vagas: idxVagas >= 0 ? hpParseNumberPt(cells[idxVagas]) || 0 : 0,
@@ -386,6 +403,23 @@ function hpParseQualificacaoRows(text) {
       concludentes: idxConcludentes >= 0 ? hpParseNumberPt(cells[idxConcludentes]) || 0 : 0,
       mesAnoKey: dateParts.mesAnoKey,
     });
+  }
+  if (!bucket.rows.length) {
+    for (let i = 1; i < lines.length; i++) {
+      const cells = hpParseCsvLine(lines[i]);
+      if (!cells.length) continue;
+      const codigo = hpNormalizeCodigoMunicipio(cells[idxCod]);
+      if (codigo == null) continue;
+      const dateParts = idxTermino >= 0 ? hpParseDataTerminoParts(cells[idxTermino]) : null;
+      if (!hpIsQualificacaoTurmaConcluida(dateParts)) continue;
+      hpPushIfLatestMonth(bucket, {
+        codigo,
+        vagas: idxVagas >= 0 ? hpParseNumberPt(cells[idxVagas]) || 0 : 0,
+        inscritos: idxInscritos >= 0 ? hpParseNumberPt(cells[idxInscritos]) || 0 : 0,
+        concludentes: idxConcludentes >= 0 ? hpParseNumberPt(cells[idxConcludentes]) || 0 : 0,
+        mesAnoKey: dateParts.mesAnoKey,
+      });
+    }
   }
   return bucket.rows;
 }
@@ -512,10 +546,10 @@ function homeProgramsLoadData(onUpdate) {
   };
 
   const sources = [
+    ["qualificacao", HP_QUALIFICACAO_CSV_URL, hpParseQualificacaoRows, hpSummarizeQualificacao],
     ["cearaCredi", HP_CEARA_CREDI_CSV_URL, hpParseCearaCrediRows, hpSummarizeCearaCredi],
     ["dinheiroNaMao", HP_DINHEIRO_NA_MAO_CSV_URL, hpParseDinheiroNaMaoRows, hpSummarizeDinheiroNaMao],
     ["vaiVem", HP_VAI_VEM_CSV_URL, hpParseVaiVemRows, hpSummarizeVaiVem],
-    ["qualificacao", HP_QUALIFICACAO_CSV_URL, hpParseQualificacaoRows, hpSummarizeQualificacao],
   ];
 
   _homeProgramsPromise = Promise.all(
