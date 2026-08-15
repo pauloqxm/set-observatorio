@@ -1648,7 +1648,7 @@ function renderHomeProgramsSection() {
   const data = state.homeProgramsData.data;
   els.homeProgramsGrid.innerHTML = HOME_PROGRAM_CARDS_DEF.map((card) => {
     const source = data ? data[card.key] : null;
-    const loaded = status === "loaded" && source && source.status === "ok";
+    const loaded = source && source.status === "ok";
     const errored = status === "error" || (source && source.status === "error");
     const kpisHtml = card.kpis
       .map((kpi) => {
@@ -1683,19 +1683,23 @@ function ensureHomeProgramsData() {
   if (state.homeProgramsData.status === "loaded" || state.homeProgramsData.status === "loading") return;
   if (!window.homePrograms || typeof window.homePrograms.loadData !== "function") {
     state.homeProgramsData.status = "error";
+    renderHomeProgramsSection();
     return;
   }
   state.homeProgramsData.status = "loading";
   window.homePrograms
-    .loadData()
-    .then((data) => {
-      state.homeProgramsData.status = "loaded";
+    .loadData((data) => {
       state.homeProgramsData.data = data;
+      const keys = HOME_PROGRAM_CARDS_DEF.map((card) => card.key);
+      const pending = keys.some((key) => !data[key] || data[key].status === "loading");
+      if (!pending) {
+        const allError = keys.every((key) => data[key].status === "error");
+        state.homeProgramsData.status = allError ? "error" : "loaded";
+      }
+      if (state.abaAtual === "indicadores") renderHomeProgramsSection();
     })
     .catch(() => {
       state.homeProgramsData.status = "error";
-    })
-    .finally(() => {
       if (state.abaAtual === "indicadores") renderHomeProgramsSection();
     });
 }

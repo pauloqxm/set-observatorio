@@ -412,29 +412,62 @@ function hpSummarizeDinheiroNaMao(rows) {
 
 /* --------------------------------- API ---------------------------------- */
 
-function hpFetchText(url) {
-  return fetch(url, { cache: "no-store" }).then((res) => {
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
-  });
+function hpFetchText(url, timeoutMs = 90000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { cache: "no-store", signal: controller.signal })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    })
+    .finally(() => clearTimeout(timer));
+}
+
+function hpLoadSource(url, parse, summarize) {
+  return hpFetchText(url)
+    .then((text) => ({ status: "ok", ...summarize(parse(text)) }))
+    .catch((err) => {
+      console.error("[home-programs]", url, err);
+      return { status: "error" };
+    });
 }
 
 let _homeProgramsPromise = null;
 
-/** Busca (uma vez, com cache em memória) os resumos dos 4 programas. Falhas são isoladas por fonte. */
-function homeProgramsLoadData() {
-  if (_homeProgramsPromise) return _homeProgramsPromise;
-  _homeProgramsPromise = Promise.allSettled([
-    hpFetchText(HP_CEARA_CREDI_CSV_URL).then((text) => hpSummarizeCearaCredi(hpParseCearaCrediRows(text))),
-    hpFetchText(HP_DINHEIRO_NA_MAO_CSV_URL).then((text) => hpSummarizeDinheiroNaMao(hpParseDinheiroNaMaoRows(text))),
-    hpFetchText(HP_VAI_VEM_CSV_URL).then((text) => hpSummarizeVaiVem(hpParseVaiVemRows(text))),
-    hpFetchText(HP_QUALIFICACAO_CSV_URL).then((text) => hpSummarizeQualificacao(hpParseQualificacaoRows(text))),
-  ]).then(([cearaCredi, dinheiroNaMao, vaiVem, qualificacao]) => ({
-    cearaCredi: cearaCredi.status === "fulfilled" ? { status: "ok", ...cearaCredi.value } : { status: "error" },
-    dinheiroNaMao: dinheiroNaMao.status === "fulfilled" ? { status: "ok", ...dinheiroNaMao.value } : { status: "error" },
-    vaiVem: vaiVem.status === "fulfilled" ? { status: "ok", ...vaiVem.value } : { status: "error" },
-    qualificacao: qualificacao.status === "fulfilled" ? { status: "ok", ...qualificacao.value } : { status: "error" },
-  }));
+/**
+ * Busca os 4 programas em paralelo, mas publica o resultado de cada fonte
+ * assim que ela terminar — um CSV lento (ou travado) não segura os outros cards.
+ */
+function homeProgramsLoadData(onUpdate) {
+  if (_homeProgramsPromise) {
+    if (typeof onUpdate === "function") _homeProgramsPromise.then(onUpdate);
+    return _homeProgramsPromise;
+  }
+
+  const data = {
+    cearaCredi: { status: "loading" },
+    dinheiroNaMao: { status: "loading" },
+    vaiVem: { status: "loading" },
+    qualificacao: { status: "loading" },
+  };
+  if (typeof onUpdate === "function") onUpdate(data);
+
+  const publish = (key, value) => {
+    data[key] = value;
+    if (typeof onUpdate === "function") onUpdate(data);
+  };
+
+  const sources = [
+    ["cearaCredi", HP_CEARA_CREDI_CSV_URL, hpParseCearaCrediRows, hpSummarizeCearaCredi],
+    ["dinheiroNaMao", HP_DINHEIRO_NA_MAO_CSV_URL, hpParseDinheiroNaMaoRows, hpSummarizeDinheiroNaMao],
+    ["vaiVem", HP_VAI_VEM_CSV_URL, hpParseVaiVemRows, hpSummarizeVaiVem],
+    ["qualificacao", HP_QUALIFICACAO_CSV_URL, hpParseQualificacaoRows, hpSummarizeQualificacao],
+  ];
+
+  _homeProgramsPromise = Promise.all(
+    sources.map(([key, url, parse, summarize]) => hpLoadSource(url, parse, summarize).then((value) => publish(key, value)))
+  ).then(() => data);
+
   return _homeProgramsPromise;
 }
 
