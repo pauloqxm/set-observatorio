@@ -1945,14 +1945,8 @@ td {
 /* ---------- Outros programas em destaque ---------- */
 .home-program-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-}
-
-@media (max-width: 1100px) {
-  .home-program-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 620px) {
@@ -2020,6 +2014,11 @@ td {
   --program-color-light: #d1fae5;
 }
 
+.home-program-card--dinheiro {
+  --program-color: #d97706;
+  --program-color-light: #fef3c7;
+}
+
 .home-program-card--vaivem {
   --program-color: #ea580c;
   --program-color-light: #ffedd5;
@@ -2052,6 +2051,10 @@ td {
 
 .home-program-card--credi .home-program-card__icon {
   background: linear-gradient(145deg, #059669, #6ee7b7);
+}
+
+.home-program-card--dinheiro .home-program-card__icon {
+  background: linear-gradient(145deg, #d97706, #fcd34d);
 }
 
 .home-program-card--vaivem .home-program-card__icon {

@@ -114,6 +114,18 @@ const HOME_PROGRAM_CARDS_DEF = [
     ]
   },
   {
+    key: "dinheiroNaMao",
+    title: "Dinheiro na Mão",
+    icon: "fa-solid fa-money-bill-transfer",
+    variant: "dinheiro",
+    url: "/mapa?aba=dinheiro_na_mao",
+    kpis: [
+      { key: "operacoes", label: "Total de operações", format: "int" },
+      { key: "valorOperacoes", label: "Valor das operações", format: "currency" },
+      { key: "valorJuros", label: "Valor dos juros", format: "currency" }
+    ]
+  },
+  {
     key: "vaiVem",
     title: "Vai Vem Trabalhador",
     icon: "fa-solid fa-bus",
@@ -177,7 +189,7 @@ const state = {
   },
   /** Cache do gráfico "Como está o mercado de trabalho?" (CAGED, últimos 12 meses). */
   homeTrendData: { status: "idle", monthly: null },
-  /** Cache dos resumos de Ceará Credi, Vai Vem e Qualificação para "Outros programas em destaque". */
+  /** Cache dos resumos de Ceará Credi, Dinheiro na Mão, Vai Vem e Qualificação para "Outros programas em destaque". */
   homeProgramsData: { status: "idle", data: null },
   /** Acumulado anual e série mensal da Intermediação de Mão de Obra. */
   homeIntermediacaoData: { status: "idle", data: null }
@@ -1629,7 +1641,7 @@ function formatHomeProgramKpiValue(format, value) {
   return formatNumber(value);
 }
 
-/** Cartões com números de Ceará Credi, Vai Vem e Qualificação (dados carregados à parte). */
+/** Cartões com números de Ceará Credi, Dinheiro na Mão, Vai Vem e Qualificação (dados carregados à parte). */
 function renderHomeProgramsSection() {
   if (!els.homeProgramsGrid) return;
   const status = state.homeProgramsData.status;
@@ -1666,7 +1678,7 @@ function renderHomeProgramsSection() {
   }).join("");
 }
 
-/** Busca (uma vez) os resumos de Ceará Credi, Vai Vem e Qualificação para os blocos da home. */
+/** Busca (uma vez) os resumos dos programas em destaque para os blocos da home. */
 function ensureHomeProgramsData() {
   if (state.homeProgramsData.status === "loaded" || state.homeProgramsData.status === "loading") return;
   if (!window.homePrograms || typeof window.homePrograms.loadData !== "function") {

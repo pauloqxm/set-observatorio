@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Módulo leve e isolado da página inicial: resume os números de três
+ * Módulo leve e isolado da página inicial: resume os números de quatro
  * programas hoje só visíveis dentro do mapa interativo (Ceará Credi,
- * Vai Vem e Qualificação Profissional), para os blocos "Outros programas
- * em destaque" da home.
+ * Dinheiro na Mão, Vai Vem e Qualificação Profissional), para os blocos
+ * "Outros programas em destaque" da home.
  */
 
 const HP_CEARA_CREDI_CSV_URL =
@@ -15,6 +15,9 @@ const HP_VAI_VEM_CSV_URL =
 
 const HP_QUALIFICACAO_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSX4leER0WfjxQAuMkPJR9O3mpi1r8XlBaL9ef0bVW7Pb8muKdyJrYB2RvpE5PqSEbCWIAyVj0Wh-L6/pub?gid=1427271035&single=true&output=csv";
+
+const HP_DINHEIRO_NA_MAO_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0yUMqqyz-DqEIRgsdueFBAo-mfXDXpsvgSCsE3FwYrpIck2V2khuV0FS2SVnVpTX4EuCLjM1guRjH/pub?gid=122762647&single=true&output=csv";
 
 const HP_MESES_ABREV_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -157,6 +160,22 @@ function hpLatestReferenciaLabel(keys) {
     if (hpMesAnoKeyRank(key) > hpMesAnoKeyRank(latestKey)) latestKey = key;
   }
   return hpFormatMesAnoFromKey(latestKey);
+}
+
+/** Aceita "DD/MM/AAAA" e "AAAA-MM-DD" (como na aba Dinheiro na Mão). */
+function hpParseIsoOrBrDateToMesAnoKey(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?$/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    if (month >= 1 && month <= 12 && year >= 1900 && year <= 2200) {
+      return `${year}-${String(month).padStart(2, "0")}`;
+    }
+    return "";
+  }
+  return hpParseDataBrToMesAnoKey(s);
 }
 
 /* ----------------------------- Ceará Credi ----------------------------- */
@@ -340,6 +359,57 @@ function hpSummarizeQualificacao(rows) {
   };
 }
 
+/* --------------------------- Dinheiro na Mão ---------------------------- */
+
+function hpParseDinheiroNaMaoRows(text) {
+  const lines = hpSplitLines(text);
+  if (lines.length < 2) return [];
+  const header = hpParseCsvLine(lines[0]);
+  const idxCodigo = hpQfHeaderIndex(header, ["COD_IBGE", "CODIGO IBGE"]);
+  const idxPrincipal = hpQfHeaderIndex(header, ["VR_PCP_OPE"]);
+  const idxJuros = hpQfHeaderIndex(header, ["VR_JRS_OPE"]);
+  const idxData = hpQfHeaderIndex(header, [
+    "DATA DESEMBOLSO / DATA CONTRATO",
+    "DATA DESEMBOLSO DATA CONTRATO",
+    "DATA CONTRATO",
+  ]);
+  if (idxCodigo < 0 || idxPrincipal < 0 || idxJuros < 0 || idxData < 0) return [];
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = hpParseCsvLine(lines[i]);
+    if (!cells.length) continue;
+    const codigo = hpNormalizeCodigoMunicipio(cells[idxCodigo]);
+    if (codigo == null || codigo < 230000 || codigo > 239999) continue;
+    rows.push({
+      codigo,
+      valorOperacoes: hpParseDecimalFlexible(cells[idxPrincipal]) || 0,
+      valorJuros: hpParseDecimalFlexible(cells[idxJuros]) || 0,
+      mesAnoKey: hpParseIsoOrBrDateToMesAnoKey(cells[idxData]),
+    });
+  }
+  return rows;
+}
+
+function hpSummarizeDinheiroNaMao(rows) {
+  let valorOperacoes = 0;
+  let valorJuros = 0;
+  const municipios = new Set();
+  const mesKeys = [];
+  for (const row of rows) {
+    valorOperacoes += row.valorOperacoes;
+    valorJuros += row.valorJuros;
+    municipios.add(row.codigo);
+    if (row.mesAnoKey) mesKeys.push(row.mesAnoKey);
+  }
+  return {
+    operacoes: rows.length,
+    valorOperacoes,
+    valorJuros,
+    municipios: municipios.size,
+    referenciaLabel: hpLatestReferenciaLabel(mesKeys),
+  };
+}
+
 /* --------------------------------- API ---------------------------------- */
 
 function hpFetchText(url) {
@@ -351,15 +421,17 @@ function hpFetchText(url) {
 
 let _homeProgramsPromise = null;
 
-/** Busca (uma vez, com cache em memória) os resumos dos 3 programas. Falhas são isoladas por fonte. */
+/** Busca (uma vez, com cache em memória) os resumos dos 4 programas. Falhas são isoladas por fonte. */
 function homeProgramsLoadData() {
   if (_homeProgramsPromise) return _homeProgramsPromise;
   _homeProgramsPromise = Promise.allSettled([
     hpFetchText(HP_CEARA_CREDI_CSV_URL).then((text) => hpSummarizeCearaCredi(hpParseCearaCrediRows(text))),
+    hpFetchText(HP_DINHEIRO_NA_MAO_CSV_URL).then((text) => hpSummarizeDinheiroNaMao(hpParseDinheiroNaMaoRows(text))),
     hpFetchText(HP_VAI_VEM_CSV_URL).then((text) => hpSummarizeVaiVem(hpParseVaiVemRows(text))),
     hpFetchText(HP_QUALIFICACAO_CSV_URL).then((text) => hpSummarizeQualificacao(hpParseQualificacaoRows(text))),
-  ]).then(([cearaCredi, vaiVem, qualificacao]) => ({
+  ]).then(([cearaCredi, dinheiroNaMao, vaiVem, qualificacao]) => ({
     cearaCredi: cearaCredi.status === "fulfilled" ? { status: "ok", ...cearaCredi.value } : { status: "error" },
+    dinheiroNaMao: dinheiroNaMao.status === "fulfilled" ? { status: "ok", ...dinheiroNaMao.value } : { status: "error" },
     vaiVem: vaiVem.status === "fulfilled" ? { status: "ok", ...vaiVem.value } : { status: "error" },
     qualificacao: qualificacao.status === "fulfilled" ? { status: "ok", ...qualificacao.value } : { status: "error" },
   }));
