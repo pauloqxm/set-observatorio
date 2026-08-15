@@ -162,6 +162,19 @@ function hpLatestReferenciaLabel(keys) {
   return hpFormatMesAnoFromKey(latestKey);
 }
 
+/** Mantém só as linhas do mês mais recente, descartando o histórico. */
+function hpPushIfLatestMonth(bucket, row) {
+  if (!row?.mesAnoKey) return;
+  const rank = hpMesAnoKeyRank(row.mesAnoKey);
+  const latestRank = hpMesAnoKeyRank(bucket.latestKey);
+  if (rank > latestRank) {
+    bucket.latestKey = row.mesAnoKey;
+    bucket.rows = [row];
+    return;
+  }
+  if (rank === latestRank) bucket.rows.push(row);
+}
+
 /** Aceita "DD/MM/AAAA" e "AAAA-MM-DD" (como na aba Dinheiro na Mão). */
 function hpParseIsoOrBrDateToMesAnoKey(raw) {
   const s = String(raw || "").trim();
@@ -184,7 +197,7 @@ function hpParseCearaCrediRows(text) {
   const lines = hpSplitLines(text);
   if (lines.length < 2) return [];
   const headers = hpParseCsvLine(lines[0]).map((h) => hpNormalizeKey(h));
-  const rows = [];
+  const bucket = { latestKey: "", rows: [] };
   for (let i = 1; i < lines.length; i++) {
     const cells = hpParseCsvLine(lines[i]);
     if (!cells.length) continue;
@@ -200,7 +213,7 @@ function hpParseCearaCrediRows(text) {
     const emAtendimento = hpParseDecimalFlexible(hpGetCellByKeys(record, ["ematendimento"]));
     const aprovadas = hpParseDecimalFlexible(hpGetCellByKeys(record, ["aprovadas"]));
     const valorLiberado = hpParseDecimalFlexible(hpGetCellByKeys(record, ["valorliberado"]));
-    rows.push({
+    hpPushIfLatestMonth(bucket, {
       codigo: cod,
       mesAnoKey: hpMesAnoKey(mesAno),
       cadastradas: Number.isFinite(cadastradas) ? cadastradas : 0,
@@ -209,37 +222,32 @@ function hpParseCearaCrediRows(text) {
       valorLiberado: Number.isFinite(valorLiberado) ? valorLiberado : 0,
     });
   }
-  return rows;
+  return bucket.rows;
 }
 
-/** Para cada município, usa o saldo da competência mais recente (já acumulado até aquele mês). */
+/** Soma só o mês mais recente da planilha. */
 function hpSummarizeCearaCredi(rows) {
-  const latestByCod = new Map();
-  for (const row of rows) {
-    const prev = latestByCod.get(row.codigo);
-    if (!prev || hpMesAnoKeyRank(row.mesAnoKey) >= hpMesAnoKeyRank(prev.mesAnoKey)) {
-      latestByCod.set(row.codigo, row);
-    }
-  }
   let cadastradas = 0;
   let emAtendimento = 0;
   let aprovadas = 0;
   let valorLiberado = 0;
-  let latestKey = "";
-  for (const row of latestByCod.values()) {
+  const municipios = new Set();
+  const mesKeys = [];
+  for (const row of rows) {
     cadastradas += row.cadastradas;
     emAtendimento += row.emAtendimento;
     aprovadas += row.aprovadas;
     valorLiberado += row.valorLiberado;
-    if (hpMesAnoKeyRank(row.mesAnoKey) > hpMesAnoKeyRank(latestKey)) latestKey = row.mesAnoKey;
+    municipios.add(row.codigo);
+    if (row.mesAnoKey) mesKeys.push(row.mesAnoKey);
   }
   return {
     cadastradas,
     emAtendimento,
     aprovadas,
     valorLiberado,
-    municipios: latestByCod.size,
-    referenciaLabel: hpFormatMesAnoFromKey(latestKey),
+    municipios: municipios.size,
+    referenciaLabel: hpLatestReferenciaLabel(mesKeys),
   };
 }
 
@@ -251,20 +259,20 @@ function hpParseVaiVemRows(text) {
   const header = hpParseCsvLine(lines[0]).map((h) => h.trim());
   const idx = Object.fromEntries(header.map((h, i) => [h, i]));
   const pick = (cells, key) => cells[idx[key]] ?? "";
-  const rows = [];
+  const bucket = { latestKey: "", rows: [] };
   for (let i = 1; i < lines.length; i++) {
     const cells = hpParseCsvLine(lines[i]);
     if (!cells.length) continue;
     const municipio = pick(cells, "municipio");
     if (!municipio) continue;
-    rows.push({
+    hpPushIfLatestMonth(bucket, {
       situacaoPrograma: pick(cells, "situacao_no_programa"),
       situacaoCartao: pick(cells, "situacao_cartao"),
       municipioKey: hpNormalizeKey(municipio),
       mesAnoKey: hpParseDataBrToMesAnoKey(pick(cells, "data_solicitacao")),
     });
   }
-  return rows;
+  return bucket.rows;
 }
 
 function hpNormText(value) {
@@ -319,13 +327,13 @@ function hpParseQualificacaoRows(text) {
   const idxConcludentes = hpQfHeaderIndex(header, ["CONCLUDENTES"]);
   const idxTermino = hpQfHeaderIndex(header, ["DATA TÉRMINO", "DATA TERMINO", "Data Término", "data_termino"]);
   if (idxCod < 0) return [];
-  const rows = [];
+  const bucket = { latestKey: "", rows: [] };
   for (let i = 1; i < lines.length; i++) {
     const cells = hpParseCsvLine(lines[i]);
     if (!cells.length) continue;
     const codigo = hpNormalizeCodigoMunicipio(cells[idxCod]);
     if (codigo == null) continue;
-    rows.push({
+    hpPushIfLatestMonth(bucket, {
       codigo,
       vagas: idxVagas >= 0 ? hpParseNumberPt(cells[idxVagas]) || 0 : 0,
       inscritos: idxInscritos >= 0 ? hpParseNumberPt(cells[idxInscritos]) || 0 : 0,
@@ -333,7 +341,7 @@ function hpParseQualificacaoRows(text) {
       mesAnoKey: idxTermino >= 0 ? hpParseDataBrToMesAnoKey(cells[idxTermino]) : "",
     });
   }
-  return rows;
+  return bucket.rows;
 }
 
 function hpSummarizeQualificacao(rows) {
@@ -374,20 +382,20 @@ function hpParseDinheiroNaMaoRows(text) {
     "DATA CONTRATO",
   ]);
   if (idxCodigo < 0 || idxPrincipal < 0 || idxJuros < 0 || idxData < 0) return [];
-  const rows = [];
+  const bucket = { latestKey: "", rows: [] };
   for (let i = 1; i < lines.length; i++) {
     const cells = hpParseCsvLine(lines[i]);
     if (!cells.length) continue;
     const codigo = hpNormalizeCodigoMunicipio(cells[idxCodigo]);
     if (codigo == null || codigo < 230000 || codigo > 239999) continue;
-    rows.push({
+    hpPushIfLatestMonth(bucket, {
       codigo,
       valorOperacoes: hpParseDecimalFlexible(cells[idxPrincipal]) || 0,
       valorJuros: hpParseDecimalFlexible(cells[idxJuros]) || 0,
       mesAnoKey: hpParseIsoOrBrDateToMesAnoKey(cells[idxData]),
     });
   }
-  return rows;
+  return bucket.rows;
 }
 
 function hpSummarizeDinheiroNaMao(rows) {
