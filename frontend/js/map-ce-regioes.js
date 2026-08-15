@@ -4474,6 +4474,32 @@ function ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder) {
   return rows;
 }
 
+/** Taxa/ticket: por região no estado; por município quando há filtro de região ou município. */
+function ceBuildCearaCredEfficiencyRows(aggByLayer, sortOrder) {
+  const { munSel, regSel } = ceGetMapFilterMunRegSets();
+  const byMunicipio = (regSel && regSel.size > 0) || (munSel && munSel.size > 0);
+  const source = byMunicipio
+    ? ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder)
+    : ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder);
+  return {
+    byMunicipio,
+    rows: source.map((r) => ({
+      label: r.label,
+      taxa: ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas),
+      ticket: ceCearaCredTicket(r.values.valor_liberado, r.values.aprovadas),
+    })),
+  };
+}
+
+function ceSetCearaCredPanelCopy(chartEl, title, hint) {
+  const panel = chartEl?.closest(".map-ce-profile-charts__panel");
+  if (!panel) return;
+  const titleEl = panel.querySelector(".map-ce-profile-charts__panel-title");
+  const hintEl = panel.querySelector(".map-ce-profile-charts__hint");
+  if (titleEl) titleEl.textContent = title;
+  if (hintEl) hintEl.textContent = hint;
+}
+
 function ceBuildMunSimplesMunicipioRows(aggByLayer, sortOrder) {
   const nomeMap = ceCodigoToNomeMap();
   const agg = aggByLayer.mun_simples;
@@ -5089,15 +5115,18 @@ function ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder) {
     const allMunRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder);
     ceUpdateCearaCredFunnel(sub, allMunRows.length);
 
-    const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder).map((r) => ({
-      label: r.label,
-      taxa: ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas),
-      ticket: ceCearaCredTicket(r.values.valor_liberado, r.values.aprovadas),
-    }));
+    const { byMunicipio, rows: efficiencyRows } = ceBuildCearaCredEfficiencyRows(aggByLayer, sortOrder);
 
     const taxaEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTaxaRegiao);
     if (taxaEl) {
-      const chart = ceCreateCearaCredSingleBarChart(taxaEl, regRows, {
+      ceSetCearaCredPanelCopy(
+        taxaEl,
+        byMunicipio ? "Taxa de aprovação por município" : "Taxa de aprovação por região",
+        byMunicipio
+          ? "Aprovadas ÷ Cadastradas nos municípios do recorte"
+          : "Aprovadas ÷ Cadastradas no recorte"
+      );
+      const chart = ceCreateCearaCredSingleBarChart(taxaEl, efficiencyRows, {
         valueKey: "taxa",
         format: "percent",
         color: CE_CEARA_CRED_CHART_COLORS[2],
@@ -5109,7 +5138,14 @@ function ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder) {
 
     const ticketEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTicketRegiao);
     if (ticketEl) {
-      const chart = ceCreateCearaCredSingleBarChart(ticketEl, regRows, {
+      ceSetCearaCredPanelCopy(
+        ticketEl,
+        byMunicipio ? "Ticket médio por município" : "Ticket médio por região",
+        byMunicipio
+          ? "Valor liberado ÷ Aprovadas nos municípios do recorte"
+          : "Valor liberado ÷ Aprovadas no recorte"
+      );
+      const chart = ceCreateCearaCredSingleBarChart(ticketEl, efficiencyRows, {
         valueKey: "ticket",
         format: "currency",
         color: CE_CEARA_CRED_CHART_COLORS[0],
