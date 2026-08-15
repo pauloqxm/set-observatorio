@@ -129,6 +129,36 @@ function hpFormatMesAnoFromKey(key) {
   return `${HP_MESES_ABREV_PT[mi - 1]}/${ano}`;
 }
 
+/** Aceita "DD/MM/AAAA", "MM/AAAA" e nomes de mês. */
+function hpParseDataBrToMesAnoKey(raw) {
+  const fromMesAno = hpMesAnoKey(raw);
+  if (fromMesAno) return fromMesAno;
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const parts = s.split("/");
+  if (parts.length !== 3) return "";
+  let day = Number(parts[0]);
+  let month = Number(parts[1]);
+  const year = Number(parts[2]);
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return "";
+  if (month > 12 && day >= 1 && day <= 12) {
+    const tmp = month;
+    month = day;
+    day = tmp;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2200) return "";
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function hpLatestReferenciaLabel(keys) {
+  let latestKey = "";
+  for (const key of keys) {
+    if (!key) continue;
+    if (hpMesAnoKeyRank(key) > hpMesAnoKeyRank(latestKey)) latestKey = key;
+  }
+  return hpFormatMesAnoFromKey(latestKey);
+}
+
 /* ----------------------------- Ceará Credi ----------------------------- */
 
 function hpParseCearaCrediRows(text) {
@@ -212,6 +242,7 @@ function hpParseVaiVemRows(text) {
       situacaoPrograma: pick(cells, "situacao_no_programa"),
       situacaoCartao: pick(cells, "situacao_cartao"),
       municipioKey: hpNormalizeKey(municipio),
+      mesAnoKey: hpParseDataBrToMesAnoKey(pick(cells, "data_solicitacao")),
     });
   }
   return rows;
@@ -230,13 +261,22 @@ function hpSummarizeVaiVem(rows) {
   let vinculoEmprego = 0;
   let cartaoEntregue = 0;
   const municipios = new Set();
+  const mesKeys = [];
   for (const row of rows) {
     if (hpNormText(row.situacaoPrograma).includes("desempregad")) desempregados += 1;
     if (hpNormText(row.situacaoPrograma) === "vinculo de emprego") vinculoEmprego += 1;
     if (hpNormText(row.situacaoCartao).includes("entregue")) cartaoEntregue += 1;
     if (row.municipioKey) municipios.add(row.municipioKey);
+    if (row.mesAnoKey) mesKeys.push(row.mesAnoKey);
   }
-  return { total: rows.length, desempregados, vinculoEmprego, cartaoEntregue, municipios: municipios.size };
+  return {
+    total: rows.length,
+    desempregados,
+    vinculoEmprego,
+    cartaoEntregue,
+    municipios: municipios.size,
+    referenciaLabel: hpLatestReferenciaLabel(mesKeys),
+  };
 }
 
 /* ---------------------------- Qualificação ------------------------------ */
@@ -258,6 +298,7 @@ function hpParseQualificacaoRows(text) {
   const idxVagas = hpQfHeaderIndex(header, ["VAGAS OFERTADAS", "Vagas Ofertadas"]);
   const idxInscritos = hpQfHeaderIndex(header, ["INSCRITOS"]);
   const idxConcludentes = hpQfHeaderIndex(header, ["CONCLUDENTES"]);
+  const idxTermino = hpQfHeaderIndex(header, ["DATA TÉRMINO", "DATA TERMINO", "Data Término", "data_termino"]);
   if (idxCod < 0) return [];
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
@@ -270,6 +311,7 @@ function hpParseQualificacaoRows(text) {
       vagas: idxVagas >= 0 ? hpParseNumberPt(cells[idxVagas]) || 0 : 0,
       inscritos: idxInscritos >= 0 ? hpParseNumberPt(cells[idxInscritos]) || 0 : 0,
       concludentes: idxConcludentes >= 0 ? hpParseNumberPt(cells[idxConcludentes]) || 0 : 0,
+      mesAnoKey: idxTermino >= 0 ? hpParseDataBrToMesAnoKey(cells[idxTermino]) : "",
     });
   }
   return rows;
@@ -280,13 +322,22 @@ function hpSummarizeQualificacao(rows) {
   let inscritos = 0;
   let concludentes = 0;
   const municipios = new Set();
+  const mesKeys = [];
   for (const row of rows) {
     vagas += row.vagas;
     inscritos += row.inscritos;
     concludentes += row.concludentes;
     municipios.add(row.codigo);
+    if (row.mesAnoKey) mesKeys.push(row.mesAnoKey);
   }
-  return { cursos: rows.length, vagas, inscritos, concludentes, municipios: municipios.size };
+  return {
+    cursos: rows.length,
+    vagas,
+    inscritos,
+    concludentes,
+    municipios: municipios.size,
+    referenciaLabel: hpLatestReferenciaLabel(mesKeys),
+  };
 }
 
 /* --------------------------------- API ---------------------------------- */
