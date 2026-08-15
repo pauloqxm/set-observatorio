@@ -1727,7 +1727,7 @@
               <div class="map-ce-profile-charts__intro">
                 <h3 class="map-ce-profile-charts__title">Ceará Credi — indicadores</h3>
                 <p class="map-ce-profile-charts__hint">
-                  Mesmos filtros do mapa · Cadastradas, Em atendimento, Aprovadas e Valor liberado no recorte · evolução anual no gráfico de linhas abaixo
+                  Mesmos filtros do mapa · Cadastradas, Em atendimento, Aprovadas e Valor liberado no recorte · municípios: 20 maiores ou 20 menores · evolução por ano ou mês no gráfico de linhas abaixo
                 </p>
               </div>
               <button
@@ -1735,9 +1735,9 @@
                 id="mapProfileSortToggleCeara"
                 class="map-ce-profile-charts__sort-btn"
                 data-order="desc"
-                aria-label="Alternar ordenação dos gráficos do Ceará Credi"
+                aria-label="Mostrar os 20 maiores ou os 20 menores municípios no gráfico do Ceará Credi"
               >
-                Ordem: decrescente
+                20 maiores
               </button>
             </div>
             <div class="map-ce-profile-charts__grid">
@@ -1755,11 +1755,24 @@
 
         <div class="map-ce-ceara-cred-line-wrap" hidden aria-hidden="true">
           <div class="map-ce-line-block">
-            <h3 class="map-ce-line-block__title">Ceará Credi — evolução por ano</h3>
-            <p class="map-ce-line-block__hint">
-              Mesmos filtros de região e município do mapa · use os filtros abaixo para escolher anos e variáveis · totais somados por ano de referência
+            <h3 id="mapCearaCredLineTitle" class="map-ce-line-block__title">Ceará Credi — evolução por ano</h3>
+            <p id="mapCearaCredLineHint" class="map-ce-line-block__hint">
+              Mesmos filtros de região e município do mapa · use os filtros abaixo para escolher o período, os anos e as variáveis
             </p>
-            <div id="mapCearaCredLineFilters" class="map-ce-ceara-line-filters" aria-label="Filtros do gráfico Ceará Credi por ano">
+            <div id="mapCearaCredLineFilters" class="map-ce-ceara-line-filters" aria-label="Filtros do gráfico Ceará Credi">
+              <div class="map-ce-ceara-line-filters__group">
+                <span class="map-ce-ceara-line-filters__label">Período</span>
+                <div class="map-ce-ceara-line-filters__chips">
+                  <label class="map-ce-chip">
+                    <input type="radio" name="cearaLineGrain" value="ano" checked />
+                    <span>Por ano</span>
+                  </label>
+                  <label class="map-ce-chip">
+                    <input type="radio" name="cearaLineGrain" value="mes" />
+                    <span>Por mês</span>
+                  </label>
+                </div>
+              </div>
               <div class="map-ce-ceara-line-filters__group">
                 <span class="map-ce-ceara-line-filters__label">Anos</span>
                 <div id="mapCearaCredLineYearFilters" class="map-ce-ceara-line-filters__chips"></div>
@@ -1790,7 +1803,7 @@
             <div
               id="mapProfileCearaCredLineChart"
               class="map-ce-line-block__chart"
-              aria-label="Gráfico de linhas Ceará Credi por ano"
+              aria-label="Gráfico de linhas Ceará Credi por ano ou mês"
             ></div>
           </div>
         </div>

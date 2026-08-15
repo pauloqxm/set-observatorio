@@ -1240,6 +1240,10 @@ function ceToggleProfileSortOrder() {
   if (!btn) return;
   const next = btn.dataset.order === "asc" ? "desc" : "asc";
   btn.dataset.order = next;
+  if (btn.id === "mapProfileSortToggleCeara") {
+    btn.textContent = next === "asc" ? "20 menores" : "20 maiores";
+    return;
+  }
   btn.textContent = `Ordem: ${next === "asc" ? "crescente" : "decrescente"}`;
 }
 
@@ -4847,7 +4851,8 @@ function ceUpdateCearaCredSummaryCharts(aggByLayer, sortOrder) {
     name: m.label,
     format: m.format,
   }));
-  const munRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder);
+  const munRankN = 20;
+  const munRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder).slice(0, munRankN);
   const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder);
 
   const munChart = ceCreateProfileGroupedBarChart(munEl, munRows, {
@@ -4865,12 +4870,16 @@ function ceUpdateCearaCredSummaryCharts(aggByLayer, sortOrder) {
   ceMapRuntime.profileSummaryCharts.cearaMunicipio = munChart;
   ceMapRuntime.profileSummaryCharts.cearaRegiao = regChart;
 
+  const munRankLabel = sortOrder === "asc" ? "20 menores" : "20 maiores";
   const munPanelTitle = munEl.closest(".map-ce-profile-charts__panel")?.querySelector(".map-ce-profile-charts__panel-title");
   if (munPanelTitle) {
-    munPanelTitle.textContent =
-      ceMapRuntime.activeLegendClass !== null
-        ? "Indicadores por município · classe selecionada na legenda"
-        : "Indicadores por município";
+    const legendNote = ceMapRuntime.activeLegendClass !== null ? " · classe selecionada na legenda" : "";
+    munPanelTitle.textContent = `Indicadores por município · ${munRankLabel}${legendNote}`;
+  }
+  const sortBtn = document.getElementById("mapProfileSortToggleCeara");
+  if (sortBtn) {
+    sortBtn.textContent = munRankLabel;
+    sortBtn.dataset.order = sortOrder;
   }
 }
 
@@ -5646,6 +5655,39 @@ function ceGetCearaCredLineSelectedMetrics() {
   return sel;
 }
 
+function ceGetCearaCredLineGrain() {
+  const el = document.querySelector('input[name="cearaLineGrain"]:checked');
+  return el?.value === "mes" ? "mes" : "ano";
+}
+
+function ceEmptyCearaCredTotals() {
+  return { cadastradas: 0, em_atendimento: 0, aprovadas: 0, valor_liberado: 0 };
+}
+
+function ceAddCearaCredRowTotals(cur, row) {
+  const m = row.metrics || {};
+  cur.cadastradas += Number(m.cadastradas) || 0;
+  cur.em_atendimento += Number(m.em_atendimento) || 0;
+  cur.aprovadas += Number(m.aprovadas) || 0;
+  cur.valor_liberado += Number(m.valor_liberado) || 0;
+  return cur;
+}
+
+function ceCearaCredSeriesFromBucketMap(keys, byKey, metricKeys) {
+  const series = CE_CEARA_CRED_LINE_METRICS.filter((def) => metricKeys.has(def.key)).map((def) => ({
+    name: def.label,
+    data: keys.map((k) => {
+      const v = Number(byKey.get(k)?.[def.key]);
+      return Number.isFinite(v) ? v : 0;
+    }),
+    _format: def.format,
+    _color: def.color,
+    _key: def.key,
+  }));
+  const hasAnyValue = series.some((s) => s.data.some((v) => Number(v) > 0));
+  return { series, hasRows: hasAnyValue };
+}
+
 function ceBuildCearaCredAnnualLineSeries(filteredRows, metricKeys) {
   const years = ceCollectCearaCredYearsFromRows(filteredRows);
   if (!years.length || !metricKeys.size) {
@@ -5656,33 +5698,33 @@ function ceBuildCearaCredAnnualLineSeries(filteredRows, metricKeys) {
   for (const row of filteredRows) {
     const yearStr = ceRowYearFromCearaCred(row);
     if (!yearStr) continue;
-    const cur = byYear.get(yearStr) || {
-      cadastradas: 0,
-      em_atendimento: 0,
-      aprovadas: 0,
-      valor_liberado: 0,
-    };
-    const m = row.metrics || {};
-    cur.cadastradas += Number(m.cadastradas) || 0;
-    cur.em_atendimento += Number(m.em_atendimento) || 0;
-    cur.aprovadas += Number(m.aprovadas) || 0;
-    cur.valor_liberado += Number(m.valor_liberado) || 0;
-    byYear.set(yearStr, cur);
+    const cur = byYear.get(yearStr) || ceEmptyCearaCredTotals();
+    byYear.set(yearStr, ceAddCearaCredRowTotals(cur, row));
   }
 
-  const series = CE_CEARA_CRED_LINE_METRICS.filter((def) => metricKeys.has(def.key)).map((def) => ({
-    name: def.label,
-    data: years.map((y) => {
-      const v = Number(byYear.get(y)?.[def.key]);
-      return Number.isFinite(v) ? v : 0;
-    }),
-    _format: def.format,
-    _color: def.color,
-    _key: def.key,
-  }));
+  const { series, hasRows } = ceCearaCredSeriesFromBucketMap(years, byYear, metricKeys);
+  return { categories: years, series, hasRows };
+}
 
-  const hasAnyValue = series.some((s) => s.data.some((v) => Number(v) > 0));
-  return { categories: years, series, hasRows: hasAnyValue };
+function ceBuildCearaCredMonthlyLineSeries(filteredRows, metricKeys) {
+  /** @type {Map<string, ReturnType<typeof ceEmptyCearaCredTotals>>} */
+  const byMonth = new Map();
+  for (const row of filteredRows) {
+    const key = ceRowMesAnoKey(row);
+    if (!key) continue;
+    const cur = byMonth.get(key) || ceEmptyCearaCredTotals();
+    byMonth.set(key, ceAddCearaCredRowTotals(cur, row));
+  }
+  const keys = [...byMonth.keys()].sort((a, b) => ceMesAnoKeyRank(a) - ceMesAnoKeyRank(b));
+  if (!keys.length || !metricKeys.size) {
+    return { categories: [], series: [], hasRows: false };
+  }
+  const { series, hasRows } = ceCearaCredSeriesFromBucketMap(keys, byMonth, metricKeys);
+  return {
+    categories: keys.map((k) => ceFormatMesAnoFromKey(k)),
+    series,
+    hasRows,
+  };
 }
 
 function ceFormatCearaCredLineTooltip(val, format) {
@@ -5691,11 +5733,12 @@ function ceFormatCearaCredLineTooltip(val, format) {
   return format === "currency" ? ceFormatCurrencyPt(n) : ceFormatIntPt(n);
 }
 
-function ceBuildCearaCredLineApexConfig(categories, seriesMeta) {
+function ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain = "ano") {
   const chartSeries = seriesMeta.map((s) => ({ name: s.name, data: s.data }));
   const colors = seriesMeta.map((s) => s._color);
   const hasCurrency = seriesMeta.some((s) => s._format === "currency");
   const hasCount = seriesMeta.some((s) => s._format !== "currency");
+  const isMonth = grain === "mes";
 
   let yaxis;
   if (hasCurrency && hasCount) {
@@ -5753,8 +5796,16 @@ function ceBuildCearaCredLineApexConfig(categories, seriesMeta) {
     colors,
     xaxis: {
       categories,
-      title: { text: "Ano de referência", style: { fontSize: "12px", fontWeight: 600, color: "#475569" } },
-      labels: { style: { fontSize: "11px", colors: "#475569" } },
+      title: {
+        text: isMonth ? "Mês de referência" : "Ano de referência",
+        style: { fontSize: "12px", fontWeight: 600, color: "#475569" },
+      },
+      labels: {
+        rotate: isMonth && categories.length > 8 ? -35 : 0,
+        rotateAlways: false,
+        hideOverlappingLabels: true,
+        style: { fontSize: "11px", colors: "#475569" },
+      },
     },
     yaxis,
     stroke: { curve: "smooth", width: 3 },
@@ -5820,10 +5871,28 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
 
   const selYears = ceGetCearaCredLineSelectedYears(availableYears);
   const selMetrics = ceGetCearaCredLineSelectedMetrics();
+  const grain = ceGetCearaCredLineGrain();
   const rowsForChart = baseRows.filter((r) => selYears.has(ceRowYearFromCearaCred(r)));
 
-  const { categories, series, hasRows } = ceBuildCearaCredAnnualLineSeries(rowsForChart, selMetrics);
+  const built =
+    grain === "mes"
+      ? ceBuildCearaCredMonthlyLineSeries(rowsForChart, selMetrics)
+      : ceBuildCearaCredAnnualLineSeries(rowsForChart, selMetrics);
+  const { categories, series, hasRows } = built;
   const showChart = hasRows && categories.length > 0 && series.length > 0;
+
+  const titleEl = document.getElementById("mapCearaCredLineTitle");
+  const hintEl = document.getElementById("mapCearaCredLineHint");
+  if (titleEl) {
+    titleEl.textContent =
+      grain === "mes" ? "Ceará Credi — evolução por mês" : "Ceará Credi — evolução por ano";
+  }
+  if (hintEl) {
+    hintEl.textContent =
+      grain === "mes"
+        ? "Mesmos filtros de região e município do mapa · totais somados por mês de referência nos anos selecionados"
+        : "Mesmos filtros de região e município do mapa · totais somados por ano de referência";
+  }
 
   if (emptyEl) {
     emptyEl.hidden = showChart;
@@ -5833,7 +5902,9 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
           ? "Selecione ao menos uma variável para exibir o gráfico."
           : selYears.size === 0
             ? "Selecione ao menos um ano para exibir o gráfico."
-            : "Sem dados para o recorte e filtros selecionados.";
+            : grain === "mes"
+              ? "Sem dados mensais para o recorte e filtros selecionados."
+              : "Sem dados para o recorte e filtros selecionados.";
     }
   }
 
@@ -5842,7 +5913,7 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
 
   const renderChart = () => {
     try {
-      const chart = new ApexCharts(el, ceBuildCearaCredLineApexConfig(categories, series));
+      const chart = new ApexCharts(el, ceBuildCearaCredLineApexConfig(categories, series, grain));
       chart
         .render()
         .then(() => {
