@@ -132,6 +132,50 @@ function hpFormatMesAnoFromKey(key) {
   return `${HP_MESES_ABREV_PT[mi - 1]}/${ano}`;
 }
 
+/** Aceita "DD/MM/AAAA", "MM/AAAA" e "AAAA-MM-DD". */
+function hpParseDataTerminoParts(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?$/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2200) return null;
+    return { year, month, day, mesAnoKey: `${year}-${String(month).padStart(2, "0")}` };
+  }
+  const parts = s.split("/");
+  if (parts.length === 3) {
+    let day = Number(parts[0]);
+    let month = Number(parts[1]);
+    const year = Number(parts[2]);
+    if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+    if (month > 12 && day >= 1 && day <= 12) {
+      const tmp = month;
+      month = day;
+      day = tmp;
+    }
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2200) return null;
+    return { year, month, day, mesAnoKey: `${year}-${String(month).padStart(2, "0")}` };
+  }
+  const mesAnoKey = hpMesAnoKey(s);
+  if (!mesAnoKey) return null;
+  const [year, month] = mesAnoKey.split("-").map(Number);
+  return { year, month, day: 0, mesAnoKey };
+}
+
+/** Turma concluída: DATA TÉRMINO já passou (não inclui turmas com término futuro). */
+function hpIsQualificacaoTurmaConcluida(parts, today = new Date()) {
+  if (!parts) return false;
+  const todayY = today.getFullYear();
+  const todayM = today.getMonth() + 1;
+  const todayD = today.getDate();
+  if (parts.year !== todayY) return parts.year < todayY;
+  if (parts.month !== todayM) return parts.month < todayM;
+  if (parts.day >= 1) return parts.day <= todayD;
+  return false;
+}
+
 /** Aceita "DD/MM/AAAA", "MM/AAAA" e nomes de mês. */
 function hpParseDataBrToMesAnoKey(raw) {
   const fromMesAno = hpMesAnoKey(raw);
@@ -333,12 +377,14 @@ function hpParseQualificacaoRows(text) {
     if (!cells.length) continue;
     const codigo = hpNormalizeCodigoMunicipio(cells[idxCod]);
     if (codigo == null) continue;
+    const dateParts = idxTermino >= 0 ? hpParseDataTerminoParts(cells[idxTermino]) : null;
+    if (!hpIsQualificacaoTurmaConcluida(dateParts)) continue;
     hpPushIfLatestMonth(bucket, {
       codigo,
       vagas: idxVagas >= 0 ? hpParseNumberPt(cells[idxVagas]) || 0 : 0,
       inscritos: idxInscritos >= 0 ? hpParseNumberPt(cells[idxInscritos]) || 0 : 0,
       concludentes: idxConcludentes >= 0 ? hpParseNumberPt(cells[idxConcludentes]) || 0 : 0,
-      mesAnoKey: idxTermino >= 0 ? hpParseDataBrToMesAnoKey(cells[idxTermino]) : "",
+      mesAnoKey: dateParts.mesAnoKey,
     });
   }
   return bucket.rows;
