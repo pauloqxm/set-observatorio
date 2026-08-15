@@ -774,6 +774,13 @@ const CE_PIB_VS_MEDIA_SERIES_DEFS = [
 
 const CE_CEARA_CRED_CHART_COLORS = ["#059669", "#0d9488", "#10b981", "#047857"];
 
+const CE_CEARA_CRED_LINE_METRICS = [
+  { key: "cadastradas", label: "Cadastradas", format: "int", color: CE_CEARA_CRED_CHART_COLORS[0] },
+  { key: "em_atendimento", label: "Em atendimento", format: "int", color: CE_CEARA_CRED_CHART_COLORS[1] },
+  { key: "aprovadas", label: "Aprovadas", format: "int", color: CE_CEARA_CRED_CHART_COLORS[2] },
+  { key: "valor_liberado", label: "Valor liberado", format: "currency", color: CE_CEARA_CRED_CHART_COLORS[3] },
+];
+
 const CE_MUN_SIMPLES_KPI_METRICS = [
   { key: "nao", label: "Não", id: "mapKpiProfileMunSimplesNao", format: "int" },
   { key: "sim", label: "Sim", id: "mapKpiProfileMunSimplesSim", format: "int" },
@@ -877,7 +884,6 @@ const ceMapRuntime = {
   profileCearaCredValorLineChart: null,
   /** @type {any} */
   profileCearaCredMunLineChart: null,
-  cearaCredTable: { sortKey: "aprovadas", sortDir: "desc", search: "" },
   /** @type {any} */
   intermediacaoLineChart: null,
   /** @type {Record<string, { thresholds: number[], min: number, max: number }>} */
@@ -5076,115 +5082,6 @@ function ceUpdateCearaCredFunnel(sub, munCount) {
   setTxt("ccFunnelMuns", ceFormatIntPt(munCount));
 }
 
-function ceCearaCredTaxaChip(taxa) {
-  if (taxa == null || !Number.isFinite(taxa)) return "—";
-  const cls = taxa >= 80 ? "" : taxa >= 65 ? " map-ce-cc-chip--mid" : " map-ce-cc-chip--low";
-  return `<span class="map-ce-cc-chip${cls}">${ceFormatPercentPt(taxa)}</span>`;
-}
-
-function ceBuildCearaCredTableRows(munRows) {
-  return munRows.map((r, idx) => {
-    const taxa = ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas);
-    return {
-      rank: idx + 1,
-      label: r.label,
-      cadastradas: Number(r.values.cadastradas) || 0,
-      em_atendimento: Number(r.values.em_atendimento) || 0,
-      aprovadas: Number(r.values.aprovadas) || 0,
-      valor_liberado: Number(r.values.valor_liberado) || 0,
-      taxa,
-    };
-  });
-}
-
-function ceRenderCearaCredMunTable() {
-  const tbody = document.getElementById("mapCearaCredMunTableBody");
-  if (!tbody) return;
-  const state = ceMapRuntime.cearaCredTable || { sortKey: "aprovadas", sortDir: "desc", search: "" };
-  const q = String(state.search || "").trim().toLowerCase();
-  let rows = [...(state.rows || [])];
-  if (q) rows = rows.filter((r) => String(r.label || "").toLowerCase().includes(q));
-  const key = state.sortKey || "aprovadas";
-  const dir = state.sortDir === "asc" ? 1 : -1;
-  rows.sort((a, b) => {
-    if (key === "label") return dir * String(a.label).localeCompare(String(b.label), "pt-BR");
-    const av = Number(a[key]);
-    const bv = Number(b[key]);
-    const an = Number.isFinite(av) ? av : -Infinity;
-    const bn = Number.isFinite(bv) ? bv : -Infinity;
-    return dir * (an - bn) || String(a.label).localeCompare(String(b.label), "pt-BR");
-  });
-  tbody.innerHTML = rows
-    .map(
-      (r, i) => `<tr>
-        <td>${i + 1}</td>
-        <td class="map-ce-cc-table__name">${ceEscapeHtml(r.label)}</td>
-        <td>${ceFormatIntPt(r.cadastradas)}</td>
-        <td>${ceFormatIntPt(r.em_atendimento)}</td>
-        <td>${ceFormatIntPt(r.aprovadas)}</td>
-        <td>${ceFormatCurrencyPt(r.valor_liberado)}</td>
-        <td>${ceCearaCredTaxaChip(r.taxa)}</td>
-      </tr>`
-    )
-    .join("");
-}
-
-function ceExportCearaCredMunTableCsv() {
-  const state = ceMapRuntime.cearaCredTable || {};
-  const rows = state.rows || [];
-  const header = ["Municipio", "Cadastradas", "Em atendimento", "Aprovadas", "Valor liberado", "Taxa aprovacao (%)"];
-  const lines = [header.join(";")];
-  for (const r of rows) {
-    const taxa = r.taxa == null ? "" : String(r.taxa).replace(".", ",");
-    lines.push(
-      [r.label, r.cadastradas, r.em_atendimento, r.aprovadas, r.valor_liberado, taxa]
-        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-        .join(";")
-    );
-  }
-  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "ceara-credi-municipios.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function ceBindCearaCredTableControls() {
-  const search = document.getElementById("mapCearaCredMunTableSearch");
-  const exportBtn = document.getElementById("mapCearaCredMunTableExport");
-  const table = document.querySelector(".map-ce-cc-table");
-  if (search && search.dataset.ccBound !== "1") {
-    search.dataset.ccBound = "1";
-    search.addEventListener("input", () => {
-      if (!ceMapRuntime.cearaCredTable) ceMapRuntime.cearaCredTable = {};
-      ceMapRuntime.cearaCredTable.search = search.value;
-      ceRenderCearaCredMunTable();
-    });
-  }
-  if (exportBtn && exportBtn.dataset.ccBound !== "1") {
-    exportBtn.dataset.ccBound = "1";
-    exportBtn.addEventListener("click", () => ceExportCearaCredMunTableCsv());
-  }
-  if (table && table.dataset.ccBound !== "1") {
-    table.dataset.ccBound = "1";
-    table.addEventListener("click", (e) => {
-      const th = e.target.closest("[data-cc-sort]");
-      if (!th) return;
-      const key = th.getAttribute("data-cc-sort");
-      if (!ceMapRuntime.cearaCredTable) ceMapRuntime.cearaCredTable = { sortKey: "aprovadas", sortDir: "desc" };
-      if (ceMapRuntime.cearaCredTable.sortKey === key) {
-        ceMapRuntime.cearaCredTable.sortDir = ceMapRuntime.cearaCredTable.sortDir === "asc" ? "desc" : "asc";
-      } else {
-        ceMapRuntime.cearaCredTable.sortKey = key;
-        ceMapRuntime.cearaCredTable.sortDir = key === "label" ? "asc" : "desc";
-      }
-      ceRenderCearaCredMunTable();
-    });
-  }
-}
-
 function ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder) {
   try {
     const filtered = ceMapRuntime.lastProfileFilteredByLayer?.ceara_cred || [];
@@ -5312,13 +5209,6 @@ function ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder) {
         console.warn("Ceará Credi scatter:", err);
       }
     }
-
-    if (!ceMapRuntime.cearaCredTable) {
-      ceMapRuntime.cearaCredTable = { sortKey: "aprovadas", sortDir: "desc", search: "" };
-    }
-    ceMapRuntime.cearaCredTable.rows = ceBuildCearaCredTableRows(allMunRows);
-    ceBindCearaCredTableControls();
-    ceRenderCearaCredMunTable();
   } catch (err) {
     console.warn("Ceará Credi painel extra:", err);
   }
@@ -6268,6 +6158,8 @@ function ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain = "ano") {
           style: { fontSize: "11px", colors: "#047857" },
         },
         min: 0,
+        max: (max) => Math.max(Number(max) || 0, 1),
+        forceNiceScale: true,
       }
     : {
         title: { text: "Quantidade", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
@@ -6276,6 +6168,8 @@ function ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain = "ano") {
           style: { fontSize: "11px", colors: "#047857" },
         },
         min: 0,
+        max: (max) => Math.max(Number(max) || 0, 1),
+        forceNiceScale: true,
       };
 
   return {
@@ -6519,6 +6413,8 @@ function ceUpdateProfileCearaCredMunLineChart() {
         },
         yaxis: {
           min: 0,
+          max: (max) => Math.max(Number(max) || 0, 1),
+          forceNiceScale: true,
           labels: {
             formatter: (v) => fmtVal(v),
             style: { fontSize: "11px", colors: "#475569" },
@@ -6543,25 +6439,15 @@ function ceUpdateProfileCearaCredMunLineChart() {
           y: { formatter: (v) => fmtVal(v) },
         },
       });
-      chart
-        .render()
-        .then(() => {
-          ceMapRuntime.profileCearaCredMunLineChart = chart;
-          requestAnimationFrame(() => {
-            try {
-              chart.resize();
-            } catch (_) {}
-          });
-        })
-        .catch((err) => {
-          console.warn("Ceará Credi municípios:", err);
-        });
+      ceMapRuntime.profileCearaCredMunLineChart = chart;
+      chart.render();
     } catch (err) {
       console.warn("Ceará Credi municípios (config):", err);
     }
   };
 
-  requestAnimationFrame(() => requestAnimationFrame(renderChart));
+  void el.offsetHeight;
+  renderChart();
 }
 
 function ceRefreshCearaCredLineChart() {
@@ -6643,32 +6529,17 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
   const renderOne = (targetEl, seriesMeta, runtimeKey) => {
     if (!targetEl) return;
     try {
+      void targetEl.offsetHeight;
       const chart = new ApexCharts(targetEl, ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain));
-      chart
-        .render()
-        .then(() => {
-          ceMapRuntime[runtimeKey] = chart;
-          requestAnimationFrame(() => {
-            try {
-              chart.resize();
-            } catch (_) {}
-          });
-        })
-        .catch((err) => {
-          console.warn("Ceará Credi linha:", err);
-        });
+      ceMapRuntime[runtimeKey] = chart;
+      chart.render();
     } catch (err) {
       console.warn("Ceará Credi linha (config):", err);
     }
   };
 
-  /* ApexCharts precisa do container visível e com altura; espera o layout. */
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (showCounts) renderOne(el, countSeries, "profileCearaCredLineChart");
-      if (showValor) renderOne(valorEl, valorSeries, "profileCearaCredValorLineChart");
-    });
-  });
+  if (showCounts) renderOne(el, countSeries, "profileCearaCredLineChart");
+  if (showValor) renderOne(valorEl, valorSeries, "profileCearaCredValorLineChart");
 }
 
 function ceDestroyIntermediacaoLineChart() {
