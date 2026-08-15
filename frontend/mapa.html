@@ -436,6 +436,8 @@
                     <div class="map-ce-kpi-card__metrics">
                       <strong class="map-ce-kpi-card__value" id="mapKpiProfileCearaCredCadastradas">—</strong>
                     </div>
+                    <span class="map-ce-kpi-card__meta map-ce-cc-kpi-delta" id="mapKpiProfileCearaCredCadastradasDelta">—</span>
+                    <span class="map-ce-cc-kpi-spark" id="mapKpiProfileCearaCredCadastradasSpark" aria-hidden="true"></span>
                   </div>
                 </article>
                 <article class="map-ce-kpi-card map-ce-kpi-card--ceara-cred">
@@ -445,6 +447,8 @@
                     <div class="map-ce-kpi-card__metrics">
                       <strong class="map-ce-kpi-card__value" id="mapKpiProfileCearaCredEmAtendimento">—</strong>
                     </div>
+                    <span class="map-ce-kpi-card__meta map-ce-cc-kpi-delta" id="mapKpiProfileCearaCredEmAtendimentoDelta">—</span>
+                    <span class="map-ce-cc-kpi-spark" id="mapKpiProfileCearaCredEmAtendimentoSpark" aria-hidden="true"></span>
                   </div>
                 </article>
                 <article class="map-ce-kpi-card map-ce-kpi-card--ceara-cred">
@@ -454,6 +458,9 @@
                     <div class="map-ce-kpi-card__metrics">
                       <strong class="map-ce-kpi-card__value" id="mapKpiProfileCearaCredAprovadas">—</strong>
                     </div>
+                    <span class="map-ce-kpi-card__meta map-ce-cc-kpi-delta" id="mapKpiProfileCearaCredAprovadasDelta">—</span>
+                    <span class="map-ce-cc-kpi-sub" id="mapKpiProfileCearaCredAprovadasSub">—</span>
+                    <span class="map-ce-cc-kpi-spark" id="mapKpiProfileCearaCredAprovadasSpark" aria-hidden="true"></span>
                   </div>
                 </article>
                 <article class="map-ce-kpi-card map-ce-kpi-card--ceara-cred">
@@ -463,6 +470,9 @@
                     <div class="map-ce-kpi-card__metrics">
                       <strong class="map-ce-kpi-card__value" id="mapKpiProfileCearaCredValorLiberado">—</strong>
                     </div>
+                    <span class="map-ce-kpi-card__meta map-ce-cc-kpi-delta" id="mapKpiProfileCearaCredValorLiberadoDelta">—</span>
+                    <span class="map-ce-cc-kpi-sub" id="mapKpiProfileCearaCredValorLiberadoSub">—</span>
+                    <span class="map-ce-cc-kpi-spark" id="mapKpiProfileCearaCredValorLiberadoSpark" aria-hidden="true"></span>
                   </div>
                 </article>
                 <article class="map-ce-kpi-card map-ce-kpi-card--mun-simples">
@@ -1750,6 +1760,95 @@
                 <div id="mapProfileChartCearaRegiao" class="map-ce-profile-charts__chart"></div>
               </article>
             </div>
+
+            <article class="map-ce-cc-funnel" aria-label="Funil de conversão do Ceará Credi">
+              <h4 class="map-ce-profile-charts__panel-title">Funil de conversão</h4>
+              <p class="map-ce-profile-charts__hint">Cadastradas → Em atendimento → Aprovadas no recorte dos filtros</p>
+              <div class="map-ce-cc-funnel__stages">
+                <div class="map-ce-cc-funnel__row">
+                  <span class="map-ce-cc-funnel__label">Cadastradas</span>
+                  <span class="map-ce-cc-funnel__track"><span class="map-ce-cc-funnel__bar" id="ccFunnelBarCadastradas"></span></span>
+                  <strong class="map-ce-cc-funnel__val" id="ccFunnelValCadastradas">—</strong>
+                </div>
+                <p class="map-ce-cc-funnel__note" id="ccFunnelNoteAtendimento">—</p>
+                <div class="map-ce-cc-funnel__row">
+                  <span class="map-ce-cc-funnel__label">Em atendimento</span>
+                  <span class="map-ce-cc-funnel__track"><span class="map-ce-cc-funnel__bar map-ce-cc-funnel__bar--mid" id="ccFunnelBarAtendimento"></span></span>
+                  <strong class="map-ce-cc-funnel__val" id="ccFunnelValAtendimento">—</strong>
+                </div>
+                <p class="map-ce-cc-funnel__note" id="ccFunnelNoteAprovadas">—</p>
+                <div class="map-ce-cc-funnel__row">
+                  <span class="map-ce-cc-funnel__label">Aprovadas</span>
+                  <span class="map-ce-cc-funnel__track"><span class="map-ce-cc-funnel__bar map-ce-cc-funnel__bar--end" id="ccFunnelBarAprovadas"></span></span>
+                  <strong class="map-ce-cc-funnel__val" id="ccFunnelValAprovadas">—</strong>
+                </div>
+              </div>
+              <div class="map-ce-cc-funnel__stats">
+                <div>
+                  <span class="map-ce-cc-funnel__stat-label">Ticket médio</span>
+                  <strong id="ccFunnelTicket">—</strong>
+                  <span class="map-ce-cc-funnel__stat-hint">por operação aprovada</span>
+                </div>
+                <div>
+                  <span class="map-ce-cc-funnel__stat-label">Aprovadas / Cadastradas</span>
+                  <strong id="ccFunnelTaxa">—</strong>
+                  <span class="map-ce-cc-funnel__stat-hint">pode superar 100% com ciclos anteriores</span>
+                </div>
+                <div>
+                  <span class="map-ce-cc-funnel__stat-label">Municípios com dado</span>
+                  <strong id="ccFunnelMuns">—</strong>
+                  <span class="map-ce-cc-funnel__stat-hint">no recorte dos filtros</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="map-ce-profile-charts__grid map-ce-cc-efficiency-grid">
+              <article class="map-ce-profile-charts__panel">
+                <h4 class="map-ce-profile-charts__panel-title">Taxa de aprovação por região</h4>
+                <p class="map-ce-profile-charts__hint">Aprovadas ÷ Cadastradas no recorte</p>
+                <div id="mapCearaCredChartTaxaRegiao" class="map-ce-profile-charts__chart"></div>
+              </article>
+              <article class="map-ce-profile-charts__panel">
+                <h4 class="map-ce-profile-charts__panel-title">Ticket médio por região</h4>
+                <p class="map-ce-profile-charts__hint">Valor liberado ÷ Aprovadas no recorte</p>
+                <div id="mapCearaCredChartTicketRegiao" class="map-ce-profile-charts__chart"></div>
+              </article>
+            </div>
+
+            <article class="map-ce-profile-charts__panel map-ce-cc-scatter-panel">
+              <h4 class="map-ce-profile-charts__panel-title">Porte × taxa de aprovação</h4>
+              <p class="map-ce-profile-charts__hint">Até 20 municípios com maior volume de cadastradas · tamanho da bolha = valor liberado</p>
+              <div id="mapCearaCredScatter" class="map-ce-profile-charts__chart map-ce-cc-scatter-chart"></div>
+            </article>
+
+            <section class="map-ce-cc-table-wrap" aria-label="Tabela de municípios do Ceará Credi">
+              <div class="map-ce-cc-table-wrap__head">
+                <div>
+                  <h4 class="map-ce-profile-charts__panel-title">Municípios no recorte</h4>
+                  <p class="map-ce-profile-charts__hint">Todos os municípios dos filtros · clique no cabeçalho para ordenar</p>
+                </div>
+                <div class="map-ce-cc-table-wrap__tools">
+                  <input id="mapCearaCredMunTableSearch" type="search" class="map-ce-cc-table-search" placeholder="Buscar município" aria-label="Buscar município na tabela" />
+                  <button type="button" id="mapCearaCredMunTableExport" class="map-ce-profile-charts__sort-btn">Exportar CSV</button>
+                </div>
+              </div>
+              <div class="map-ce-cc-table-scroll">
+                <table class="map-ce-cg-table map-ce-cc-table">
+                  <thead>
+                    <tr>
+                      <th data-cc-sort="rank">#</th>
+                      <th data-cc-sort="label" class="map-ce-cc-table__name">Município</th>
+                      <th data-cc-sort="cadastradas">Cadastradas</th>
+                      <th data-cc-sort="em_atendimento">Em atendimento</th>
+                      <th data-cc-sort="aprovadas">Aprovadas</th>
+                      <th data-cc-sort="valor_liberado">Valor liberado</th>
+                      <th data-cc-sort="taxa">Taxa aprovação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="mapCearaCredMunTableBody"></tbody>
+                </table>
+              </div>
+            </section>
           </div>
         </div>
 
@@ -1803,7 +1902,13 @@
             <div
               id="mapProfileCearaCredLineChart"
               class="map-ce-line-block__chart"
-              aria-label="Gráfico de linhas Ceará Credi por ano ou mês"
+              aria-label="Gráfico de linhas Ceará Credi — contagens por ano ou mês"
+            ></div>
+            <div
+              id="mapProfileCearaCredValorLineChart"
+              class="map-ce-line-block__chart map-ce-cc-valor-chart"
+              aria-label="Gráfico de linhas Ceará Credi — valor liberado por ano ou mês"
+              hidden
             ></div>
           </div>
           <div class="map-ce-line-block map-ce-ceara-cred-line-block--mun">

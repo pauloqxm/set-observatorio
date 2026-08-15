@@ -741,9 +741,13 @@ const CE_PROFILE_CHART_DOM_IDS = {
   regiao: "mapProfileChartRegiao",
   pibLine: "mapProfilePibLineChart",
   cearaLine: "mapProfileCearaCredLineChart",
+  cearaValorLine: "mapProfileCearaCredValorLineChart",
   cearaMunLine: "mapProfileCearaCredMunLineChart",
   cearaMunicipio: "mapProfileChartCearaMunicipio",
   cearaRegiao: "mapProfileChartCearaRegiao",
+  cearaTaxaRegiao: "mapCearaCredChartTaxaRegiao",
+  cearaTicketRegiao: "mapCearaCredChartTicketRegiao",
+  cearaScatter: "mapCearaCredScatter",
   munSimplesMunicipio: "mapProfileChartMunSimplesMunicipio",
   munSimplesRegiao: "mapProfileChartMunSimplesRegiao",
   empresaGrupamentoMunicipio: "mapProfileChartEmpresaGrupamentoMunicipio",
@@ -846,6 +850,9 @@ const ceMapRuntime = {
     regiao: null,
     cearaMunicipio: null,
     cearaRegiao: null,
+    cearaTaxaRegiao: null,
+    cearaTicketRegiao: null,
+    cearaScatter: null,
     munSimplesMunicipio: null,
     munSimplesRegiao: null,
     empresaGrupamentoMunicipio: null,
@@ -867,7 +874,10 @@ const ceMapRuntime = {
   /** @type {any} */
   profileCearaCredLineChart: null,
   /** @type {any} */
+  profileCearaCredValorLineChart: null,
+  /** @type {any} */
   profileCearaCredMunLineChart: null,
+  cearaCredTable: { sortKey: "aprovadas", sortDir: "desc", search: "" },
   /** @type {any} */
   intermediacaoLineChart: null,
   /** @type {Record<string, { thresholds: number[], min: number, max: number }>} */
@@ -2988,6 +2998,94 @@ function ceSumCearaCredKpiFromRows(rows) {
   return sub;
 }
 
+function ceCearaCredRatioPct(num, den) {
+  const n = Number(num) || 0;
+  const d = Number(den) || 0;
+  if (d <= 0) return null;
+  return (n / d) * 100;
+}
+
+function ceCearaCredTicket(valor, aprovadas) {
+  const a = Number(aprovadas) || 0;
+  if (a <= 0) return null;
+  return (Number(valor) || 0) / a;
+}
+
+function ceCearaCredSparklineSvg(values, color) {
+  const nums = (values || []).map((v) => Number(v) || 0);
+  if (!nums.length) return "";
+  const w = 120;
+  const h = 32;
+  const pad = 3;
+  const max = Math.max(...nums, 1);
+  const min = Math.min(...nums, 0);
+  const span = max - min || 1;
+  const pts = nums.map((v, i) => {
+    const x = nums.length === 1 ? w / 2 : pad + (i / (nums.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / span) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = pts[pts.length - 1].split(",");
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last[0]}" cy="${last[1]}" r="2.4" fill="${color}"/></svg>`;
+}
+
+function ceCearaCredSpatialRows() {
+  const { munSel, regSel } = ceGetMapFilterMunRegSets();
+  return ceGetFilteredRows(
+    ceMapRuntime.profileRowsByLayer.ceara_cred || [],
+    new Set(),
+    munSel,
+    regSel,
+    new Set()
+  );
+}
+
+function ceCearaCredYearlySeries(rows, metricKey) {
+  const byYear = new Map();
+  for (const row of rows) {
+    const y = ceRowYearFromCearaCred(row);
+    if (!y) continue;
+    const cur = byYear.get(y) || ceEmptyCearaCredTotals();
+    byYear.set(y, ceAddCearaCredRowTotals(cur, row));
+  }
+  const years = [...byYear.keys()].sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+  return {
+    years,
+    values: years.map((y) => Number(byYear.get(y)?.[metricKey]) || 0),
+  };
+}
+
+function ceCearaCredPreviousYearTotals(currentRows) {
+  const years = [...new Set(currentRows.map((r) => ceRowYearFromCearaCred(r)).filter(Boolean))].sort(
+    (a, b) => parseInt(a, 10) - parseInt(b, 10)
+  );
+  if (!years.length) return { prevYear: "", totals: ceEmptyCearaCredTotals() };
+  const latest = years[years.length - 1];
+  const prevYear = String(parseInt(latest, 10) - 1);
+  const monthKeys = new Set(currentRows.map((r) => ceRowMesAnoKey(r)).filter(Boolean));
+  const monthNums = new Set([...monthKeys].map((k) => k.slice(5)));
+  const spatial = ceCearaCredSpatialRows();
+  const prevRows = spatial.filter((r) => {
+    if (ceRowYearFromCearaCred(r) !== prevYear) return false;
+    if (!monthNums.size) return true;
+    const key = ceRowMesAnoKey(r);
+    return key && monthNums.has(key.slice(5));
+  });
+  return { prevYear, totals: ceSumCearaCredKpiFromRows(prevRows) };
+}
+
+function ceCearaCredDeltaText(current, previous, prevYear) {
+  const cur = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  if (!prevYear || prev <= 0) return { text: "—", down: false };
+  const pct = ((cur - prev) / prev) * 100;
+  const sign = pct > 0 ? "▲ +" : pct < 0 ? "▼ " : "● ";
+  return {
+    text: `${sign}${ceFormatPercentPt(Math.abs(pct))} vs ${prevYear}`,
+    down: pct < 0,
+  };
+}
+
 function ceSumMunSimplesKpiFromRows(rows) {
   const sub = { nao: 0, sim: 0, total: 0 };
   for (const row of rows) {
@@ -4060,6 +4158,9 @@ function ceUpdateProfileKpis(metricsByLayer) {
   }
 
   const cearaSub = metricsByLayer?.ceara_cred?.sub;
+  const cearaRows = ceMapRuntime.lastProfileFilteredByLayer?.ceara_cred || [];
+  const { prevYear, totals: prevTotals } = ceCearaCredPreviousYearTotals(cearaRows);
+  const spatialRows = ceCearaCredSpatialRows();
   for (const item of CE_CEARA_CRED_KPI_METRICS) {
     const valueEl = document.getElementById(item.id);
     const v = Number(cearaSub?.[item.key] ?? 0);
@@ -4067,6 +4168,30 @@ function ceUpdateProfileKpis(metricsByLayer) {
       valueEl.textContent =
         item.format === "currency" ? ceFormatCurrencyPt(v) : ceFormatIntPt(v);
     }
+    const deltaEl = document.getElementById(`${item.id}Delta`);
+    if (deltaEl) {
+      const delta = ceCearaCredDeltaText(v, prevTotals[item.key], prevYear);
+      deltaEl.textContent = delta.text;
+      deltaEl.classList.toggle("is-down", delta.down);
+    }
+    const sparkEl = document.getElementById(`${item.id}Spark`);
+    if (sparkEl) {
+      const color = CE_CEARA_CRED_CHART_COLORS[CE_CEARA_CRED_KPI_METRICS.indexOf(item)] || "#059669";
+      sparkEl.innerHTML = ceCearaCredSparklineSvg(
+        ceCearaCredYearlySeries(spatialRows, item.key).values,
+        color
+      );
+    }
+  }
+  const taxaEl = document.getElementById("mapKpiProfileCearaCredAprovadasSub");
+  if (taxaEl) {
+    const taxa = ceCearaCredRatioPct(cearaSub?.aprovadas, cearaSub?.cadastradas);
+    taxaEl.textContent = taxa == null ? "—" : `Taxa de aprovação: ${ceFormatPercentPt(taxa)}`;
+  }
+  const ticketEl = document.getElementById("mapKpiProfileCearaCredValorLiberadoSub");
+  if (ticketEl) {
+    const ticket = ceCearaCredTicket(cearaSub?.valor_liberado, cearaSub?.aprovadas);
+    ticketEl.textContent = ticket == null ? "—" : `Ticket médio: ${ceFormatCurrencyPt(ticket)}`;
   }
 
   const munSimplesSub = metricsByLayer?.mun_simples?.sub;
@@ -4162,7 +4287,7 @@ function ceDestroyProfileSummaryCharts() {
 }
 
 function ceDestroyCearaCredSummaryCharts() {
-  for (const key of ["cearaMunicipio", "cearaRegiao"]) {
+  for (const key of ["cearaMunicipio", "cearaRegiao", "cearaTaxaRegiao", "cearaTicketRegiao", "cearaScatter"]) {
     const chart = ceMapRuntime.profileSummaryCharts[key];
     if (!chart) continue;
     try {
@@ -4840,6 +4965,324 @@ function ceUpdateStandardProfileSummaryCharts(aggByLayer, selectedLayerKey, sort
   if (regTitle) regTitle.textContent = "Por região";
 }
 
+function ceCreateCearaCredSingleBarChart(el, items, options = {}) {
+  const valueKey = options.valueKey || "value";
+  const format = options.format || "int";
+  const color = options.color || CE_CEARA_CRED_CHART_COLORS[0];
+  const seriesName = options.seriesName || "Valor";
+  const rows = [...items]
+    .filter((i) => Number.isFinite(i[valueKey]))
+    .sort((a, b) => b[valueKey] - a[valueKey]);
+  const hasData = rows.length > 0;
+  const categories = hasData ? rows.map((r) => r.label) : ["Sem dados no filtro"];
+  const data = hasData ? rows.map((r) => r[valueKey]) : [0];
+  const fmt = (val) => {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return "—";
+    if (format === "percent") return ceFormatPercentPt(n);
+    if (format === "currency") return ceFormatCurrencyPt(n);
+    return ceFormatIntPt(n);
+  };
+  return new ApexCharts(el, {
+    chart: {
+      type: "bar",
+      height: Math.max(280, 48 + Math.max(categories.length, 1) * 28),
+      toolbar: { show: false },
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#065f46",
+    },
+    colors: [color],
+    series: [{ name: seriesName, data }],
+    plotOptions: {
+      bar: { horizontal: true, barHeight: "72%", borderRadius: 4, borderRadiusApplication: "end" },
+    },
+    xaxis: {
+      categories,
+      labels: { formatter: (v) => fmt(v), style: { fontSize: "11px", colors: "#475569" } },
+    },
+    yaxis: { labels: { style: { fontSize: "11px", colors: "#065f46" } } },
+    dataLabels: { enabled: hasData, formatter: (v) => fmt(v), style: { fontSize: "10px", colors: ["#fff"] } },
+    grid: { borderColor: "#d1fae5", padding: { left: 8, right: 14 } },
+    tooltip: { y: { formatter: (v) => fmt(v) } },
+  });
+}
+
+function ceUpdateCearaCredFunnel(sub, munCount) {
+  const cad = Number(sub?.cadastradas) || 0;
+  const ate = Number(sub?.em_atendimento) || 0;
+  const apr = Number(sub?.aprovadas) || 0;
+  const valor = Number(sub?.valor_liberado) || 0;
+  const max = Math.max(cad, ate, apr, 1);
+  const setBar = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.style.width = `${Math.min(100, (val / max) * 100)}%`;
+  };
+  const setTxt = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  setBar("ccFunnelBarCadastradas", cad);
+  setBar("ccFunnelBarAtendimento", ate);
+  setBar("ccFunnelBarAprovadas", apr);
+  setTxt("ccFunnelValCadastradas", ceFormatIntPt(cad));
+  setTxt("ccFunnelValAtendimento", ceFormatIntPt(ate));
+  setTxt("ccFunnelValAprovadas", ceFormatIntPt(apr));
+  const atePct = ceCearaCredRatioPct(ate, cad);
+  const aprPct = ceCearaCredRatioPct(apr, cad);
+  setTxt(
+    "ccFunnelNoteAtendimento",
+    atePct == null ? "—" : `${ceFormatPercentPt(atePct)} em análise ativa`
+  );
+  setTxt(
+    "ccFunnelNoteAprovadas",
+    aprPct == null ? "—" : `${ceFormatPercentPt(aprPct)} de aprovação sobre cadastradas`
+  );
+  const ticket = ceCearaCredTicket(valor, apr);
+  setTxt("ccFunnelTicket", ticket == null ? "—" : ceFormatCurrencyPt(ticket));
+  setTxt("ccFunnelTaxa", aprPct == null ? "—" : ceFormatPercentPt(aprPct));
+  setTxt("ccFunnelMuns", ceFormatIntPt(munCount));
+}
+
+function ceCearaCredTaxaChip(taxa) {
+  if (taxa == null || !Number.isFinite(taxa)) return "—";
+  const cls = taxa >= 80 ? "" : taxa >= 65 ? " map-ce-cc-chip--mid" : " map-ce-cc-chip--low";
+  return `<span class="map-ce-cc-chip${cls}">${ceFormatPercentPt(taxa)}</span>`;
+}
+
+function ceBuildCearaCredTableRows(munRows) {
+  return munRows.map((r, idx) => {
+    const taxa = ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas);
+    return {
+      rank: idx + 1,
+      label: r.label,
+      cadastradas: Number(r.values.cadastradas) || 0,
+      em_atendimento: Number(r.values.em_atendimento) || 0,
+      aprovadas: Number(r.values.aprovadas) || 0,
+      valor_liberado: Number(r.values.valor_liberado) || 0,
+      taxa,
+    };
+  });
+}
+
+function ceRenderCearaCredMunTable() {
+  const tbody = document.getElementById("mapCearaCredMunTableBody");
+  if (!tbody) return;
+  const state = ceMapRuntime.cearaCredTable || { sortKey: "aprovadas", sortDir: "desc", search: "" };
+  const q = String(state.search || "").trim().toLowerCase();
+  let rows = [...(state.rows || [])];
+  if (q) rows = rows.filter((r) => String(r.label || "").toLowerCase().includes(q));
+  const key = state.sortKey || "aprovadas";
+  const dir = state.sortDir === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    if (key === "label") return dir * String(a.label).localeCompare(String(b.label), "pt-BR");
+    const av = Number(a[key]);
+    const bv = Number(b[key]);
+    const an = Number.isFinite(av) ? av : -Infinity;
+    const bn = Number.isFinite(bv) ? bv : -Infinity;
+    return dir * (an - bn) || String(a.label).localeCompare(String(b.label), "pt-BR");
+  });
+  tbody.innerHTML = rows
+    .map(
+      (r, i) => `<tr>
+        <td>${i + 1}</td>
+        <td class="map-ce-cc-table__name">${ceEscapeHtml(r.label)}</td>
+        <td>${ceFormatIntPt(r.cadastradas)}</td>
+        <td>${ceFormatIntPt(r.em_atendimento)}</td>
+        <td>${ceFormatIntPt(r.aprovadas)}</td>
+        <td>${ceFormatCurrencyPt(r.valor_liberado)}</td>
+        <td>${ceCearaCredTaxaChip(r.taxa)}</td>
+      </tr>`
+    )
+    .join("");
+}
+
+function ceExportCearaCredMunTableCsv() {
+  const state = ceMapRuntime.cearaCredTable || {};
+  const rows = state.rows || [];
+  const header = ["Municipio", "Cadastradas", "Em atendimento", "Aprovadas", "Valor liberado", "Taxa aprovacao (%)"];
+  const lines = [header.join(";")];
+  for (const r of rows) {
+    const taxa = r.taxa == null ? "" : String(r.taxa).replace(".", ",");
+    lines.push(
+      [r.label, r.cadastradas, r.em_atendimento, r.aprovadas, r.valor_liberado, taxa]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(";")
+    );
+  }
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ceara-credi-municipios.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ceBindCearaCredTableControls() {
+  const search = document.getElementById("mapCearaCredMunTableSearch");
+  const exportBtn = document.getElementById("mapCearaCredMunTableExport");
+  const table = document.querySelector(".map-ce-cc-table");
+  if (search && search.dataset.ccBound !== "1") {
+    search.dataset.ccBound = "1";
+    search.addEventListener("input", () => {
+      if (!ceMapRuntime.cearaCredTable) ceMapRuntime.cearaCredTable = {};
+      ceMapRuntime.cearaCredTable.search = search.value;
+      ceRenderCearaCredMunTable();
+    });
+  }
+  if (exportBtn && exportBtn.dataset.ccBound !== "1") {
+    exportBtn.dataset.ccBound = "1";
+    exportBtn.addEventListener("click", () => ceExportCearaCredMunTableCsv());
+  }
+  if (table && table.dataset.ccBound !== "1") {
+    table.dataset.ccBound = "1";
+    table.addEventListener("click", (e) => {
+      const th = e.target.closest("[data-cc-sort]");
+      if (!th) return;
+      const key = th.getAttribute("data-cc-sort");
+      if (!ceMapRuntime.cearaCredTable) ceMapRuntime.cearaCredTable = { sortKey: "aprovadas", sortDir: "desc" };
+      if (ceMapRuntime.cearaCredTable.sortKey === key) {
+        ceMapRuntime.cearaCredTable.sortDir = ceMapRuntime.cearaCredTable.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        ceMapRuntime.cearaCredTable.sortKey = key;
+        ceMapRuntime.cearaCredTable.sortDir = key === "label" ? "asc" : "desc";
+      }
+      ceRenderCearaCredMunTable();
+    });
+  }
+}
+
+function ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder) {
+  const filtered = ceMapRuntime.lastProfileFilteredByLayer?.ceara_cred || [];
+  const sub = ceSumCearaCredKpiFromRows(filtered);
+  const allMunRows = ceBuildCearaCredMunicipioRows(aggByLayer, sortOrder);
+  ceUpdateCearaCredFunnel(sub, allMunRows.length);
+
+  const regRows = ceBuildCearaCredRegiaoRows(aggByLayer, sortOrder).map((r) => ({
+    label: r.label,
+    taxa: ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas),
+    ticket: ceCearaCredTicket(r.values.valor_liberado, r.values.aprovadas),
+  }));
+
+  const taxaEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTaxaRegiao);
+  if (taxaEl) {
+    const chart = ceCreateCearaCredSingleBarChart(taxaEl, regRows, {
+      valueKey: "taxa",
+      format: "percent",
+      color: CE_CEARA_CRED_CHART_COLORS[2],
+      seriesName: "Taxa de aprovação",
+    });
+    chart.render();
+    ceMapRuntime.profileSummaryCharts.cearaTaxaRegiao = chart;
+  }
+
+  const ticketEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaTicketRegiao);
+  if (ticketEl) {
+    const chart = ceCreateCearaCredSingleBarChart(ticketEl, regRows, {
+      valueKey: "ticket",
+      format: "currency",
+      color: CE_CEARA_CRED_CHART_COLORS[0],
+      seriesName: "Ticket médio",
+    });
+    chart.render();
+    ceMapRuntime.profileSummaryCharts.cearaTicketRegiao = chart;
+  }
+
+  const scatterEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaScatter);
+  if (scatterEl && typeof ApexCharts !== "undefined") {
+    const scatterRows = [...allMunRows]
+      .sort((a, b) => (b.values.cadastradas || 0) - (a.values.cadastradas || 0))
+      .slice(0, 20)
+      .map((r) => {
+        const taxa = ceCearaCredRatioPct(r.values.aprovadas, r.values.cadastradas);
+        return {
+          x: Number(r.values.cadastradas) || 0,
+          y: taxa == null ? 0 : taxa,
+          z: Math.max(Number(r.values.valor_liberado) || 0, 1),
+          name: r.label,
+          taxa,
+        };
+      })
+      .filter((p) => p.x > 0 && p.taxa != null);
+    const mean =
+      scatterRows.length > 0
+        ? scatterRows.reduce((s, p) => s + p.y, 0) / scatterRows.length
+        : 0;
+    const maxValor = Math.max(...scatterRows.map((p) => p.z), 1);
+    const chart = new ApexCharts(scatterEl, {
+      chart: {
+        type: "bubble",
+        height: 360,
+        toolbar: { show: false },
+        fontFamily: "system-ui, Segoe UI, sans-serif",
+        foreColor: "#065f46",
+      },
+      series: [
+        {
+          name: "Municípios",
+          data: scatterRows.map((p) => ({
+            x: p.x,
+            y: p.y,
+            z: 12 + (p.z / maxValor) * 36,
+            name: p.name,
+            valor: p.z,
+          })),
+        },
+      ],
+      colors: [CE_CEARA_CRED_CHART_COLORS[0]],
+      xaxis: {
+        title: { text: "Cadastradas", style: { fontSize: "12px", color: "#047857" } },
+        labels: { formatter: (v) => ceFormatIntPt(Number(v)), style: { fontSize: "11px" } },
+        min: 0,
+      },
+      yaxis: {
+        title: { text: "Taxa de aprovação (%)", style: { fontSize: "12px", color: "#047857" } },
+        labels: { formatter: (v) => ceFormatPercentPt(Number(v)), style: { fontSize: "11px" } },
+        min: 0,
+      },
+      dataLabels: { enabled: false },
+      grid: { borderColor: "#d1fae5" },
+      legend: { show: false },
+      annotations: mean
+        ? {
+            yaxis: [
+              {
+                y: mean,
+                borderColor: CE_CEARA_CRED_CHART_COLORS[2],
+                strokeDashArray: 6,
+                label: {
+                  text: `média ${ceFormatPercentPt(mean)}`,
+                  style: { color: "#fff", background: CE_CEARA_CRED_CHART_COLORS[2], fontSize: "10px" },
+                },
+              },
+            ],
+          }
+        : {},
+      tooltip: {
+        custom: ({ seriesIndex, dataPointIndex, w }) => {
+          const p = w.config.series[seriesIndex]?.data?.[dataPointIndex];
+          if (!p) return "";
+          return `<div class="map-ce-popup" style="padding:8px 10px">
+            <strong>${ceEscapeHtml(p.name || "")}</strong><br/>
+            Cadastradas: ${ceFormatIntPt(p.x)}<br/>
+            Taxa: ${ceFormatPercentPt(p.y)}<br/>
+            Valor: ${ceFormatCurrencyPt(p.valor ?? p.z)}
+          </div>`;
+        },
+      },
+    });
+    chart.render();
+    ceMapRuntime.profileSummaryCharts.cearaScatter = chart;
+  }
+
+  if (!ceMapRuntime.cearaCredTable) {
+    ceMapRuntime.cearaCredTable = { sortKey: "aprovadas", sortDir: "desc", search: "" };
+  }
+  ceMapRuntime.cearaCredTable.rows = ceBuildCearaCredTableRows(allMunRows);
+  ceBindCearaCredTableControls();
+  ceRenderCearaCredMunTable();
+}
+
 function ceUpdateCearaCredSummaryCharts(aggByLayer, sortOrder) {
   const munEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaMunicipio);
   const regEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaRegiao);
@@ -4880,6 +5323,7 @@ function ceUpdateCearaCredSummaryCharts(aggByLayer, sortOrder) {
     sortBtn.textContent = munRankLabel;
     sortBtn.dataset.order = sortOrder;
   }
+  ceUpdateCearaCredInsightCharts(aggByLayer, sortOrder);
 }
 
 function ceUpdateMunSimplesSummaryCharts(aggByLayer, sortOrder) {
@@ -5589,6 +6033,21 @@ function ceDestroyProfileCearaCredMunLineChart() {
   if (el) el.innerHTML = "";
 }
 
+function ceDestroyProfileCearaCredValorLineChart() {
+  const c = ceMapRuntime.profileCearaCredValorLineChart;
+  if (c) {
+    try {
+      c.destroy();
+    } catch (_) {}
+    ceMapRuntime.profileCearaCredValorLineChart = null;
+  }
+  const el = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaValorLine);
+  if (el) {
+    el.innerHTML = "";
+    el.hidden = true;
+  }
+}
+
 function ceDestroyProfileCearaCredLineChart() {
   const c = ceMapRuntime.profileCearaCredLineChart;
   if (c) {
@@ -5603,6 +6062,7 @@ function ceDestroyProfileCearaCredLineChart() {
 
 function ceDestroyProfileCearaCredLineCharts() {
   ceDestroyProfileCearaCredLineChart();
+  ceDestroyProfileCearaCredValorLineChart();
   ceDestroyProfileCearaCredMunLineChart();
 }
 
@@ -5752,51 +6212,26 @@ function ceFormatCearaCredLineTooltip(val, format) {
 function ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain = "ano") {
   const chartSeries = seriesMeta.map((s) => ({ name: s.name, data: s.data }));
   const colors = seriesMeta.map((s) => s._color);
-  const hasCurrency = seriesMeta.some((s) => s._format === "currency");
-  const hasCount = seriesMeta.some((s) => s._format !== "currency");
+  const currencyOnly = seriesMeta.length > 0 && seriesMeta.every((s) => s._format === "currency");
   const isMonth = grain === "mes";
 
-  let yaxis;
-  if (hasCurrency && hasCount) {
-    yaxis = [
-      {
+  const yaxis = currencyOnly
+    ? {
+        title: { text: "Valor liberado (R$)", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
+        labels: {
+          formatter: (val) => ceFormatCurrencyPt(Number(val)),
+          style: { fontSize: "11px", colors: "#047857" },
+        },
+        min: 0,
+      }
+    : {
         title: { text: "Quantidade", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
         labels: {
           formatter: (val) => ceFormatIntPt(Number(val)),
           style: { fontSize: "11px", colors: "#047857" },
         },
         min: 0,
-      },
-      {
-        opposite: true,
-        seriesName: "Valor liberado",
-        title: { text: "Valor liberado (R$)", style: { fontSize: "12px", fontWeight: 600, color: "#0f766e" } },
-        labels: {
-          formatter: (val) => ceFormatCurrencyPt(Number(val)),
-          style: { fontSize: "11px", colors: "#0f766e" },
-        },
-        min: 0,
-      },
-    ];
-  } else if (hasCurrency) {
-    yaxis = {
-      title: { text: "Valor liberado (R$)", style: { fontSize: "12px", fontWeight: 600, color: "#0f766e" } },
-      labels: {
-        formatter: (val) => ceFormatCurrencyPt(Number(val)),
-        style: { fontSize: "11px", colors: "#0f766e" },
-      },
-      min: 0,
-    };
-  } else {
-    yaxis = {
-      title: { text: "Quantidade", style: { fontSize: "12px", fontWeight: 600, color: "#047857" } },
-      labels: {
-        formatter: (val) => ceFormatIntPt(Number(val)),
-        style: { fontSize: "11px", colors: "#047857" },
-      },
-      min: 0,
-    };
-  }
+      };
 
   return {
     chart: {
@@ -5827,7 +6262,11 @@ function ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain = "ano") {
     stroke: { curve: "smooth", width: 3 },
     markers: { size: 5, strokeWidth: 2, hover: { size: 7 } },
     legend: {
-      show: false,
+      show: true,
+      position: "top",
+      horizontalAlign: "left",
+      fontSize: "11px",
+      fontWeight: 600,
     },
     grid: {
       borderColor: "#d1fae5",
@@ -6116,7 +6555,11 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
       ? ceBuildCearaCredMonthlyLineSeries(rowsForChart, selMetrics)
       : ceBuildCearaCredAnnualLineSeries(rowsForChart, selMetrics);
   const { categories, series, hasRows } = built;
-  const showChart = hasRows && categories.length > 0 && series.length > 0;
+  const countSeries = series.filter((s) => s._format !== "currency");
+  const valorSeries = series.filter((s) => s._format === "currency");
+  const showCounts = hasRows && categories.length > 0 && countSeries.length > 0;
+  const showValor = hasRows && categories.length > 0 && valorSeries.length > 0;
+  const showChart = showCounts || showValor;
 
   const titleEl = document.getElementById("mapCearaCredLineTitle");
   const hintEl = document.getElementById("mapCearaCredLineHint");
@@ -6146,15 +6589,17 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
   }
 
   ceDestroyProfileCearaCredLineChart();
+  ceDestroyProfileCearaCredValorLineChart();
+  el.hidden = !showCounts;
   if (!showChart) return;
 
-  const renderChart = () => {
+  const renderOne = (targetEl, seriesMeta, runtimeKey) => {
     try {
-      const chart = new ApexCharts(el, ceBuildCearaCredLineApexConfig(categories, series, grain));
+      const chart = new ApexCharts(targetEl, ceBuildCearaCredLineApexConfig(categories, seriesMeta, grain));
       chart
         .render()
         .then(() => {
-          ceMapRuntime.profileCearaCredLineChart = chart;
+          ceMapRuntime[runtimeKey] = chart;
           requestAnimationFrame(() => {
             try {
               chart.resize();
@@ -6169,7 +6614,14 @@ function ceUpdateProfileCearaCredLineChart(munSel, regSel) {
     }
   };
 
-  requestAnimationFrame(renderChart);
+  const valorEl = document.getElementById(CE_PROFILE_CHART_DOM_IDS.cearaValorLine);
+  requestAnimationFrame(() => {
+    if (showCounts) renderOne(el, countSeries, "profileCearaCredLineChart");
+    if (valorEl) {
+      valorEl.hidden = !showValor;
+      if (showValor) renderOne(valorEl, valorSeries, "profileCearaCredValorLineChart");
+    }
+  });
 }
 
 function ceDestroyIntermediacaoLineChart() {
@@ -8124,6 +8576,9 @@ function ceDestroyMap() {
     regiao: null,
     cearaMunicipio: null,
     cearaRegiao: null,
+    cearaTaxaRegiao: null,
+    cearaTicketRegiao: null,
+    cearaScatter: null,
     munSimplesMunicipio: null,
     munSimplesRegiao: null,
     empresaGrupamentoMunicipio: null,
@@ -8951,7 +9406,11 @@ function ceResizeRegioesMap() {
       ceMapRuntime.profileSummaryCharts.pibRegiao?.resize?.();
       ceMapRuntime.profilePibLineChart?.resize?.();
       ceMapRuntime.profileCearaCredLineChart?.resize?.();
+      ceMapRuntime.profileCearaCredValorLineChart?.resize?.();
       ceMapRuntime.profileCearaCredMunLineChart?.resize?.();
+      ceMapRuntime.profileSummaryCharts.cearaTaxaRegiao?.resize?.();
+      ceMapRuntime.profileSummaryCharts.cearaTicketRegiao?.resize?.();
+      ceMapRuntime.profileSummaryCharts.cearaScatter?.resize?.();
       ceMapRuntime.intermediacaoLineChart?.resize?.();
       ceMapRuntime.monthlyLineChart?.resize?.();
       ceMapRuntime.monthlySaldoChart?.resize?.();
