@@ -25,6 +25,7 @@ const HIDDEN_MENU_ITEMS = new Set([
   "seguro_desemprego",
   "qualificacao",
   "series_historicas",
+  "programas",
 ]);
 /** Abas que aparecem apenas dentro do grupo do pai (ex.: Análises sob Página Inicial). */
 const NESTED_MENU_ITEMS = new Set(["analises"]);
