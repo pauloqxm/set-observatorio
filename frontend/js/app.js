@@ -1660,7 +1660,7 @@ function renderHomeProgramsSection() {
       </div>`;
       })
       .join("");
-    const meta = loaded && source.referenciaLabel ? `Referência: ${escapeHtml(source.referenciaLabel)}` : "";
+    const meta = loaded && source.referenciaLabel ? `Acumulado até ${escapeHtml(source.referenciaLabel)}` : "";
     return `
     <article class="home-program-card home-program-card--${card.variant}${errored ? " home-program-card--error" : ""}">
       <div class="home-program-card__head">

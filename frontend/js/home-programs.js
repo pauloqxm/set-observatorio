@@ -212,7 +212,7 @@ function hpParseCearaCrediRows(text) {
   return rows;
 }
 
-/** Para cada município, usa apenas a referência mais recente e soma o total do Ceará. */
+/** Para cada município, usa o saldo da competência mais recente (já acumulado até aquele mês). */
 function hpSummarizeCearaCredi(rows) {
   const latestByCod = new Map();
   for (const row of rows) {
