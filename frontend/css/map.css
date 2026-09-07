@@ -60,7 +60,8 @@
 .section-map-ce--perfil .map-ce-profile-charts-wrap,
 .section-map-ce--perfil .map-ce-pib-line-wrap,
 .section-map-ce--perfil .map-ce-ceara-cred-line-wrap,
-.section-map-ce--perfil .map-ce-intermediacao-line-wrap {
+.section-map-ce--perfil .map-ce-intermediacao-line-wrap,
+.section-map-ce--perfil .map-ce-profile-line-wrap {
   display: none !important;
 }
 
@@ -160,7 +161,8 @@
 .section-map-ce--vai-vem .map-ce-profile-charts-wrap,
 .section-map-ce--vai-vem .map-ce-pib-line-wrap,
 .section-map-ce--vai-vem .map-ce-ceara-cred-line-wrap,
-.section-map-ce--vai-vem .map-ce-intermediacao-line-wrap {
+.section-map-ce--vai-vem .map-ce-intermediacao-line-wrap,
+.section-map-ce--vai-vem .map-ce-profile-line-wrap {
   display: none !important;
 }
 
@@ -209,7 +211,8 @@
 .section-map-ce--caged-grupamentos .map-ce-profile-charts-wrap,
 .section-map-ce--caged-grupamentos .map-ce-pib-line-wrap,
 .section-map-ce--caged-grupamentos .map-ce-ceara-cred-line-wrap,
-.section-map-ce--caged-grupamentos .map-ce-intermediacao-line-wrap {
+.section-map-ce--caged-grupamentos .map-ce-intermediacao-line-wrap,
+.section-map-ce--caged-grupamentos .map-ce-profile-line-wrap {
   display: none !important;
 }
 
@@ -284,7 +287,8 @@
 .section-map-ce--seguro-desemprego .map-ce-profile-charts-wrap,
 .section-map-ce--seguro-desemprego .map-ce-pib-line-wrap,
 .section-map-ce--seguro-desemprego .map-ce-ceara-cred-line-wrap,
-.section-map-ce--seguro-desemprego .map-ce-intermediacao-line-wrap {
+.section-map-ce--seguro-desemprego .map-ce-intermediacao-line-wrap,
+.section-map-ce--seguro-desemprego .map-ce-profile-line-wrap {
   display: none !important;
 }
 
@@ -405,7 +409,8 @@
 .section-map-ce--dinheiro-na-mao .map-ce-profile-charts-wrap,
 .section-map-ce--dinheiro-na-mao .map-ce-pib-line-wrap,
 .section-map-ce--dinheiro-na-mao .map-ce-ceara-cred-line-wrap,
-.section-map-ce--dinheiro-na-mao .map-ce-intermediacao-line-wrap {
+.section-map-ce--dinheiro-na-mao .map-ce-intermediacao-line-wrap,
+.section-map-ce--dinheiro-na-mao .map-ce-profile-line-wrap {
   display: none !important;
 }
 
@@ -538,7 +543,8 @@
 .section-map-ce--qualificacao .map-ce-profile-charts-wrap,
 .section-map-ce--qualificacao .map-ce-pib-line-wrap,
 .section-map-ce--qualificacao .map-ce-ceara-cred-line-wrap,
-.section-map-ce--qualificacao .map-ce-intermediacao-line-wrap {
+.section-map-ce--qualificacao .map-ce-intermediacao-line-wrap,
+.section-map-ce--qualificacao .map-ce-profile-line-wrap {
   display: none !important;
 }
 
@@ -961,7 +967,8 @@
   display: none !important;
 }
 
-.section-map-ce--perfil.section-map-ce--kpi-standard .map-ce-profile-charts-wrap--standard {
+.section-map-ce--perfil.section-map-ce--kpi-standard .map-ce-profile-charts-wrap--standard,
+.section-map-ce--perfil.section-map-ce--kpi-standard .map-ce-profile-line-wrap {
   display: block !important;
 }
 
@@ -1434,6 +1441,7 @@
 
 .map-ce-pib-line-wrap,
 .map-ce-ceara-cred-line-wrap,
+.map-ce-profile-line-wrap,
 .map-ce-profile-charts-wrap {
   display: none;
 }
@@ -1464,6 +1472,41 @@
   margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid rgba(5, 150, 105, 0.2);
+}
+
+.map-ce-profile-line-wrap {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  box-shadow: 0 2px 14px rgba(13, 21, 72, 0.06);
+  margin-top: 18px;
+}
+
+.map-ce-profile-line-wrap .map-ce-line-block__title {
+  color: #1e3a8a;
+}
+
+.map-ce-profile-line-wrap .map-ce-ceara-line-filters {
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.map-ce-profile-line-wrap .map-ce-ceara-line-filters__label {
+  color: #1d4ed8;
+}
+
+.map-ce-profile-line-wrap .map-ce-chip {
+  border-color: rgba(37, 99, 235, 0.28);
+  color: #1e3a8a;
+}
+
+.map-ce-profile-line-wrap .map-ce-chip:has(input:checked) {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.map-ce-profile-line-wrap .map-ce-chip input {
+  accent-color: #2563eb;
 }
 
 .map-ce-cc-valor-chart {

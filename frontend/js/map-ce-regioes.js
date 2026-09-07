@@ -886,6 +886,8 @@ const ceMapRuntime = {
   profileCearaCredMunLineChart: null,
   /** @type {any} */
   intermediacaoLineChart: null,
+  /** @type {any} */
+  profileStandardLineChart: null,
   /** @type {Record<string, { thresholds: number[], min: number, max: number }>} */
   layerStats: {},
   /** @type {Map<string, string>} */
@@ -933,6 +935,9 @@ const CE_FORMALIZACAO_RANK_COLOR = "#1d4ed8";
 
 /** Quantidade de municípios no ranking (maiores / menores). */
 const CE_RANKING_TOP_N = 15;
+
+/** Ranking de municípios no gráfico de barras do perfil municipal. */
+const CE_PROFILE_MUN_RANK_N = 14;
 
 let ceRegioesMap = null;
 let ceRegioesInitPromise = null;
@@ -3668,6 +3673,24 @@ function ceIsPerfilEmpresasMode() {
   return root?.classList.contains("section-map-ce--perfil-empresas") === true;
 }
 
+function ceIsStandardProfileLayerUi() {
+  if (!ceIsPerfilMunicipalMode()) return false;
+  if (
+    ceIsIntermediacaoMode() ||
+    ceIsCearaCrediMode() ||
+    ceIsPerfilEmpresasMode() ||
+    ceIsVaiVemMode() ||
+    ceIsCagedGrupamentosMode() ||
+    ceIsSeguroDesempregoMode() ||
+    ceIsDinheiroNaMaoMode() ||
+    ceIsQualificacaoMode()
+  ) {
+    return false;
+  }
+  const layerKey = ceGetSelectedProfileLayerKey();
+  return CE_PROFILE_BAR_LAYER_KEYS.includes(layerKey);
+}
+
 function ceIsVaiVemMode() {
   const root = document.getElementById("secaoMapaCe");
   return root?.classList.contains("section-map-ce--vai-vem") === true;
@@ -4928,7 +4951,8 @@ function ceCreateProfileGroupedBarChart(el, rows, options = {}) {
     }));
   const colors = options.colors || layerKeys.map((lk) => CE_PROFILE_LAYER_CONFIG[lk]?.colors?.[3] || "#2563eb");
   const { categories, series, hasRows } = ceBuildProfileBarSeries(rows, seriesDefs);
-  const height = Math.max(320, 64 + Math.max(categories.length, 1) * 38);
+  const categoryHeight = Number(options.categoryHeight) > 0 ? Number(options.categoryHeight) : 38;
+  const height = Math.max(320, 64 + Math.max(categories.length, 1) * categoryHeight);
   return new ApexCharts(el, {
     chart: {
       type: "bar",
@@ -5005,12 +5029,15 @@ function ceUpdateStandardProfileSummaryCharts(aggByLayer, selectedLayerKey, sort
   if (!munEl || !regEl) return;
 
   const layerKeys = ceGetProfileBarLayerKeysForCharts();
-  const munRows = ceBuildProfileMunicipioRows(aggByLayer, selectedLayerKey, sortOrder);
+  const isInt = ceIsIntermediacaoMode();
+  const munRowsAll = ceBuildProfileMunicipioRows(aggByLayer, selectedLayerKey, sortOrder);
+  const munRows = isInt ? munRowsAll : munRowsAll.slice(0, CE_PROFILE_MUN_RANK_N);
   const regRows = ceBuildProfileRegiaoRows(aggByLayer, selectedLayerKey, sortOrder);
 
   const munChart = ceCreateProfileGroupedBarChart(munEl, munRows, {
     layerKeys,
     colors: layerKeys.map((lk) => CE_PROFILE_LAYER_CONFIG[lk]?.colors?.[3] || "#2563eb"),
+    categoryHeight: isInt ? 38 : Math.max(42, 18 + layerKeys.length * 6),
   });
   const regChart = ceCreateProfileGroupedBarChart(regEl, regRows, {
     layerKeys,
@@ -5026,7 +5053,8 @@ function ceUpdateStandardProfileSummaryCharts(aggByLayer, selectedLayerKey, sort
   const munTitle = document.getElementById("mapProfileChartMunicipioTitle");
   const regTitle = document.getElementById("mapProfileChartRegiaoTitle");
   const legendSuffix = ceMapRuntime.activeLegendClass !== null ? " · classe selecionada na legenda" : "";
-  if (munTitle) munTitle.textContent = `Por município${legendSuffix}`;
+  const rankLabel = isInt || !munRows.length ? "" : ` · ranking (${munRows.length})`;
+  if (munTitle) munTitle.textContent = `Por município${rankLabel}${legendSuffix}`;
   if (regTitle) regTitle.textContent = "Por região";
 }
 
@@ -6806,6 +6834,221 @@ function ceUpdateIntermediacaoLineChart(munSel, regSel, anoSel) {
   requestAnimationFrame(renderChart);
 }
 
+function ceDestroyProfileStandardLineChart() {
+  const c = ceMapRuntime.profileStandardLineChart;
+  if (c) {
+    try {
+      c.destroy();
+    } catch (_) {}
+    ceMapRuntime.profileStandardLineChart = null;
+  }
+}
+
+function ceRenderProfileLineMetricFilters() {
+  const wrap = document.getElementById("mapProfileLineMetricFilters");
+  if (!wrap) return;
+  const prev = new Set(
+    Array.from(wrap.querySelectorAll('input[name="profileLineMetric"]:checked')).map((el) => el.value)
+  );
+  const hadSelection = prev.size > 0;
+  wrap.innerHTML = "";
+  for (const layerKey of CE_PROFILE_BAR_LAYER_KEYS) {
+    const cfg = CE_PROFILE_LAYER_CONFIG[layerKey];
+    if (!cfg) continue;
+    const label = document.createElement("label");
+    label.className = "map-ce-chip";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = "profileLineMetric";
+    input.value = layerKey;
+    input.checked = hadSelection ? prev.has(layerKey) : true;
+    label.appendChild(input);
+    const span = document.createElement("span");
+    span.textContent = cfg.label;
+    label.appendChild(span);
+    wrap.appendChild(label);
+  }
+}
+
+function ceGetProfileLineSelectedMetrics() {
+  return new Set(
+    Array.from(document.querySelectorAll('input[name="profileLineMetric"]:checked')).map((el) => el.value)
+  );
+}
+
+function ceBuildProfileMonthlyLineSeries(munSel, regSel, anoSel, metricKeys) {
+  if (!metricKeys.size) {
+    return { categories: [], series: [], hasRows: false };
+  }
+
+  const monthRanks = new Map();
+  /** @type {Map<string, Map<string, number>>} */
+  const byMetricMonth = new Map();
+
+  for (const layerKey of CE_PROFILE_BAR_LAYER_KEYS) {
+    if (!metricKeys.has(layerKey)) continue;
+    const rows = ceMapRuntime.profileRowsByLayer[layerKey] || [];
+    const filtered = ceGetFilteredRows(rows, new Set(), munSel, regSel, anoSel);
+    const monthMap = new Map();
+    for (const row of filtered) {
+      const key = ceRowMesAnoKey(row);
+      if (!key) continue;
+      monthRanks.set(key, ceMesAnoKeyRank(key));
+      monthMap.set(key, (monthMap.get(key) || 0) + (Number(row.pessoas) || 0));
+    }
+    byMetricMonth.set(layerKey, monthMap);
+  }
+
+  const sortedKeys = [...monthRanks.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([key]) => key);
+  const categories = sortedKeys.map((key) => ceFormatMesAnoFromKey(key));
+
+  const series = [];
+  for (const layerKey of CE_PROFILE_BAR_LAYER_KEYS) {
+    if (!metricKeys.has(layerKey)) continue;
+    const cfg = CE_PROFILE_LAYER_CONFIG[layerKey];
+    series.push({
+      name: cfg?.label || layerKey,
+      data: sortedKeys.map((key) => {
+        const v = Number(byMetricMonth.get(layerKey)?.get(key));
+        return Number.isFinite(v) ? v : null;
+      }),
+      _color: cfg?.colors?.[3] || "#2563eb",
+    });
+  }
+
+  const hasRows = series.some((s) => s.data.some((v) => Number(v) > 0));
+  return { categories, series, hasRows };
+}
+
+function ceBuildProfileLineApexConfig(categories, seriesMeta) {
+  return {
+    chart: {
+      type: "line",
+      height: 460,
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#1f2d78",
+      animations: { speed: 320 },
+    },
+    series: seriesMeta.map((s) => ({ name: s.name, data: s.data })),
+    colors: seriesMeta.map((s) => s._color),
+    xaxis: {
+      categories,
+      title: { text: "Mês de referência", style: { fontSize: "12px", fontWeight: 600, color: "#475569" } },
+      labels: {
+        rotate: categories.length > 8 ? -35 : 0,
+        rotateAlways: false,
+        hideOverlappingLabels: true,
+        style: { fontSize: "11px", colors: "#475569" },
+      },
+    },
+    yaxis: {
+      title: { text: "Pessoas", style: { fontSize: "12px", fontWeight: 600, color: "#1f2d78" } },
+      labels: {
+        formatter: (val) => ceFormatIntPt(Number(val)),
+        style: { fontSize: "11px", colors: "#475569" },
+      },
+      min: 0,
+    },
+    stroke: {
+      curve: "smooth",
+      width: 3,
+    },
+    markers: {
+      size: 4,
+      strokeWidth: 2,
+      hover: { size: 6 },
+    },
+    legend: {
+      show: true,
+      position: "top",
+      horizontalAlign: "left",
+      fontSize: "12px",
+      fontWeight: 600,
+      markers: { width: 10, height: 10, radius: 3 },
+      onItemClick: { toggleDataSeries: true },
+      onItemHover: { highlightDataSeries: true },
+    },
+    grid: {
+      borderColor: "#e2e8f0",
+      strokeDashArray: 4,
+      padding: { left: 8, right: 12, top: 10, bottom: 4 },
+    },
+    tooltip: {
+      shared: true,
+      intersect: false,
+      y: {
+        formatter: (val) => ceFormatIntPt(Number(val)),
+      },
+    },
+  };
+}
+
+function ceRefreshProfileStandardLineChart() {
+  const { munSel, regSel, anoEl } = ceGetMapFilterMunRegSets();
+  const anoSel = new Set(Array.from(anoEl?.selectedOptions || []).map((o) => o.value));
+  ceUpdateProfileStandardLineChart(munSel, regSel, anoSel);
+}
+
+function ceUpdateProfileStandardLineChart(munSel, regSel, anoSel) {
+  if (typeof ApexCharts === "undefined") return;
+  if (!ceIsStandardProfileLayerUi()) {
+    ceDestroyProfileStandardLineChart();
+    return;
+  }
+
+  const el = document.getElementById("mapProfileLineChart");
+  const emptyEl = document.getElementById("mapProfileLineEmpty");
+  if (!el) return;
+
+  ceRenderProfileLineMetricFilters();
+  const selMetrics = ceGetProfileLineSelectedMetrics();
+  const { categories, series, hasRows } = ceBuildProfileMonthlyLineSeries(
+    munSel,
+    regSel,
+    anoSel,
+    selMetrics
+  );
+
+  const showChart = selMetrics.size > 0 && hasRows;
+  if (emptyEl) {
+    emptyEl.hidden = showChart;
+    emptyEl.textContent = !selMetrics.size
+      ? "Selecione ao menos uma variável para exibir o gráfico."
+      : "Sem dados para o recorte e filtros selecionados.";
+  }
+  el.style.display = showChart ? "" : "none";
+
+  ceDestroyProfileStandardLineChart();
+  if (!showChart) return;
+
+  const renderChart = () => {
+    try {
+      const chart = new ApexCharts(el, ceBuildProfileLineApexConfig(categories, series));
+      chart
+        .render()
+        .then(() => {
+          ceMapRuntime.profileStandardLineChart = chart;
+          requestAnimationFrame(() => {
+            try {
+              chart.resize();
+            } catch (_) {}
+          });
+        })
+        .catch((err) => {
+          console.warn("Perfil municipal linha:", err);
+        });
+    } catch (err) {
+      console.warn("Perfil municipal linha (config):", err);
+    }
+  };
+
+  requestAnimationFrame(renderChart);
+}
+
 function ceSyncProfileLayerUi() {
   const root = document.getElementById("secaoMapaCe");
   if (!root) return;
@@ -6826,6 +7069,7 @@ function ceSyncProfileLayerUi() {
     ceDestroyProfilePibLineChart();
     ceDestroyProfileCearaCredLineCharts();
     ceDestroyIntermediacaoLineChart();
+    ceDestroyProfileStandardLineChart();
     const pibWrap = document.querySelector(".map-ce-pib-line-wrap");
     if (pibWrap) {
       pibWrap.hidden = true;
@@ -6840,6 +7084,11 @@ function ceSyncProfileLayerUi() {
     if (intLineWrap) {
       intLineWrap.hidden = true;
       intLineWrap.setAttribute("aria-hidden", "true");
+    }
+    const profileLineWrap = document.querySelector(".map-ce-profile-line-wrap");
+    if (profileLineWrap) {
+      profileLineWrap.hidden = true;
+      profileLineWrap.setAttribute("aria-hidden", "true");
     }
     for (const wrap of document.querySelectorAll(".map-ce-profile-charts-wrap")) {
       wrap.hidden = true;
@@ -6908,6 +7157,16 @@ function ceSyncProfileLayerUi() {
   }
   if (!isIntermediacao) ceDestroyIntermediacaoLineChart();
 
+  const profileLineWrap = document.querySelector(".map-ce-profile-line-wrap");
+  if (profileLineWrap) {
+    profileLineWrap.hidden = !isStandard;
+    profileLineWrap.setAttribute("aria-hidden", isStandard ? "false" : "true");
+    if (isStandard) {
+      requestAnimationFrame(() => ceRefreshProfileStandardLineChart());
+    }
+  }
+  if (!isStandard) ceDestroyProfileStandardLineChart();
+
   const standardChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--standard");
   const cearaChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--ceara-cred");
   const munSimplesChartsWrap = document.querySelector(".map-ce-profile-charts-wrap--mun-simples");
@@ -6960,7 +7219,7 @@ function ceSyncProfileLayerUi() {
     } else {
       chartsTitle.textContent = "Variáveis do perfil municipal";
       chartsHint.textContent =
-        "Mesmos filtros do mapa · comparação entre as seis variáveis (coluna Pessoas) · referência mais recente do recorte · ordenação pela camada selecionada no mapa";
+        "Mesmos filtros do mapa · comparação entre as seis variáveis (coluna Pessoas) · referência mais recente do recorte · ranking dos 14 municípios pela camada selecionada no mapa";
     }
   }
 }
@@ -8061,6 +8320,15 @@ function ceApplyMapFilters() {
     } catch (e) {
       console.warn("Linha intermediação:", e);
     }
+    try {
+      if (ceIsStandardProfileLayerUi()) {
+        ceUpdateProfileStandardLineChart(munSel, regSel, anoSel);
+      } else {
+        ceDestroyProfileStandardLineChart();
+      }
+    } catch (e) {
+      console.warn("Linha perfil municipal:", e);
+    }
     return;
   }
 
@@ -8070,6 +8338,7 @@ function ceApplyMapFilters() {
   ceDestroyProfileSummaryCharts();
   ceDestroyProfilePibLineChart();
   ceDestroyProfileCearaCredLineCharts();
+  ceDestroyProfileStandardLineChart();
 
   const filtered = ceGetFilteredRows(ceMapRuntime.allRows, mesSel, munSel, regSel, anoSel);
   ceUpdateMapKpis(ceComputeMapKpiTotals(filtered, munSel, regSel));
@@ -8382,6 +8651,9 @@ function ceWireMapFiltersDelegation() {
     if (t.closest?.("#mapIntermediacaoLineFilters")) {
       ceRefreshIntermediacaoLineChart();
     }
+    if (t.closest?.("#mapProfileLineFilters")) {
+      ceRefreshProfileStandardLineChart();
+    }
   });
 
   root.addEventListener("click", (e) => {
@@ -8519,6 +8791,7 @@ function ceDestroyMap() {
   ceDestroyProfilePibLineChart();
   ceDestroyProfileCearaCredLineCharts();
   ceDestroyIntermediacaoLineChart();
+  ceDestroyProfileStandardLineChart();
   ceDestroyMonthlyLineChart();
   ceDestroyMonthlySaldoChart();
   if (!ceRegioesMap) return;
@@ -8573,6 +8846,7 @@ function ceDestroyMap() {
   };
   ceMapRuntime.profilePibLineChart = null;
   ceMapRuntime.intermediacaoLineChart = null;
+  ceMapRuntime.profileStandardLineChart = null;
   cePendingPageMode = null;
   ceMapRuntime.unidadesGeoJson = { type: "FeatureCollection", features: [] };
   ceMapRuntime.qualificacaoCursosGeoJson = { type: "FeatureCollection", features: [] };
@@ -9388,6 +9662,7 @@ function ceResizeRegioesMap() {
       ceMapRuntime.profileSummaryCharts.cearaTicketRegiao?.resize?.();
       ceMapRuntime.profileSummaryCharts.cearaScatter?.resize?.();
       ceMapRuntime.intermediacaoLineChart?.resize?.();
+      ceMapRuntime.profileStandardLineChart?.resize?.();
       ceMapRuntime.monthlyLineChart?.resize?.();
       ceMapRuntime.monthlySaldoChart?.resize?.();
     } catch (_) {}

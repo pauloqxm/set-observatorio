@@ -1530,13 +1530,34 @@
           </div>
         </div>
 
+        <div class="map-ce-profile-line-wrap" hidden aria-hidden="true">
+          <div class="map-ce-line-block">
+            <h3 class="map-ce-line-block__title">Perfil municipal — evolução temporal</h3>
+            <p class="map-ce-line-block__hint">
+              Mesmos filtros de ano, região e município do mapa · evolução mês a mês das variáveis (coluna Pessoas) · marque ou desmarque as variáveis abaixo
+            </p>
+            <div id="mapProfileLineFilters" class="map-ce-ceara-line-filters" aria-label="Filtros do gráfico de perfil municipal por mês">
+              <div class="map-ce-ceara-line-filters__group">
+                <span class="map-ce-ceara-line-filters__label">Variáveis</span>
+                <div id="mapProfileLineMetricFilters" class="map-ce-ceara-line-filters__chips"></div>
+              </div>
+            </div>
+            <p id="mapProfileLineEmpty" class="map-ce-ceara-line-empty" hidden>Selecione ao menos uma variável para exibir o gráfico.</p>
+            <div
+              id="mapProfileLineChart"
+              class="map-ce-line-block__chart"
+              aria-label="Gráfico de linhas do perfil municipal ao longo do tempo"
+            ></div>
+          </div>
+        </div>
+
         <div class="map-ce-profile-charts-wrap map-ce-profile-charts-wrap--standard">
           <div class="map-ce-profile-charts">
             <div class="map-ce-profile-charts__head">
               <div class="map-ce-profile-charts__intro">
                 <h3 class="map-ce-profile-charts__title" id="mapProfileChartsTitle">Variáveis do perfil municipal</h3>
                 <p class="map-ce-profile-charts__hint" id="mapProfileChartsHint">
-                  Mesmos filtros do mapa · comparação entre as seis variáveis (coluna Pessoas) · referência mais recente do recorte · ordenação pela camada selecionada no mapa
+                  Mesmos filtros do mapa · comparação entre as seis variáveis (coluna Pessoas) · referência mais recente do recorte · ranking dos 14 municípios pela camada selecionada no mapa
                 </p>
               </div>
               <button
