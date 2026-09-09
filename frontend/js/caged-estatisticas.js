@@ -16,8 +16,13 @@ const ceEstatsState = {
 };
 
 const ceEstatsFmtInt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
-const ceEstatsFmtDec = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
-const ceEstatsFmtCur = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const ceEstatsFmtPct = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const ceEstatsFmtCur = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 function ceEstatsIsActive() {
   return document.getElementById("secaoMapaCe")?.classList.contains("section-map-ce--caged-estatisticas") === true;
@@ -26,7 +31,7 @@ function ceEstatsIsActive() {
 function ceEstatsFmt(val, kind) {
   const n = Number(val);
   if (!Number.isFinite(n)) return "—";
-  if (kind === "pct") return `${ceEstatsFmtDec.format(n)}%`;
+  if (kind === "pct") return `${ceEstatsFmtPct.format(n)}%`;
   if (kind === "cur") return ceEstatsFmtCur.format(n);
   return ceEstatsFmtInt.format(n);
 }
@@ -199,7 +204,7 @@ function ceEstatsDonut(el, items, extra = {}) {
     tooltip: { y: { formatter: (v) => ceEstatsFmt(v) } },
     dataLabels: {
       enabled: true,
-      formatter: (v) => ceEstatsFmt(v),
+      formatter: (v) => ceEstatsFmt(v, "pct"),
     },
   });
 }
