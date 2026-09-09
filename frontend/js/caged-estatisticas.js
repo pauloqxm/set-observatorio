@@ -466,12 +466,14 @@ function ceEstatsRankOrder() {
   return document.querySelector("#segEstatsRankOrder button.active")?.dataset.ordem || "asc";
 }
 
-function ceEstatsTakeRank(items, { top = 15, order = "desc" } = {}) {
+function ceEstatsTakeRank(items, { top = 15, order = "asc" } = {}) {
   const rows = (items || [])
     .filter((i) => Number.isFinite(Number(i.valor)))
     .map((i) => ({ label: i.label, valor: Number(i.valor) }));
-  rows.sort((a, b) => (order === "asc" ? a.valor - b.valor : b.valor - a.valor));
-  return rows.slice(0, top).reverse();
+  rows.sort((a, b) => b.valor - a.valor);
+  const picked = top ? rows.slice(0, top) : rows;
+  picked.sort((a, b) => (order === "asc" ? a.valor - b.valor : b.valor - a.valor));
+  return picked;
 }
 
 function ceEstatsRankMeta() {
