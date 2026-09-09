@@ -71,17 +71,17 @@
         <div class="map-ce-filters-wrap">
           <p class="map-ce-filters-wrap__title">Filtros dos dados (CAGED)</p>
           <div class="map-ce-toolbar__filters map-ce-toolbar__filters--standalone">
-            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos qualificacao">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos caged_estatisticas qualificacao">
               <label class="map-ce-filter-label" for="mapFilterAno">Ano</label>
               <select id="mapFilterAno" class="map-ce-select-multi" multiple size="4" aria-label="Filtrar por ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterAnoClear">Limpar anos</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos qualificacao">
+            <div class="map-ce-filter-group map-ce-filter-group--mes" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos caged_estatisticas qualificacao">
               <label class="map-ce-filter-label" for="mapFilterMes">Mês/ano</label>
               <select id="mapFilterMes" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar por mês e ano"></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterMesClear">Limpar meses</button>
             </div>
-            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos seguro_desemprego qualificacao">
+            <div class="map-ce-filter-group" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos caged_estatisticas seguro_desemprego qualificacao">
               <label class="map-ce-filter-label" for="mapFilterRegiao">Região administrativa</label>
               <select
                 id="mapFilterRegiao"
@@ -126,7 +126,7 @@
               <select id="sdFilterQuinzena" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar Seguro Desemprego por quinzena"></select>
               <button type="button" class="map-ce-filter-btn" id="sdFilterQuinzenaClear">Limpar quinzenas</button>
             </div>
-            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos vai_vem seguro_desemprego qualificacao">
+            <div class="map-ce-filter-group map-ce-filter-group--mun" data-filter-tabs="dados_caged perfil_municipal perfil_empresas ceara_credi dinheiro_na_mao series_historicas caged_grupamentos caged_estatisticas vai_vem seguro_desemprego qualificacao">
               <label class="map-ce-filter-label" for="mapFilterMunicipio">Município</label>
               <input
                 type="search"
@@ -144,6 +144,17 @@
                 aria-label="Filtrar por município"
               ></select>
               <button type="button" class="map-ce-filter-btn" id="mapFilterMunClear">Limpar municípios</button>
+            </div>
+            <div class="map-ce-filter-group" data-filter-tabs="caged_estatisticas">
+              <label class="map-ce-filter-label" for="mapFilterEstatsGrup">Grande grupamento</label>
+              <select id="mapFilterEstatsGrup" class="map-ce-select-multi" multiple size="5" aria-label="Filtrar estatísticas por grande grupamento">
+                <option value="Agropecuária">Agropecuária</option>
+                <option value="Indústria">Indústria</option>
+                <option value="Construção">Construção</option>
+                <option value="Comércio">Comércio</option>
+                <option value="Serviços">Serviços</option>
+              </select>
+              <button type="button" class="map-ce-filter-btn" id="mapFilterEstatsGrupClear">Limpar grupamentos</button>
             </div>
           </div>
           <p class="map-ce-filters-wrap__status" id="cgStatus" hidden></p>
@@ -1224,6 +1235,261 @@
           </p>
         </div>
 
+        <div class="map-ce-estats-wrap" hidden aria-hidden="true">
+          <div class="map-ce-estats">
+            <div class="map-ce-estats__head">
+              <div>
+                <h3 class="map-ce-estats__title">Estatísticas do mercado formal</h3>
+                <p class="map-ce-estats__hint">
+                  Microdados CAGED · mesmos filtros do mapa · estoque oficial do Ceará em 12/2025 no recorte estadual · com município ou grupamento, estoque relativo ao saldo acumulado na série da base · salário = média aparada 2%
+                </p>
+              </div>
+              <p id="dashEstatsStatus" class="map-ce-estats__status" role="status"></p>
+            </div>
+            <div id="progressEstats" class="map-ce-estats-progress">
+              <div class="map-ce-estats-progress__row">
+                <strong id="progressEstatsTitle">Carregando estatísticas</strong>
+                <span id="progressEstatsPct">0%</span>
+              </div>
+              <div class="map-ce-estats-progress__bar"><span id="progressEstatsFill"></span></div>
+              <p id="progressEstatsEtapa" class="map-ce-estats-progress__etapa"></p>
+            </div>
+            <p id="estatsKpiNote" class="map-ce-estats__note" hidden></p>
+            <div id="dashEstatsKpis" class="map-ce-estats-kpis">
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--adm">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-arrow-trend-up"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Admissões</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiAdm">—</strong>
+                  <span class="map-ce-kpi-card__meta">no período</span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--dem">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-arrow-trend-down"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Desligamentos</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiDem">—</strong>
+                  <span class="map-ce-kpi-card__meta">no período</span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--saldo">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Saldo</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiVarAbs">—</strong>
+                  <span class="map-ce-kpi-card__meta">A − D</span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--rel">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-percent"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Var. relativa</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiVarRel">—</strong>
+                  <span class="map-ce-kpi-card__meta">sobre o estoque inicial</span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--acum">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label" id="estatsKpiIndiceLabel">Var. acumulada</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiIndice">—</strong>
+                  <span class="map-ce-kpi-card__meta" id="estatsKpiIndiceSub"></span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--tr">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-arrows-rotate"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Rotatividade</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiTR">—</strong>
+                  <span class="map-ce-kpi-card__meta">TR do período</span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--estoque">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-boxes-stacked"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Estoque final</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiEstoqueFim">—</strong>
+                  <span class="map-ce-kpi-card__meta" id="estatsKpiEstoqueFimSub"></span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--base">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-flag"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label" id="estatsKpiEstoqueBaseLabel">Estoque base</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiEstoqueBase">—</strong>
+                  <span class="map-ce-kpi-card__meta" id="estatsKpiEstoqueBaseSub"></span>
+                </div>
+              </article>
+              <article class="map-ce-kpi-card map-ce-estats-kpi map-ce-estats-kpi--salario">
+                <span class="map-ce-estats-kpi__icon" aria-hidden="true"><i class="fa-solid fa-sack-dollar"></i></span>
+                <div class="map-ce-kpi-card__body">
+                  <span class="map-ce-kpi-card__label">Média salarial</span>
+                  <strong class="map-ce-kpi-card__value" id="estatsKpiSalario">—</strong>
+                  <span class="map-ce-kpi-card__meta">admissão · aparada 2%</span>
+                </div>
+              </article>
+            </div>
+
+            <div class="map-ce-estats-grid">
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <h4 class="map-ce-estats-card__title">Flutuação — admissões e desligamentos</h4>
+                <div id="chartEstatsFlut" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title" id="titleEstatsSalario">Salário médio de admissão</h4>
+                  <div id="segEstatsSalario" class="map-ce-estats-seg">
+                    <button type="button" data-modo="geral" class="active">Geral</button>
+                    <button type="button" data-modo="agregacao">Por grupamento</button>
+                  </div>
+                </div>
+                <div id="chartEstatsSalario" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Variação absoluta mensal</h4>
+                <div id="chartEstatsVarAbs" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Variação relativa mensal</h4>
+                <div id="chartEstatsVarRel" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <h4 class="map-ce-estats-card__title">Índice de emprego encadeado (% acumulada)</h4>
+                <div id="chartEstatsIndiceEnc" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <h4 class="map-ce-estats-card__title">Taxa de rotatividade</h4>
+                <div id="chartEstatsTR" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Permanência no emprego (desligados)</h4>
+                <div id="chartEstatsPermanFaixa" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Permanência — mediana e média aparada</h4>
+                <div id="chartEstatsPermanSerie" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Admissões por tipo de movimentação</h4>
+                <div id="chartEstatsAdmTipo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Desligamentos por tipo de movimentação</h4>
+                <div id="chartEstatsDemTipo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <h4 class="map-ce-estats-card__title">Principais tipos de desligamento no tempo</h4>
+                <div id="chartEstatsDemTop4" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Admissões por sexo</h4>
+                <div id="chartEstatsAdmSexo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Desligamentos por sexo</h4>
+                <div id="chartEstatsDemSexo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Saldo por sexo</h4>
+                <div id="chartEstatsSaldoSexo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Admitidos por faixa etária</h4>
+                <div id="chartEstatsAdmFaixa" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Desligados por faixa etária</h4>
+                <div id="chartEstatsDemFaixa" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Admissões · sexo × faixa etária</h4>
+                <div id="chartEstatsAdmSexoFaixa" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card">
+                <h4 class="map-ce-estats-card__title">Desligamentos · sexo × faixa etária</h4>
+                <div id="chartEstatsDemSexoFaixa" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title" id="titleEstatsCbo">Ocupações (CBO)</h4>
+                  <div id="segEstatsCbo" class="map-ce-estats-seg">
+                    <button type="button" data-modo="contratacoes" class="active">Contratações</button>
+                    <button type="button" data-modo="desligamentos">Desligamentos</button>
+                    <button type="button" data-modo="saldo">Saldo</button>
+                  </div>
+                </div>
+                <div id="chartEstatsCbo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title" id="titleEstatsMunSaldo">Por município</h4>
+                  <select id="selEstatsMun" class="map-ce-layer-select map-ce-estats-select">
+                    <option value="admissoes">Admissões</option>
+                    <option value="demissoes">Desligamentos</option>
+                    <option value="saldo">Saldo</option>
+                  </select>
+                </div>
+                <div id="chartEstatsMunSaldo" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title" id="titleEstatsRegiao">Por região administrativa</h4>
+                  <select id="selEstatsRegiao" class="map-ce-layer-select map-ce-estats-select">
+                    <option value="admissoes">Admissões</option>
+                    <option value="demissoes">Desligamentos</option>
+                    <option value="saldo">Saldo</option>
+                  </select>
+                </div>
+                <div id="chartEstatsRegiao" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title">Seção CNAE</h4>
+                  <div id="segEstatsSecao" class="map-ce-estats-seg">
+                    <button type="button" data-modo="contratacoes" class="active">Contratações</button>
+                    <button type="button" data-modo="desligamentos">Desligamentos</button>
+                    <button type="button" data-modo="saldo">Saldo</button>
+                  </div>
+                </div>
+                <div id="chartEstatsSecao" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title">Grande grupamento</h4>
+                  <div id="segEstatsAgreg" class="map-ce-estats-seg">
+                    <button type="button" data-modo="contratacoes" class="active">Contratações</button>
+                    <button type="button" data-modo="desligamentos">Desligamentos</button>
+                    <button type="button" data-modo="saldo">Saldo</button>
+                  </div>
+                </div>
+                <div id="chartEstatsAgreg" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title">Escolaridade</h4>
+                  <div id="segEstatsEsc" class="map-ce-estats-seg">
+                    <button type="button" data-modo="contratacoes" class="active">Contratações</button>
+                    <button type="button" data-modo="desligamentos">Desligamentos</button>
+                    <button type="button" data-modo="saldo">Saldo</button>
+                  </div>
+                </div>
+                <div id="chartEstatsEsc" class="map-ce-estats-card__chart"></div>
+              </article>
+              <article class="map-ce-estats-card map-ce-estats-card--span2">
+                <div class="map-ce-estats-card__head">
+                  <h4 class="map-ce-estats-card__title">Raça/cor</h4>
+                  <div id="segEstatsRaca" class="map-ce-estats-seg">
+                    <button type="button" data-modo="contratacoes" class="active">Contratações</button>
+                    <button type="button" data-modo="desligamentos">Desligamentos</button>
+                    <button type="button" data-modo="saldo">Saldo</button>
+                  </div>
+                </div>
+                <div id="chartEstatsRaca" class="map-ce-estats-card__chart"></div>
+              </article>
+            </div>
+          </div>
+        </div>
+
         <div class="map-ce-sd-charts-wrap">
           <section class="map-ce-cg-rankings-wrap" aria-label="Ranking Seguro Desemprego por município e região">
             <div class="map-ce-cg-rankings">
@@ -2112,6 +2378,7 @@
   <script src="/static/js/map-ce-regioes.js"></script>
   <script src="/static/js/vai-vem.js"></script>
   <script src="/static/js/caged-grupamentos.js"></script>
+  <script src="/static/js/caged-estatisticas.js"></script>
   <script src="/static/js/seguro-desemprego.js"></script>
   <script src="/static/js/qualificacao.js"></script>
   <script src="/static/js/dinheiro-na-mao.js"></script>

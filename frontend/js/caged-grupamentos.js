@@ -1132,7 +1132,7 @@ function cgRefreshMap() {
 }
 
 function cgRefreshAll() {
-  if (!cgState.loaded) return;
+  if (!cgState.loaded || !cgIsActivePage()) return;
   cgRefreshKpis();
   cgRefreshMap();
   cgRefreshCharts();
@@ -1146,11 +1146,11 @@ function cgSetStatus(message) {
   }
 }
 
-async function cgEnsureData() {
-  if (cgState.loaded || cgState.loading) return;
+let cgLoadPromise = null;
+
+async function cgFetchAndParse() {
   cgState.loading = true;
   cgSetStatus("Carregando planilha CAGED por grupamento…");
-  cgRenderKpis({ estoque: NaN, admitidos: NaN, desligados: NaN, saldo: NaN });
   try {
     const res = await fetch(CAGED_GRUP_CSV_URL, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1159,19 +1159,60 @@ async function cgEnsureData() {
     cgState.loaded = true;
     cgState.error = null;
     cgBuildMunicipiosIndex();
-    cgPopulateAnoFilter();
-    cgRebuildMesFilter();
-    cgSyncMunicipiosFromRegiao();
-    cgRefreshAll();
-    const grupo = cgGrupoLabel(cgGetSelectedGrupoKey());
-    cgSetStatus(`${cgState.rows.length.toLocaleString("pt-BR")} registros · grupamento: ${grupo}`);
   } catch (err) {
     cgState.error = err;
     cgSetStatus("Não foi possível carregar os dados de grupamento.");
     console.error("[caged-grupamentos]", err);
+    throw err;
   } finally {
     cgState.loading = false;
   }
+}
+
+function cgApplyLoadedUi() {
+  if (!cgState.loaded || !cgIsActivePage()) return;
+  cgPopulateAnoFilter();
+  cgRebuildMesFilter();
+  cgSyncMunicipiosFromRegiao();
+  cgRefreshAll();
+  const grupo = cgGrupoLabel(cgGetSelectedGrupoKey());
+  cgSetStatus(`${cgState.rows.length.toLocaleString("pt-BR")} registros · grupamento: ${grupo}`);
+}
+
+async function cgEnsureData(options = {}) {
+  const applyUi = options.applyUi !== false;
+  if (!cgState.loaded) {
+    if (!cgLoadPromise) {
+      cgLoadPromise = cgFetchAndParse().catch((err) => {
+        cgLoadPromise = null;
+        throw err;
+      });
+    }
+    try {
+      await cgLoadPromise;
+    } catch {
+      return;
+    }
+  }
+  if (applyUi) cgApplyLoadedUi();
+}
+
+function cgRowsForEstatsGrupamentos(labels) {
+  if (!cgState.loaded || !Array.isArray(labels) || !labels.length) return [];
+  const keys = new Set(labels.map(cgNormGrupoKey).filter(Boolean));
+  if (!keys.size) return [];
+  return cgState.rows
+    .filter((r) => keys.has(r.grupoKey))
+    .map((r) => ({
+      codigo: r.codigo,
+      municipio: r.municipio,
+      mesAno: r.referencia || r.mesAnoKey,
+      mesAnoKey: r.mesAnoKey,
+      estoque: r.estoque,
+      admissoes: r.admitidos,
+      desligamentos: r.desligados,
+      saldos: r.saldo,
+    }));
 }
 
 function cgIsActivePage() {
@@ -1275,6 +1316,9 @@ window.cagedGrupamentosApi = {
   restoreFullMunicipioFilter: cgRestoreFullMunicipioFilter,
   getGrupoLabel: cgGrupoLabel,
   getMetricLabel: cgMetricLabel,
+  isLoaded: () => cgState.loaded === true,
+  ensureData: cgEnsureData,
+  rowsForEstatsGrupamentos: cgRowsForEstatsGrupamentos,
 };
 
 if (document.readyState === "loading") {

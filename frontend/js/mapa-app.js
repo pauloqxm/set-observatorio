@@ -8,6 +8,7 @@ const MAP_TABS = {
   dinheiro_na_mao:  { label: "Dinheiro na Mão",  icon: "fa-solid fa-hand-holding-dollar" },
   vai_vem:          { label: "Vai Vem",          icon: "fa-solid fa-bus" },
   caged_grupamentos:{ label: "CAGED Grupamentos", icon: "fa-solid fa-industry" },
+  caged_estatisticas:{ label: "Estatísticas", icon: "fa-solid fa-chart-pie" },
   seguro_desemprego: { label: "Seguro Desemprego", icon: "fa-solid fa-shield-halved" },
   qualificacao:      { label: "Qualificação",      icon: "fa-solid fa-graduation-cap" },
   series_historicas:{ label: "Intermediação",    icon: "fa-solid fa-chart-line" },
@@ -15,11 +16,12 @@ const MAP_TABS = {
 
 /** Pai → subabas exibidas aninhadas abaixo dele no menu de mapas. */
 const MAP_MENU_GROUP_CHILDREN = {
-  dados_caged: ["caged_grupamentos"],
+  dados_caged: ["caged_grupamentos", "caged_estatisticas"],
 };
 /** Rótulo específico da subaba no menu (sobrescreve o label de MAP_TABS). */
 const MAP_MENU_SUB_LABELS = {
   caged_grupamentos: "Por grupamento",
+  caged_estatisticas: "Estatísticas",
 };
 /** Abas que só aparecem como subitem (não repetem no nível principal). */
 const MAP_MENU_NESTED_ITEMS = new Set(
@@ -85,6 +87,11 @@ const PAGE_META = {
     title: "CAGED por Grande Grupamento",
     desc: "Dados do CAGED desagregados por grande grupamento econômico (Agropecuária, Comércio, Construção, Indústria, Serviços), com filtros por referência, região e município e mapa graduado por setor.",
     status: "Mapa + planilha CAGED grupamentos",
+  },
+  caged_estatisticas: {
+    title: "Estatísticas CAGED",
+    desc: "Indicadores do mercado formal a partir do microdado CAGED: flutuação, variação, índice de emprego, rotatividade, salário médio, permanência, perfil demográfico e rankings, com o mapa e os filtros do observatório.",
+    status: "Mapa + microdados CAGED",
   },
   seguro_desemprego: {
     title: "Seguro Desemprego",
@@ -181,7 +188,7 @@ function syncProfileLayerSelectForMode(sheetName) {
       opt.hidden = true;
       continue;
     }
-    if (sheetName === "caged_grupamentos") {
+    if (sheetName === "caged_grupamentos" || sheetName === "caged_estatisticas") {
       opt.hidden = true;
       continue;
     }
@@ -285,6 +292,7 @@ const MAP_FILTER_SELECT_IDS = [
   "mapFilterMes",
   "mapFilterRegiao",
   "mapFilterMunicipio",
+  "mapFilterEstatsGrup",
   "vvFilterAno",
   "vvFilterMes",
   "mapFilterVaiVemRegiao",
@@ -336,6 +344,7 @@ function syncMapSection() {
   const isDinheiroNaMao = state.abaAtual === "dinheiro_na_mao";
   const isVaiVem        = state.abaAtual === "vai_vem";
   const isCagedGrup     = state.abaAtual === "caged_grupamentos";
+  const isCagedEstats   = state.abaAtual === "caged_estatisticas";
   const isSeguroDesemp  = state.abaAtual === "seguro_desemprego";
   const isQualificacao  = state.abaAtual === "qualificacao";
   const isIntermediacao = state.abaAtual === "series_historicas";
@@ -357,6 +366,7 @@ function syncMapSection() {
   wrap.classList.toggle("section-map-ce--dinheiro-na-mao", isDinheiroNaMao);
   wrap.classList.toggle("section-map-ce--vai-vem",        isVaiVem);
   wrap.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
+  wrap.classList.toggle("section-map-ce--caged-estatisticas", isCagedEstats);
   wrap.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
   wrap.classList.toggle("section-map-ce--qualificacao",   isQualificacao);
   wrap.classList.toggle("section-map-ce--intermediacao",  isIntermediacao);
@@ -375,6 +385,8 @@ function syncMapSection() {
             ? "Filtros do Vai Vem (data da solicitação)"
             : isCagedGrup
               ? "Filtros do CAGED por grupamento (referência)"
+            : isCagedEstats
+              ? "Filtros das estatísticas CAGED"
             : isSeguroDesemp
               ? "Filtros do Seguro Desemprego (competência quinzenal)"
             : isQualificacao
@@ -392,6 +404,12 @@ function syncMapSection() {
 
   window.vaiVemApi?.onPageActivate?.();
   window.cagedGrupamentosApi?.onPageActivate?.();
+  window.cagedEstatisticasApi?.onPageActivate?.();
+  const estatsWrap = wrap.querySelector(".map-ce-estats-wrap");
+  if (estatsWrap) {
+    estatsWrap.hidden = !isCagedEstats;
+    estatsWrap.setAttribute("aria-hidden", isCagedEstats ? "false" : "true");
+  }
   window.seguroDesempregoApi?.onPageActivate?.();
   window.qualificacaoApi?.onPageActivate?.();
   window.dinheiroNaMaoApi?.onPageActivate?.();

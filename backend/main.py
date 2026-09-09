@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -9,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .services.sheets import get_indicadores, get_meta, get_sheet_data, get_sheet_names
 from .services.home_qualificacao import get_qualificacao_home_summary
+from .services.caged_estatisticas import opcoes_filtros as caged_estats_opcoes
+from .services.caged_estatisticas import resumo_estatisticas as caged_estats_resumo
 
 app = FastAPI(
     title="Portal de Empregabilidade",
@@ -24,6 +27,15 @@ app.add_middleware(
 )
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+def _warmup_caged_estatisticas() -> None:
+    try:
+        caged_estats_opcoes()
+    except Exception as exc:
+        logger.warning("Warmup das estatísticas CAGED ignorado: %s", exc)
 
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
@@ -88,6 +100,38 @@ def api_home_qualificacao() -> dict:
         return get_qualificacao_home_summary()
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/caged/estatisticas/opcoes")
+def api_caged_estatisticas_opcoes() -> dict:
+    try:
+        return caged_estats_opcoes()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/caged/estatisticas")
+def api_caged_estatisticas(
+    anos: str | None = Query(default=None),
+    competencias: str | None = Query(default=None),
+    meses: str | None = Query(default=None),
+    municipios: str | None = Query(default=None),
+    regioes: str | None = Query(default=None),
+    grupamentos: str | None = Query(default=None),
+    agregacoes: str | None = Query(default=None),
+) -> dict:
+    try:
+        return caged_estats_resumo(
+            anos=anos,
+            competencias=competencias,
+            meses=meses,
+            municipios=municipios,
+            regioes=regioes,
+            grupamentos=grupamentos,
+            agregacoes=agregacoes,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/api/abas/{sheet_name}")

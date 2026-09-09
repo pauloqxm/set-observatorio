@@ -22,3 +22,4 @@ run_server_set.bat
 frontend/data/dados_caged.csv
 frontend/data/dados_caged_mar.csv
 frontend/data/dados_caged_difrenca.csv
+caged_base.csv

@@ -22,11 +22,31 @@ const HIDDEN_MENU_ITEMS = new Set([
   "dinheiro_na_mao",
   "vai_vem",
   "caged_grupamentos",
+  "caged_estatisticas",
   "seguro_desemprego",
   "qualificacao",
   "series_historicas",
   "programas",
 ]);
+
+function normalizeMenuKey(name) {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+const HIDDEN_MENU_KEYS = new Set([...HIDDEN_MENU_ITEMS].map(normalizeMenuKey));
+
+/** Oculta abas de mapa (e variantes de nome da planilha) da Navegação principal. */
+function isHiddenMenuItem(sheetName) {
+  if (HIDDEN_MENU_ITEMS.has(sheetName)) return true;
+  const key = normalizeMenuKey(sheetName);
+  if (HIDDEN_MENU_KEYS.has(key)) return true;
+  return key.includes("caged") && key.includes("estatistic");
+}
+
 /** Abas que aparecem apenas dentro do grupo do pai (ex.: Análises sob Página Inicial). */
 const NESTED_MENU_ITEMS = new Set(["analises"]);
 /** Pai → filhos aninhados na ordem de exibição (filhos precisam existir em state.abas). */
@@ -1028,7 +1048,7 @@ function prettifyName(sheetName) {
 
 function renderMenu() {
   const visibleAbas = state.abas.filter(
-    (sheetName) => !HIDDEN_MENU_ITEMS.has(sheetName) && !NESTED_MENU_ITEMS.has(sheetName)
+    (sheetName) => !isHiddenMenuItem(sheetName) && !NESTED_MENU_ITEMS.has(sheetName)
   );
 
   const blocks = visibleAbas.map((sheetName) => {

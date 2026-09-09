@@ -311,15 +311,16 @@ a.menu-item {
   padding: 0 8px 6px;
 }
 
-.sidebar-map-links .menu-item:nth-of-type(1) { --menu-accent: #2563eb; }
-.sidebar-map-links .menu-item:nth-of-type(2) { --menu-accent: #7c3aed; }
-.sidebar-map-links .menu-item:nth-of-type(3) { --menu-accent: #0891b2; }
-.sidebar-map-links .menu-item:nth-of-type(4) { --menu-accent: #059669; }
-.sidebar-map-links .menu-item:nth-of-type(5) { --menu-accent: #ea580c; }
-.sidebar-map-links .menu-item:nth-of-type(6) { --menu-accent: #d97706; }
-.sidebar-map-links .menu-item:nth-of-type(7) { --menu-accent: #db2777; }
-.sidebar-map-links .menu-item:nth-of-type(8) { --menu-accent: #2563eb; }
-.sidebar-map-links .menu-item:nth-of-type(9) { --menu-accent: #475569; }
+.sidebar-map-links > .menu-group:nth-child(1) { --menu-accent: #2563eb; }
+.sidebar-map-links > .menu-group .menu-item { --menu-accent: #2563eb; }
+.sidebar-map-links > .menu-item:nth-child(2) { --menu-accent: #7c3aed; }
+.sidebar-map-links > .menu-item:nth-child(3) { --menu-accent: #0891b2; }
+.sidebar-map-links > .menu-item:nth-child(4) { --menu-accent: #059669; }
+.sidebar-map-links > .menu-item:nth-child(5) { --menu-accent: #ea580c; }
+.sidebar-map-links > .menu-item:nth-child(6) { --menu-accent: #d97706; }
+.sidebar-map-links > .menu-item:nth-child(7) { --menu-accent: #db2777; }
+.sidebar-map-links > .menu-item:nth-child(8) { --menu-accent: #2563eb; }
+.sidebar-map-links > .menu-item:nth-child(9) { --menu-accent: #475569; }
 
 .content {
   display: grid;

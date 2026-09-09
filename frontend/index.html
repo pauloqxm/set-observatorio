@@ -40,9 +40,19 @@
       </div>
       <nav id="menuAbas" class="menu-abas"></nav>
       <div class="sidebar-map-links">
-        <a href="/mapa?aba=dados_caged" class="menu-item">
-          <i class="fa-solid fa-map-location-dot"></i><span>Dados CAGED</span>
-        </a>
+        <div class="menu-group">
+          <a href="/mapa?aba=dados_caged" class="menu-item menu-item--parent">
+            <i class="fa-solid fa-map-location-dot"></i><span>Dados CAGED</span>
+          </a>
+          <div class="menu-sub">
+            <a href="/mapa?aba=caged_grupamentos" class="menu-item menu-item--sub">
+              <i class="fa-solid fa-industry"></i><span>Por grupamento</span>
+            </a>
+            <a href="/mapa?aba=caged_estatisticas" class="menu-item menu-item--sub">
+              <i class="fa-solid fa-chart-pie"></i><span>Estatísticas</span>
+            </a>
+          </div>
+        </div>
         <a href="/mapa?aba=perfil_municipal" class="menu-item">
           <i class="fa-solid fa-city"></i><span>Perfil Municipal</span>
         </a>
@@ -57,9 +67,6 @@
         </a>
         <a href="/mapa?aba=vai_vem" class="menu-item">
           <i class="fa-solid fa-bus"></i><span>Vai Vem</span>
-        </a>
-        <a href="/mapa?aba=caged_grupamentos" class="menu-item">
-          <i class="fa-solid fa-industry"></i><span>CAGED Grupamentos</span>
         </a>
         <a href="/mapa?aba=seguro_desemprego" class="menu-item">
           <i class="fa-solid fa-shield-halved"></i><span>Seguro Desemprego</span>

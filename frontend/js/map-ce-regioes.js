@@ -3701,6 +3701,11 @@ function ceIsCagedGrupamentosMode() {
   return root?.classList.contains("section-map-ce--caged-grupamentos") === true;
 }
 
+function ceIsCagedEstatisticasMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--caged-estatisticas") === true;
+}
+
 function ceIsSeguroDesempregoMode() {
   const root = document.getElementById("secaoMapaCe");
   return root?.classList.contains("section-map-ce--seguro-desemprego") === true;
@@ -3752,6 +3757,7 @@ function ceApplyPageModeClasses(sheetName) {
   const isPerfilEmpresas = sheetName === "perfil_empresas";
   const isVaiVem = sheetName === "vai_vem";
   const isCagedGrup = sheetName === "caged_grupamentos";
+  const isCagedEstats = sheetName === "caged_estatisticas";
   const isSeguroDesemp = sheetName === "seguro_desemprego";
   const isDinheiroNaMao = sheetName === "dinheiro_na_mao";
   const isQualificacao = sheetName === "qualificacao";
@@ -3762,6 +3768,7 @@ function ceApplyPageModeClasses(sheetName) {
   root.classList.toggle("section-map-ce--perfil-empresas", isPerfilEmpresas);
   root.classList.toggle("section-map-ce--vai-vem", isVaiVem);
   root.classList.toggle("section-map-ce--caged-grupamentos", isCagedGrup);
+  root.classList.toggle("section-map-ce--caged-estatisticas", isCagedEstats);
   root.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
   root.classList.toggle("section-map-ce--dinheiro-na-mao", isDinheiroNaMao);
   root.classList.toggle("section-map-ce--qualificacao", isQualificacao);
@@ -3789,7 +3796,7 @@ function ceSyncProfileLayerSelectForPage(sheetName) {
       opt.hidden = true;
       continue;
     }
-    if (sheetName === "caged_grupamentos") {
+    if (sheetName === "caged_grupamentos" || sheetName === "caged_estatisticas") {
       opt.hidden = true;
       continue;
     }
@@ -8219,6 +8226,26 @@ function ceClearMunicipioSelectionFromMap() {
   ceApplyMapFilters();
 }
 
+function ceGetSelectedEstatsGrupamentos() {
+  return Array.from(document.getElementById("mapFilterEstatsGrup")?.selectedOptions || [])
+    .map((o) => o.value)
+    .filter(Boolean);
+}
+
+function ceGetCagedRowsForCurrentFilters() {
+  if (!ceIsCagedEstatisticasMode()) return ceMapRuntime.allRows;
+  const grups = ceGetSelectedEstatsGrupamentos();
+  if (!grups.length) return ceMapRuntime.allRows;
+  const api = window.cagedGrupamentosApi;
+  if (!api?.isLoaded?.()) {
+    void api?.ensureData?.({ applyUi: false }).then(() => {
+      if (ceIsCagedEstatisticasMode()) ceApplyMapFilters();
+    });
+    return ceMapRuntime.allRows;
+  }
+  return api.rowsForEstatsGrupamentos?.(grups) || [];
+}
+
 function ceApplyMapFilters() {
   const map = ceMapRuntime.map;
 
@@ -8340,7 +8367,7 @@ function ceApplyMapFilters() {
   ceDestroyProfileCearaCredLineCharts();
   ceDestroyProfileStandardLineChart();
 
-  const filtered = ceGetFilteredRows(ceMapRuntime.allRows, mesSel, munSel, regSel, anoSel);
+  const filtered = ceGetFilteredRows(ceGetCagedRowsForCurrentFilters(), mesSel, munSel, regSel, anoSel);
   ceUpdateMapKpis(ceComputeMapKpiTotals(filtered, munSel, regSel));
 
   const aggByCod = ceAggregateByCodigo(filtered);
@@ -8360,6 +8387,9 @@ function ceApplyMapFilters() {
   ceUpdateRegionSummaryCharts();
   ceUpdateMonthlyLineChart();
   ceUpdateMonthlySaldoChart();
+  if (ceIsCagedEstatisticasMode()) {
+    window.cagedEstatisticasApi?.refresh?.();
+  }
 }
 
 function cePropsMunReg(p) {
@@ -8608,7 +8638,7 @@ function ceWireMapFiltersDelegation() {
     if (t.id === "mapFilterAno" && !ceIsQualificacaoMode() && !ceIsDinheiroNaMaoMode()) {
       ceRefreshMesOptionsFromAnoFilter();
     }
-    if (t.id === "mapFilterMes" || t.id === "mapFilterAno" || t.id === "mapFilterMunicipio" || t.id === "mapFilterRegiao" || t.id === "mapFilterVaiVemRegiao") {
+    if (t.id === "mapFilterMes" || t.id === "mapFilterAno" || t.id === "mapFilterMunicipio" || t.id === "mapFilterRegiao" || t.id === "mapFilterVaiVemRegiao" || t.id === "mapFilterEstatsGrup") {
       ceMapRuntime.activeLegendClass = null;
       ceApplyMapFilters();
     }
@@ -8750,6 +8780,12 @@ function ceWireMapFiltersDelegation() {
       } else {
         ceRebuildMunicipioOptions();
       }
+      ceApplyMapFilters();
+    }
+    if (t.id === "mapFilterEstatsGrupClear") {
+      const sel = document.getElementById("mapFilterEstatsGrup");
+      if (sel) Array.from(sel.options).forEach((o) => { o.selected = false; });
+      ceMapRuntime.activeLegendClass = null;
       ceApplyMapFilters();
     }
     if (t.id === "mapFilterVaiVemRegiaoClear") {
