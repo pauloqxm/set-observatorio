@@ -420,7 +420,7 @@ function ceEstatsRankMetric() {
 }
 
 function ceEstatsRankOrder() {
-  return document.querySelector("#segEstatsRankOrder button.active")?.dataset.ordem || "desc";
+  return document.querySelector("#segEstatsRankOrder button.active")?.dataset.ordem || "asc";
 }
 
 function ceEstatsTakeRank(items, { top = 15, order = "desc" } = {}) {
