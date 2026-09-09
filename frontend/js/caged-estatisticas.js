@@ -503,8 +503,23 @@ function ceEstatsRankMeta() {
       mun: "#2563eb",
       reg: "#0d9488",
     },
+    estoque: {
+      key: "estoque_municipio",
+      label: "Estoque",
+      mun: "#0f766e",
+      reg: "#0369a1",
+    },
   };
   return map[metric] || map.admissoes;
+}
+
+function ceEstatsSyncEstoqueOption(data) {
+  const sel = document.getElementById("selEstatsRankMetric");
+  if (!sel) return;
+  const opt = sel.querySelector('option[value="estoque"]');
+  const ok = Boolean(data?.rankings?.estoque_disponivel);
+  if (opt) opt.disabled = !ok;
+  if (!ok && sel.value === "estoque") sel.value = "admissoes";
 }
 
 function ceEstatsRenderMun() {
@@ -574,6 +589,7 @@ async function ceEstatsLoad() {
     window.__estatsSetores = data.setores;
     window.__estatsEsc = data.escolaridade;
     window.__estatsRaca = data.raca_cor;
+    ceEstatsSyncEstoqueOption(data);
     ceEstatsRenderKpis(data);
     ceEstatsRenderCharts(data);
     const per = data.periodo?.label || "—";

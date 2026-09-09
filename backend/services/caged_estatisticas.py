@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CSV_GZ_PATH = ROOT_DIR / "caged_base.csv.gz"
 CSV_PATH = ROOT_DIR / "caged_base.csv"
+DADOS_CAGED_PATH = ROOT_DIR / "frontend" / "data" / "dados_caged.csv"
 
 ESTOQUE_BASE_CE_202512 = 1_374_628
 SALARIO_TRIM = 0.02
@@ -140,6 +141,7 @@ _LOCK = threading.Lock()
 _ROWS: list[tuple] | None = None
 _OPCOES: dict[str, Any] | None = None
 _PERFIL_CACHE: dict[str, dict[str, Any]] = {}
+_ESTOQUE_MUN_ROWS: list[tuple[str, str, str, float]] | None = None
 
 
 def _flag_on(raw: Any) -> bool:
@@ -365,6 +367,67 @@ def _split_csv_param(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [p.strip() for p in str(raw).split(",") if p.strip()]
+
+
+def _comp_from_mes_ano(raw: str) -> str:
+    parts = str(raw or "").strip().replace("-", "/").split("/")
+    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+        mes, ano = int(parts[0]), int(parts[1])
+        if ano >= 1000 and 1 <= mes <= 12:
+            return f"{ano:04d}{mes:02d}"
+    return ""
+
+
+def _ensure_estoque_mun_rows() -> list[tuple[str, str, str, float]]:
+    """Estoque oficial por município/mês (mesmo CSV do mapa CAGED)."""
+    global _ESTOQUE_MUN_ROWS
+    if _ESTOQUE_MUN_ROWS is not None:
+        return _ESTOQUE_MUN_ROWS
+    with _LOCK:
+        if _ESTOQUE_MUN_ROWS is not None:
+            return _ESTOQUE_MUN_ROWS
+        rows: list[tuple[str, str, str, float]] = []
+        if DADOS_CAGED_PATH.exists():
+            with DADOS_CAGED_PATH.open("r", encoding="utf-8-sig", newline="") as fh:
+                reader = csv.reader(fh)
+                next(reader, None)
+                for cells in reader:
+                    if len(cells) < 4:
+                        continue
+                    mun = _norm_mun(cells[0])
+                    comp = _comp_from_mes_ano(cells[2])
+                    est = _parse_float(cells[3])
+                    if not mun or not comp or est is None:
+                        continue
+                    nome = str(cells[1] or "").strip() or f"Código {mun}"
+                    rows.append((comp, mun, nome, float(est)))
+        _ESTOQUE_MUN_ROWS = rows
+        logger.info("CAGED estoque municipal: %s linhas", f"{len(rows):,}")
+    return _ESTOQUE_MUN_ROWS
+
+
+def _estoque_fim_por_municipio(
+    mun_list: list[str],
+    last_comp: str,
+    mun_nome: dict[str, str],
+) -> dict[str, float]:
+    """Estoque do último mês do recorte (ou o mais recente até essa competência)."""
+    mun_set = {_norm_mun(m) for m in mun_list if m}
+    mun_set.discard("")
+    last_key = _comp_sort(last_comp)
+    best: dict[str, tuple[int, float]] = {}
+    for comp, mun, nome, est in _ensure_estoque_mun_rows():
+        ck = _comp_sort(comp)
+        if ck > last_key:
+            continue
+        if mun_set and mun not in mun_set:
+            continue
+        prev = best.get(mun)
+        if prev is None or ck > prev[0]:
+            best[mun] = (ck, est)
+            if mun not in mun_nome:
+                mun_nome[mun] = nome
+    return {mun: val for mun, (_ck, val) in best.items()}
 
 
 def _norm_comp_param(raw: str) -> str:
@@ -672,6 +735,8 @@ def resumo_estatisticas(
         }
 
     mun_saldo = {k: mun_adm.get(k, 0.0) - mun_dem.get(k, 0.0) for k in set(mun_adm) | set(mun_dem)}
+    estoque_ok = not grup_list
+    mun_est = _estoque_fim_por_municipio(mun_list, last, mun_nome) if estoque_ok and last else {}
     cbo_saldo = {k: cbo_adm.get(k, 0.0) - cbo_dem.get(k, 0.0) for k in set(cbo_adm) | set(cbo_dem)}
     secao_saldo = {k: secao_adm.get(k, 0.0) - secao_dem.get(k, 0.0) for k in set(secao_adm) | set(secao_dem)}
     agreg_saldo = {k: agreg_adm.get(k, 0.0) - agreg_dem.get(k, 0.0) for k in set(agreg_adm) | set(agreg_dem)}
@@ -808,8 +873,8 @@ def resumo_estatisticas(
             "admissoes_municipio": _mun_items(mun_adm),
             "demissoes_municipio": _mun_items(mun_dem),
             "saldo_municipio": _mun_items(mun_saldo),
-            "estoque_municipio": [],
-            "estoque_disponivel": False,
+            "estoque_municipio": _mun_items(mun_est) if estoque_ok else [],
+            "estoque_disponivel": estoque_ok,
         },
         "setores": {
             "contratacoes_secao": _items(secao_adm),
