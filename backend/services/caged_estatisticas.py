@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import csv
+import gzip
 import logging
 import threading
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
-from typing import Any
+from typing import Any, TextIO
 
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+CSV_GZ_PATH = ROOT_DIR / "caged_base.csv.gz"
 CSV_PATH = ROOT_DIR / "caged_base.csv"
 
 ESTOQUE_BASE_CE_202512 = 1_374_628
@@ -219,6 +221,20 @@ def _items(counter: dict[str, float], *, sort_abs: bool = True, top: int | None 
     return rows
 
 
+def _resolve_csv_path() -> Path:
+    if CSV_GZ_PATH.exists():
+        return CSV_GZ_PATH
+    if CSV_PATH.exists():
+        return CSV_PATH
+    raise FileNotFoundError(f"Arquivo CAGED não encontrado: {CSV_GZ_PATH} ou {CSV_PATH}")
+
+
+def _open_caged_csv(path: Path) -> TextIO:
+    if path.name.endswith(".gz"):
+        return gzip.open(path, "rt", encoding="utf-8-sig", newline="")
+    return path.open("r", encoding="utf-8-sig", newline="")
+
+
 def _ensure_loaded() -> None:
     global _ROWS, _OPCOES
     if _ROWS is not None:
@@ -226,15 +242,14 @@ def _ensure_loaded() -> None:
     with _LOCK:
         if _ROWS is not None:
             return
-        if not CSV_PATH.exists():
-            raise FileNotFoundError(f"Arquivo CAGED não encontrado: {CSV_PATH}")
-        logger.info("Carregando %s", CSV_PATH)
+        source = _resolve_csv_path()
+        logger.info("Carregando %s", source)
         rows: list[tuple] = []
         anos: set[str] = set()
         comps: set[str] = set()
         muns: dict[str, str] = {}
         grups: set[str] = set()
-        with CSV_PATH.open("r", encoding="utf-8-sig", newline="") as fh:
+        with _open_caged_csv(source) as fh:
             reader = csv.DictReader(fh, delimiter=";")
             for rec in reader:
                 comp = "".join(ch for ch in str(rec.get("competênciamov") or "") if ch.isdigit())
@@ -284,8 +299,8 @@ def _ensure_loaded() -> None:
                 {"valor": cod, "label": muns[cod]} for cod in sorted(muns, key=lambda k: muns[k])
             ],
             "grupamentos": [{"valor": g, "label": g} for g in GRUPAMENTOS if g in grups or True],
-            "arquivo": str(CSV_PATH),
-            "arquivo_nome": CSV_PATH.name,
+            "arquivo": str(source),
+            "arquivo_nome": source.name,
             "total_linhas": len(rows),
         }
         logger.info("CAGED estatísticas: %s linhas", f"{len(rows):,}")
@@ -643,9 +658,9 @@ def resumo_estatisticas(
     )
 
     return {
-        "arquivo": str(CSV_PATH),
-        "arquivo_nome": CSV_PATH.name,
-        "arquivo_ativo": CSV_PATH.name,
+        "arquivo": str(_resolve_csv_path()),
+        "arquivo_nome": _resolve_csv_path().name,
+        "arquivo_ativo": _resolve_csv_path().name,
         "unidade": _unidade(mun_list, grup_list),
         "total_linhas": len(rows),
         "filtros": {

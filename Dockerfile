@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
-COPY caged_base.csv ./caged_base.csv
+COPY caged_base.csv.gz ./caged_base.csv.gz
 
 ENV HOST=0.0.0.0
 ENV PORT=8000
