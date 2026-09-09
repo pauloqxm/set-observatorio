@@ -132,7 +132,6 @@ FAIXAS_TEMPO = (
 JOVEM_IDADE_MIN = 18
 JOVEM_IDADE_MAX = 29
 TIPO_CONTRATO_DETERMINADO = "25"
-TIPO_PRIMEIRO_EMPREGO = "10"
 RACA_BRANCA = "1"
 RACA_PRETA = "2"
 RACA_PARDA = "3"
@@ -850,7 +849,6 @@ def _new_acc() -> dict[str, Any]:
         "admissoes": 0.0,
         "desligamentos": 0.0,
         "adm_regulares": 0.0,
-        "adm_primeiro": 0.0,
         "salarios": [],
         "tempos": [],
     }
@@ -885,7 +883,6 @@ def _bloco_perfil(acc: dict[str, Any]) -> dict[str, Any]:
         "regularidade": _pct(float(acc["adm_regulares"]), adm),
         "salario_medio": _round_or_none(_trimmed_mean(acc["salarios"], trim=SALARIO_TRIM), 2),
         "permanencia_media": _round_or_none(_trimmed_mean(acc["tempos"], trim=SALARIO_TRIM), 1),
-        "primeiro_emprego": _pct(float(acc["adm_primeiro"]), adm),
         "admissoes": adm,
         "desligamentos": float(acc["desligamentos"]),
     }
@@ -896,7 +893,7 @@ def resumo_perfil_vinculo(
     mes: int | None = None,
     janela: int = 1,
 ) -> dict[str, Any]:
-    """Indicadores da home: regularidade, salário, permanência e primeiro emprego por recorte."""
+    """Indicadores da home: regularidade, salário e permanência por recorte."""
     _ensure_loaded()
     competencia = ""
     if ano and mes and 1 <= int(mes) <= 12:
@@ -905,7 +902,7 @@ def resumo_perfil_vinculo(
         competencia = _latest_competencia() or ""
     n_janela = 3 if int(janela or 1) >= 3 else 1
     comps = _janela_competencias(competencia, n_janela) if competencia else []
-    cache_key = f"v4:{competencia}:j{n_janela}"
+    cache_key = f"v6:{competencia}:j{n_janela}"
     if cache_key in _PERFIL_CACHE:
         return _PERFIL_CACHE[cache_key]
 
@@ -934,7 +931,6 @@ def resumo_perfil_vinculo(
         qty = abs(float(saldo))
         admissao = saldo > 0
         regular = admissao and _is_regular(tipo, intermitente, parcial)
-        primeiro = admissao and _tipo_code(tipo) == TIPO_PRIMEIRO_EMPREGO
 
         keys: list[str] = ["geral"]
         if sexo == "1":
@@ -952,8 +948,6 @@ def resumo_perfil_vinculo(
                 acc["admissoes"] += qty
                 if regular:
                     acc["adm_regulares"] += qty
-                if primeiro:
-                    acc["adm_primeiro"] += qty
                 if salario is not None and salario > 0:
                     acc["salarios"].append(float(salario))
             else:
@@ -985,7 +979,6 @@ def resumo_perfil_vinculo(
             "regularidade": "Percentual de admissões sem contrato determinado, intermitente ou parcial",
             "salario": "Média aparada 2% do salário de admissão",
             "permanencia": "Média aparada 2% do tempo de emprego nos desligamentos, em meses",
-            "primeiro_emprego": "Percentual das admissões com tipo Primeiro emprego",
         },
     }
     if competencia:

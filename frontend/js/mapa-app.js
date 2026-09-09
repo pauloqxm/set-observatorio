@@ -137,8 +137,8 @@ function updateMenuToggleIcon() {
   const open = els.sidebar.classList.contains("open");
   document.body.classList.toggle("sidebar-open", open && !isMobileSidebarViewport());
   const icon = els.menuToggle.querySelector("i");
-  if (icon) icon.className = open ? "fa-solid fa-xmark" : "fa-solid fa-bars";
-  els.menuToggle.setAttribute("aria-label", open ? "Fechar menu lateral" : "Abrir menu lateral");
+  if (icon) icon.className = "fa-solid fa-xmark";
+  els.menuToggle.setAttribute("aria-label", "Fechar menu lateral");
 }
 
 function openMenu() {

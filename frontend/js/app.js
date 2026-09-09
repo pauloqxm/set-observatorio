@@ -213,7 +213,7 @@ const state = {
   homeTrendData: { status: "idle", monthly: null },
   /** Cache dos resumos de Ceará Credi, Dinheiro na Mão, Vai Vem e Qualificação para "Outros programas em destaque". */
   homeProgramsData: { status: "idle", data: null },
-  /** Indicadores CAGED da home (regularidade, salário, permanência, primeiro emprego). */
+  /** Indicadores CAGED da home (regularidade, salário, permanência). */
   homePerfilData: { status: "idle", key: "", payload: null },
   homePerfilRecorte: "geral",
   homePerfilJanela: 1,
@@ -293,9 +293,9 @@ function updateMenuToggleIcon() {
   document.body.classList.toggle("sidebar-open", open && !isMobileSidebarViewport());
   const icon = els.menuToggle.querySelector("i");
   if (icon) {
-    icon.className = open ? "fa-solid fa-xmark" : "fa-solid fa-bars";
+    icon.className = "fa-solid fa-xmark";
   }
-  els.menuToggle.setAttribute("aria-label", open ? "Fechar menu lateral" : "Abrir menu lateral");
+  els.menuToggle.setAttribute("aria-label", "Fechar menu lateral");
 }
 
 /** Desktop: menu aberto sem véu; mobile: véu ao abrir (comportamento tactil). */
@@ -1729,11 +1729,6 @@ function renderHomePerfilCard() {
       value: formatPerfilMeses(bloco.permanencia_media),
       label: "Tempo médio de permanência",
       hint: "Entre os desligados do período"
-    },
-    {
-      value: formatPerfilPct(bloco.primeiro_emprego),
-      label: "Primeiro emprego",
-      hint: "Percentual das admissões no recorte"
     }
   ];
 
@@ -1754,7 +1749,7 @@ function renderHomePerfilCard() {
       `Jovens: ${notas.jovens || "18 a 29 anos"}. Negros: ${notas.negros || "preta + parda"}. ` +
       (janela === 3
         ? "Janela: competência do filtro e os dois meses anteriores."
-        : "Primeiro emprego: percentual das admissões do recorte.");
+        : "Salário e permanência: médias aparadas 2% (CAGED).");
   }
 }
 

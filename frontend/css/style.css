@@ -119,7 +119,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .sidebar-brand {
@@ -173,12 +174,21 @@ body {
 }
 
 .menu-toggle {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid #d7dbe8;
   background: #fff;
-  color: #2f364f;
+  color: #4b5568;
   border-radius: 8px;
-  padding: 8px 10px;
+  font-size: 1.05rem;
+  line-height: 1;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .menu-abas {
@@ -2277,7 +2287,7 @@ td {
 
 .home-perfil-card__metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 16px;
   width: 100%;
 }
