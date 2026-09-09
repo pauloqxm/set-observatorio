@@ -510,6 +510,49 @@
 .map-ce-estats-kpis .map-ce-kpi-card.is-neg .map-ce-kpi-card__meta { color: #9f4a56; }
 .map-ce-estats-kpis .map-ce-kpi-card.is-neg .map-ce-kpi-card__value { color: #9f1239; }
 
+.map-ce-estats-rank {
+  margin: 0 0 18px;
+  padding: 14px 16px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  background: #fff;
+}
+
+.map-ce-estats-rank__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.map-ce-estats-rank__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.map-ce-estats-rank__hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #5c678f;
+}
+
+.map-ce-estats-rank__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.map-ce-estats-rank__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .map-ce-estats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -584,7 +627,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .map-ce-estats-grid {
+  .map-ce-estats-grid,
+  .map-ce-estats-rank__grid {
     grid-template-columns: 1fr;
   }
 }

@@ -629,7 +629,7 @@ def resumo_estatisticas(
     sexo_saldo = {k: sexo_adm.get(k, 0.0) - sexo_dem.get(k, 0.0) for k in set(sexo_adm) | set(sexo_dem)}
 
     def _mun_items(src: dict[str, float]) -> list[dict[str, Any]]:
-        return _items({mun_nome.get(k, k): v for k, v in src.items()}, top=15)
+        return _items({mun_nome.get(k, k): v for k, v in src.items()})
 
     ref_estado = None
     if not usa_base_oficial:
