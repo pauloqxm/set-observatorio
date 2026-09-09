@@ -213,9 +213,10 @@ const state = {
   homeTrendData: { status: "idle", monthly: null },
   /** Cache dos resumos de Ceará Credi, Dinheiro na Mão, Vai Vem e Qualificação para "Outros programas em destaque". */
   homeProgramsData: { status: "idle", data: null },
-  /** Trio CAGED da home (regularidade, razão salarial, pressão de desligamento). */
+  /** Indicadores CAGED da home (regularidade, salário, permanência, primeiro emprego). */
   homePerfilData: { status: "idle", key: "", payload: null },
   homePerfilRecorte: "geral",
+  homePerfilJanela: 1,
   /** Acumulado anual e série mensal da Intermediação de Mão de Obra. */
   homeIntermediacaoData: { status: "idle", data: null }
 };
@@ -263,6 +264,7 @@ const els = {
   homeTrendStatus: document.getElementById("homeTrendStatus"),
   homeSetorSection: document.getElementById("homeSetorSection"),
   homePerfilSubtitle: document.getElementById("homePerfilSubtitle"),
+  homePerfilWindow: document.getElementById("homePerfilWindow"),
   homePerfilFilters: document.getElementById("homePerfilFilters"),
   homePerfilMetrics: document.getElementById("homePerfilMetrics"),
   homePerfilNote: document.getElementById("homePerfilNote"),
@@ -1634,7 +1636,12 @@ function renderHomeSetorSection(rows) {
 function homePerfilCompetenciaKey() {
   const ref = resolveHomeReferencia(state.dadosAba);
   if (!ref.year || !ref.month) return "";
-  return `${ref.year}-${String(ref.month).padStart(2, "0")}`;
+  const janela = Number(state.homePerfilJanela) === 3 ? 3 : 1;
+  return `${ref.year}-${String(ref.month).padStart(2, "0")}-j${janela}`;
+}
+
+function homePerfilJanelaAtual() {
+  return Number(state.homePerfilJanela) === 3 ? 3 : 1;
 }
 
 function formatPerfilPct(value) {
@@ -1658,6 +1665,14 @@ function formatPerfilMeses(value) {
 function renderHomePerfilCard() {
   if (!els.homePerfilMetrics) return;
   const recorte = state.homePerfilRecorte || "geral";
+  const janela = homePerfilJanelaAtual();
+  if (els.homePerfilWindow) {
+    els.homePerfilWindow.querySelectorAll("[data-janela]").forEach((btn) => {
+      const on = Number(btn.dataset.janela) === janela;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
   if (els.homePerfilFilters) {
     els.homePerfilFilters.querySelectorAll(".home-perfil-card__chip").forEach((btn) => {
       const on = btn.dataset.recorte === recorte;
@@ -1669,15 +1684,15 @@ function renderHomePerfilCard() {
   const status = state.homePerfilData.status;
   const payload = state.homePerfilData.payload;
   const periodoLabel = payload?.periodo?.label
-    ? `Dados referentes a ${payload.periodo.label}`
-    : formatHomePeriodoLabel(
+    || formatHomePeriodoLabel(
         resolveHomeReferencia(state.dadosAba).year,
         resolveHomeReferencia(state.dadosAba).month
       );
 
   if (els.homePerfilSubtitle) {
+    const prefix = janela === 3 ? "Acumulado " : "Dados referentes a ";
     els.homePerfilSubtitle.textContent = periodoLabel
-      ? `${periodoLabel} · CAGED`
+      ? `${prefix}${periodoLabel} · CAGED`
       : "CAGED — competência da página inicial";
   }
 
@@ -1716,11 +1731,9 @@ function renderHomePerfilCard() {
       hint: "Entre os desligados do período"
     },
     {
-      value: formatPerfilPct(bloco.taxa_rotatividade),
-      label: "Taxa de rotatividade",
-      hint: recorte === "geral"
-        ? "min(A, D) / estoque no 1º dia do mês"
-        : "Reposição do recorte sobre o estoque estadual"
+      value: formatPerfilPct(bloco.primeiro_emprego),
+      label: "Primeiro emprego",
+      hint: "Percentual das admissões no recorte"
     }
   ];
 
@@ -1739,7 +1752,9 @@ function renderHomePerfilCard() {
   if (els.homePerfilNote) {
     els.homePerfilNote.textContent =
       `Jovens: ${notas.jovens || "18 a 29 anos"}. Negros: ${notas.negros || "preta + parda"}. ` +
-      "Rotatividade: min(A, D) / estoque do Ceará no 1º dia. Permanência compara melhor quem fica mais tempo.";
+      (janela === 3
+        ? "Janela: competência do filtro e os dois meses anteriores."
+        : "Primeiro emprego: percentual das admissões do recorte.");
   }
 }
 
@@ -1754,9 +1769,10 @@ function ensureHomePerfilData() {
   }
 
   const ref = resolveHomeReferencia(state.dadosAba);
+  const janela = homePerfilJanelaAtual();
   state.homePerfilData = { status: "loading", key, payload: state.homePerfilData.key === key ? state.homePerfilData.payload : null };
   renderHomePerfilCard();
-  fetch(`/api/home/caged-perfil?ano=${ref.year}&mes=${ref.month}`, { cache: "no-store" })
+  fetch(`/api/home/caged-perfil?ano=${ref.year}&mes=${ref.month}&janela=${janela}`, { cache: "no-store" })
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
@@ -3070,6 +3086,16 @@ async function init() {
           mes: Number(els.homeFiltroMes.value)
         };
         renderAll();
+      });
+    }
+    if (els.homePerfilWindow) {
+      els.homePerfilWindow.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-janela]");
+        if (!btn || !els.homePerfilWindow.contains(btn)) return;
+        const janela = Number(btn.dataset.janela) === 3 ? 3 : 1;
+        if (janela === homePerfilJanelaAtual()) return;
+        state.homePerfilJanela = janela;
+        ensureHomePerfilData();
       });
     }
     if (els.homePerfilFilters) {

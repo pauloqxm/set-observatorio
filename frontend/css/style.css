@@ -2226,6 +2226,18 @@ td {
   background: var(--yellow);
 }
 
+.home-perfil-card__window {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.home-perfil-card__chip--window {
+  border: 1px solid #d7def8;
+  background: #fff;
+}
+
 .home-perfil-card__filters {
   display: flex;
   flex-wrap: wrap;
@@ -2251,6 +2263,16 @@ td {
 
 .home-perfil-card__chip:hover:not(.is-active) {
   background: #e2e7f0;
+}
+
+.home-perfil-card__chip--window.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.home-perfil-card__chip--window:hover:not(.is-active) {
+  background: var(--primary-soft);
 }
 
 .home-perfil-card__metrics {

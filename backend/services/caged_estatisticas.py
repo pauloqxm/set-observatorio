@@ -132,6 +132,7 @@ FAIXAS_TEMPO = (
 JOVEM_IDADE_MIN = 18
 JOVEM_IDADE_MAX = 29
 TIPO_CONTRATO_DETERMINADO = "25"
+TIPO_PRIMEIRO_EMPREGO = "10"
 RACA_BRANCA = "1"
 RACA_PRETA = "2"
 RACA_PARDA = "3"
@@ -140,7 +141,6 @@ _LOCK = threading.Lock()
 _ROWS: list[tuple] | None = None
 _OPCOES: dict[str, Any] | None = None
 _PERFIL_CACHE: dict[str, dict[str, Any]] = {}
-_ESTOQUE_ENC: dict[str, dict[str, Any]] | None = None
 
 
 def _flag_on(raw: Any) -> bool:
@@ -213,6 +213,25 @@ def _comp_sort(comp: str) -> int:
     return int(comp) if comp.isdigit() else 0
 
 
+def _shift_competencia(comp: str, delta_meses: int) -> str:
+    if len(comp) != 6 or not comp.isdigit():
+        return comp
+    year = int(comp[:4])
+    month = int(comp[4:6]) + int(delta_meses)
+    while month < 1:
+        month += 12
+        year -= 1
+    while month > 12:
+        month -= 12
+        year += 1
+    return f"{year:04d}{month:02d}"
+
+
+def _janela_competencias(comp: str, n: int) -> list[str]:
+    n = max(1, min(int(n or 1), 12))
+    return [_shift_competencia(comp, -i) for i in range(n)]
+
+
 def _idade_faixa(idade: int | None) -> str | None:
     if idade is None:
         return None
@@ -265,7 +284,7 @@ def _open_caged_csv(path: Path) -> TextIO:
 
 
 def _ensure_loaded() -> None:
-    global _ROWS, _OPCOES, _ESTOQUE_ENC
+    global _ROWS, _OPCOES
     if _ROWS is not None:
         return
     with _LOCK:
@@ -321,7 +340,6 @@ def _ensure_loaded() -> None:
                 muns[mun] = mun_nome
                 grups.add(grup)
         _ROWS = rows
-        _ESTOQUE_ENC = None
         _OPCOES = {
             "anos": sorted(anos),
             "meses": [
@@ -827,39 +845,12 @@ def _pct(part: float, whole: float) -> float | None:
     return round(100.0 * part / whole, 2)
 
 
-def _taxa_rotatividade(admissoes: float, desligamentos: float, estoque_inicio: float | None) -> float | None:
-    """TR CAGED: min(A, D) / estoque no 1º dia × 100. Sem estoque, reposição do fluxo."""
-    if estoque_inicio and estoque_inicio > 0:
-        return round(100.0 * min(admissoes, desligamentos) / estoque_inicio, 2)
-    meio = (admissoes + desligamentos) / 2.0
-    if meio <= 0:
-        return None
-    return round(100.0 * min(admissoes, desligamentos) / meio, 2)
-
-
-def _estoque_inicio(competencia: str) -> float | None:
-    global _ESTOQUE_ENC
-    _ensure_loaded()
-    if _ESTOQUE_ENC is None:
-        assert _ROWS is not None
-        enc, _ = _encadear_estoque(
-            _series_mensal(_ROWS),
-            estoque_inicial=float(ESTOQUE_BASE_CE_202512),
-            indice_base=float(ESTOQUE_BASE_CE_202512),
-        )
-        _ESTOQUE_ENC = enc
-    slot = (_ESTOQUE_ENC or {}).get(competencia) or {}
-    ini = slot.get("estoque_inicio")
-    if isinstance(ini, (int, float)) and ini > 0:
-        return float(ini)
-    return None
-
-
 def _new_acc() -> dict[str, Any]:
     return {
         "admissoes": 0.0,
         "desligamentos": 0.0,
         "adm_regulares": 0.0,
+        "adm_primeiro": 0.0,
         "salarios": [],
         "tempos": [],
     }
@@ -888,32 +879,37 @@ def _latest_competencia() -> str | None:
     return max((str(item.get("valor") or "") for item in meses), key=_comp_sort)
 
 
-def _bloco_perfil(acc: dict[str, Any], *, estoque_inicio: float | None) -> dict[str, Any]:
+def _bloco_perfil(acc: dict[str, Any]) -> dict[str, Any]:
     adm = float(acc["admissoes"])
-    dem = float(acc["desligamentos"])
     return {
         "regularidade": _pct(float(acc["adm_regulares"]), adm),
         "salario_medio": _round_or_none(_trimmed_mean(acc["salarios"], trim=SALARIO_TRIM), 2),
         "permanencia_media": _round_or_none(_trimmed_mean(acc["tempos"], trim=SALARIO_TRIM), 1),
-        "taxa_rotatividade": _taxa_rotatividade(adm, dem, estoque_inicio),
+        "primeiro_emprego": _pct(float(acc["adm_primeiro"]), adm),
         "admissoes": adm,
-        "desligamentos": dem,
+        "desligamentos": float(acc["desligamentos"]),
     }
 
 
-def resumo_perfil_vinculo(ano: int | None = None, mes: int | None = None) -> dict[str, Any]:
-    """Trio da home: regularidade, salário, permanência e taxa de rotatividade por recorte."""
+def resumo_perfil_vinculo(
+    ano: int | None = None,
+    mes: int | None = None,
+    janela: int = 1,
+) -> dict[str, Any]:
+    """Indicadores da home: regularidade, salário, permanência e primeiro emprego por recorte."""
     _ensure_loaded()
     competencia = ""
     if ano and mes and 1 <= int(mes) <= 12:
         competencia = f"{int(ano):04d}{int(mes):02d}"
     if not competencia:
         competencia = _latest_competencia() or ""
-    cache_key = f"v3:{competencia}"
+    n_janela = 3 if int(janela or 1) >= 3 else 1
+    comps = _janela_competencias(competencia, n_janela) if competencia else []
+    cache_key = f"v4:{competencia}:j{n_janela}"
     if cache_key in _PERFIL_CACHE:
         return _PERFIL_CACHE[cache_key]
 
-    rows = _filter_rows([], [competencia], [], []) if competencia else []
+    rows = _filter_rows([], comps, [], []) if comps else []
 
     buckets = {
         "geral": _new_acc(),
@@ -938,6 +934,7 @@ def resumo_perfil_vinculo(ano: int | None = None, mes: int | None = None) -> dic
         qty = abs(float(saldo))
         admissao = saldo > 0
         regular = admissao and _is_regular(tipo, intermitente, parcial)
+        primeiro = admissao and _tipo_code(tipo) == TIPO_PRIMEIRO_EMPREGO
 
         keys: list[str] = ["geral"]
         if sexo == "1":
@@ -955,6 +952,8 @@ def resumo_perfil_vinculo(ano: int | None = None, mes: int | None = None) -> dic
                 acc["admissoes"] += qty
                 if regular:
                     acc["adm_regulares"] += qty
+                if primeiro:
+                    acc["adm_primeiro"] += qty
                 if salario is not None and salario > 0:
                     acc["salarios"].append(float(salario))
             else:
@@ -962,15 +961,21 @@ def resumo_perfil_vinculo(ano: int | None = None, mes: int | None = None) -> dic
                 if tempo is not None and tempo >= 0:
                     acc["tempos"].append(float(tempo))
 
-    e_ini = _estoque_inicio(competencia) if competencia else None
-    recortes = {nome: _bloco_perfil(acc, estoque_inicio=e_ini) for nome, acc in buckets.items()}
+    recortes = {nome: _bloco_perfil(acc) for nome, acc in buckets.items()}
+    comps_ord = sorted(comps, key=_comp_sort)
+    if n_janela > 1 and len(comps_ord) >= 2:
+        periodo_label = f"{_comp_label(comps_ord[0])} a {_comp_label(comps_ord[-1])}"
+    else:
+        periodo_label = _comp_label(competencia) if competencia else ""
 
     payload = {
         "periodo": {
             "competencia": competencia,
             "ano": int(competencia[:4]) if len(competencia) == 6 else None,
             "mes": int(competencia[4:6]) if len(competencia) == 6 else None,
-            "label": _comp_label(competencia) if competencia else "",
+            "janela": n_janela,
+            "competencias": comps_ord,
+            "label": periodo_label,
         },
         "recortes": recortes,
         "notas": {
@@ -980,7 +985,7 @@ def resumo_perfil_vinculo(ano: int | None = None, mes: int | None = None) -> dic
             "regularidade": "Percentual de admissões sem contrato determinado, intermitente ou parcial",
             "salario": "Média aparada 2% do salário de admissão",
             "permanencia": "Média aparada 2% do tempo de emprego nos desligamentos, em meses",
-            "rotatividade": "min(A, D) / estoque no 1º dia do mês × 100",
+            "primeiro_emprego": "Percentual das admissões com tipo Primeiro emprego",
         },
     }
     if competencia:

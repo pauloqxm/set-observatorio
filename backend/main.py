@@ -139,9 +139,10 @@ def api_caged_estatisticas(
 def api_home_caged_perfil(
     ano: int | None = Query(default=None),
     mes: int | None = Query(default=None),
+    janela: int = Query(default=1, ge=1, le=3),
 ) -> dict:
     try:
-        return caged_perfil_vinculo(ano=ano, mes=mes)
+        return caged_perfil_vinculo(ano=ano, mes=mes, janela=janela)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
