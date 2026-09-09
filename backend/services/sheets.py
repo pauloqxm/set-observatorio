@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 from openpyxl import load_workbook
 
+from .publicacoes import get_publicacoes_rows
+
 WORKBOOK_URL = (
     "https://docs.google.com/spreadsheets/d/e/"
     "2PACX-1vRg7NchDQ_1Sk7xbkyF3p8SDurWBGvU2WF_FOFCHgDLBsiqlZGlTHsUt-FMgun6hLCyPMbRO9HYkTU3/"
@@ -19,7 +21,7 @@ WORKBOOK_URL = (
 )
 CACHE_TTL_SECONDS = 300
 
-VIRTUAL_SHEET_NAMES = frozenset({"dados_caged", "ceara_credi", "perfil_empresas", "vai_vem", "caged_grupamentos", "caged_estatisticas", "seguro_desemprego", "qualificacao"})
+VIRTUAL_SHEET_NAMES = frozenset({"dados_caged", "ceara_credi", "perfil_empresas", "vai_vem", "caged_grupamentos", "caged_estatisticas", "seguro_desemprego", "qualificacao", "publicacoes"})
 
 _CACHE: dict[str, list[dict[str, Any]]] = {}
 _SHEETS: list[str] = []
@@ -124,6 +126,8 @@ def get_sheet_names() -> list[str]:
 
 
 def get_sheet_data(sheet_name: str) -> list[dict[str, Any]]:
+    if sheet_name == "publicacoes":
+        return get_publicacoes_rows()
     _load_workbook_cache()
     if sheet_name in VIRTUAL_SHEET_NAMES:
         return []

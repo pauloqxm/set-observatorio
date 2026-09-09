@@ -125,7 +125,7 @@
               </div>
               <nav class="home-landing__nav" aria-label="Seções institucionais">
                 <a href="#homeLanding" aria-current="page">Início</a>
-                <a href="#homeApresentacao">Publicações</a>
+                <a href="#" id="homeNavPublicacoes">Publicações</a>
                 <a href="#homeApresentacao">Parcerias Institucionais</a>
               </nav>
             </header>
@@ -297,6 +297,14 @@
       <section class="panel" id="secaoAgrupamentos" style="display:none;">
         <h3 id="tituloAgrupamentos">Registros organizados por bloco</h3>
         <div id="agrupamentosGrid" class="programas-grid"></div>
+      </section>
+
+      <section id="secaoPublicacoes" class="pub-page hidden" aria-label="Publicações">
+        <p class="pub-page__lead">Relatórios periódicos e estudos temáticos disponíveis para download.</p>
+        <div class="pub-page__layout">
+          <div id="pubPageContent"></div>
+          <nav id="pubJumpNav" class="pub-jump" aria-label="Ir para categoria" hidden></nav>
+        </div>
       </section>
     </section>
   </main>

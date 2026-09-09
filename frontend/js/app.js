@@ -3,6 +3,7 @@ const MENU_META = {
   indicadores: { label: "Página Inicial", icon: "fa-solid fa-house" },
   programas: { label: "Programas", icon: "fa-solid fa-address-card" },
   analises: { label: "Análises", icon: "fa-solid fa-magnifying-glass-chart" },
+  publicacoes: { label: "Publicações", icon: "fa-solid fa-book-open" },
   texto_apoio: { label: "Texto de Apoio", icon: "fa-solid fa-file-lines" },
   config: { label: "Configuração", icon: "fa-solid fa-gear" }
 };
@@ -48,10 +49,10 @@ function isHiddenMenuItem(sheetName) {
 }
 
 /** Abas que aparecem apenas dentro do grupo do pai (ex.: Análises sob Página Inicial). */
-const NESTED_MENU_ITEMS = new Set(["analises"]);
+const NESTED_MENU_ITEMS = new Set(["analises", "publicacoes"]);
 /** Pai → filhos aninhados na ordem de exibição (filhos precisam existir em state.abas). */
 const MENU_GROUP_CHILDREN = {
-  indicadores: ["analises"],
+  indicadores: ["analises", "publicacoes"],
 };
 const GROUP_BY_SHEET = {
   programas: "programa",
@@ -245,6 +246,9 @@ const els = {
   secaoAgrupamentos: document.getElementById("secaoAgrupamentos"),
   tituloAgrupamentos: document.getElementById("tituloAgrupamentos"),
   agrupamentosGrid: document.getElementById("agrupamentosGrid"),
+  secaoPublicacoes: document.getElementById("secaoPublicacoes"),
+  pubPageContent: document.getElementById("pubPageContent"),
+  pubJumpNav: document.getElementById("pubJumpNav"),
   menuOverlay: document.getElementById("menuOverlay"),
   pageIntro: document.getElementById("pageIntro"),
   homeRedesign: document.getElementById("homeRedesign"),
@@ -2002,6 +2006,12 @@ function applyPageSubtitle() {
     return;
   }
 
+  if (state.abaAtual === "publicacoes") {
+    els.descricaoPagina.textContent =
+      "Relatórios periódicos e estudos temáticos do Observatório, disponíveis para download.";
+    return;
+  }
+
   if (state.abaAtual === "programas") {
     els.descricaoPagina.textContent =
       "Cartões por programa, indicadores consolidados e participação nos programas.";
@@ -2037,7 +2047,7 @@ function applyPageSubtitle() {
 function renderKpis() {
   destroySeriesHistoricasKpiCharts();
 
-  if (state.abaAtual === "analises") {
+  if (state.abaAtual === "analises" || state.abaAtual === "publicacoes") {
     els.kpis.innerHTML = "";
     return;
   }
@@ -2393,7 +2403,7 @@ function renderSeriesHistoricasCharts(rows) {
 }
 
 function renderCharts() {
-  if (state.abaAtual === "indicadores" || state.abaAtual === "analises") {
+  if (state.abaAtual === "indicadores" || state.abaAtual === "analises" || state.abaAtual === "publicacoes") {
     if (els.labelGraficos) els.labelGraficos.style.display = "none";
     if (els.painelGraficos) els.painelGraficos.style.display = "none";
     ["grafico1", "grafico2"].forEach((key) => {
@@ -2487,11 +2497,135 @@ function renderCharts() {
   applyChartFootnotesIfApplicable(rows);
 }
 
+function formatPubDate(raw) {
+  const text = String(raw || "").trim();
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return text;
+}
+
+function pubTipoIcon(slug) {
+  const key = String(slug || "").toLowerCase();
+  if (key.includes("pnad")) return "fa-solid fa-chart-pie";
+  if (key.includes("caged")) return "fa-solid fa-briefcase";
+  return "fa-solid fa-scale-balanced";
+}
+
+function renderPublicacoesPage() {
+  if (!els.pubPageContent) return;
+  if (state.abaAtual !== "publicacoes") {
+    els.pubPageContent.innerHTML = "";
+    if (els.pubJumpNav) {
+      els.pubJumpNav.hidden = true;
+      els.pubJumpNav.innerHTML = "";
+    }
+    return;
+  }
+  const rows = [...(state.dadosFiltrados || [])].sort(
+    (a, b) => toNumber(a.ordem) - toNumber(b.ordem)
+  );
+  if (!rows.length) {
+    els.pubPageContent.innerHTML = `<p class="pub-page__empty">Nenhuma publicação encontrada na planilha.</p>`;
+    if (els.pubJumpNav) {
+      els.pubJumpNav.hidden = true;
+      els.pubJumpNav.innerHTML = "";
+    }
+    return;
+  }
+  const groups = [];
+  const indexByTipo = new Map();
+  rows.forEach((row) => {
+    const tipo = String(row.tipo || "Outros").trim() || "Outros";
+    if (!indexByTipo.has(tipo)) {
+      indexByTipo.set(tipo, groups.length);
+      groups.push({
+        tipo,
+        slug: String(row.tipo_slug || "").trim(),
+        descricao: String(row.descricao_tipo || "").trim(),
+        itens: [],
+      });
+    }
+    groups[indexByTipo.get(tipo)].itens.push(row);
+  });
+  els.pubPageContent.innerHTML = groups
+    .map((group, idx) => {
+      const icon = pubTipoIcon(group.slug);
+      const anchor = `pub-cat-${group.slug || `cat-${idx}`}`;
+      const desc = group.descricao
+        ? `<p class="pub-page__desc">${escapeHtml(group.descricao)}</p>`
+        : "";
+      const cards = group.itens
+        .map((item) => {
+          const titulo = String(item.titulo || "Publicação").trim();
+          const capa = String(item.url_capa || "").trim();
+          const arquivo = String(item.url_arquivo || "").trim();
+          const data = formatPubDate(item.data);
+          const img = capa
+            ? `<img class="pub-card__cover" src="${escapeHtml(capa)}" alt="" loading="lazy">`
+            : `<span class="pub-card__cover pub-card__cover--empty" aria-hidden="true"><i class="${icon}"></i></span>`;
+          const link = arquivo
+            ? `<a class="pub-card__btn" href="${escapeHtml(arquivo)}" target="_blank" rel="noopener noreferrer">Conferir <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>`
+            : `<span class="pub-card__btn pub-card__btn--disabled">Indisponível</span>`;
+          return `
+        <article class="pub-card">
+          ${arquivo ? `<a class="pub-card__media" href="${escapeHtml(arquivo)}" target="_blank" rel="noopener noreferrer">${img}</a>` : `<div class="pub-card__media">${img}</div>`}
+          <div class="pub-card__body">
+            <h3 class="pub-card__title">${escapeHtml(titulo)}</h3>
+            ${data ? `<p class="pub-card__meta">${escapeHtml(data)}</p>` : ""}
+            ${link}
+          </div>
+        </article>`;
+        })
+        .join("");
+      return `
+    <section class="pub-block" id="${escapeHtml(anchor)}">
+      <h2 class="pub-block__title">
+        <span class="pub-block__icon" aria-hidden="true"><i class="${icon}"></i></span>
+        ${escapeHtml(group.tipo)}
+      </h2>
+      ${desc}
+      <div class="pub-grid">${cards}</div>
+    </section>`;
+    })
+    .join("");
+
+  if (els.pubJumpNav) {
+    els.pubJumpNav.hidden = false;
+    const catBtns = groups
+      .map((group, idx) => {
+        const icon = pubTipoIcon(group.slug);
+        const anchor = `pub-cat-${group.slug || `cat-${idx}`}`;
+        return `
+      <button type="button" class="pub-jump__btn" data-target="${escapeHtml(anchor)}" title="${escapeHtml(group.tipo)}">
+        <i class="${icon}" aria-hidden="true"></i>
+        <span>${escapeHtml(group.tipo)}</span>
+      </button>`;
+      })
+      .join("");
+    els.pubJumpNav.innerHTML = `
+      ${catBtns}
+      <span class="pub-jump__sep" aria-hidden="true"></span>
+      <button type="button" class="pub-jump__btn pub-jump__btn--top" data-target="top" title="Voltar ao topo">
+        <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+        <span>Topo</span>
+      </button>`;
+    els.pubJumpNav.querySelectorAll(".pub-jump__btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.target === "top") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+        document.getElementById(btn.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+}
+
 function renderGroupedSection() {
   const rows = state.dadosFiltrados || [];
   const columns = rows.length ? Object.keys(rows[0]) : [];
 
-  if (state.abaAtual === "indicadores") {
+  if (state.abaAtual === "indicadores" || state.abaAtual === "publicacoes") {
     els.secaoAgrupamentos.style.display = "none";
     els.agrupamentosGrid.className = "programas-grid";
     return;
@@ -2661,11 +2795,13 @@ function applyViewFilters() {
 
 function setDestaqueSectionsVisibility() {
   const isHome = state.abaAtual === "indicadores";
-  const hide = state.abaAtual === "analises" || isHome;
+  const isPub = state.abaAtual === "publicacoes";
+  const hide = state.abaAtual === "analises" || isHome || isPub;
   if (els.sectionKpisHeader) els.sectionKpisHeader.style.display = hide ? "none" : "";
   if (els.kpis) els.kpis.style.display = hide ? "none" : "";
   if (els.pageIntro) els.pageIntro.classList.toggle("hidden", isHome);
   if (els.homeRedesign) els.homeRedesign.classList.toggle("hidden", !isHome);
+  if (els.secaoPublicacoes) els.secaoPublicacoes.classList.toggle("hidden", !isPub);
 }
 
 function renderAll() {
@@ -2675,6 +2811,7 @@ function renderAll() {
   renderKpis();
   renderCharts();
   renderGroupedSection();
+  renderPublicacoesPage();
 }
 
 async function loadAba(sheetName) {
@@ -2799,6 +2936,13 @@ async function init() {
     if (els.homeHeroCtaObservatorio) {
       els.homeHeroCtaObservatorio.addEventListener("click", () => {
         document.getElementById("homeApresentacao")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    const homeNavPublicacoes = document.getElementById("homeNavPublicacoes");
+    if (homeNavPublicacoes) {
+      homeNavPublicacoes.addEventListener("click", (event) => {
+        event.preventDefault();
+        loadAba("publicacoes");
       });
     }
     applySidebarModeForViewport();
