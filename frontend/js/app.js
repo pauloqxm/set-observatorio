@@ -253,6 +253,7 @@ const els = {
   secaoPublicacoes: document.getElementById("secaoPublicacoes"),
   pubPageContent: document.getElementById("pubPageContent"),
   pubJumpNav: document.getElementById("pubJumpNav"),
+  homeJumpNav: document.getElementById("homeJumpNav"),
   menuOverlay: document.getElementById("menuOverlay"),
   pageIntro: document.getElementById("pageIntro"),
   homeRedesign: document.getElementById("homeRedesign"),
@@ -293,9 +294,9 @@ function updateMenuToggleIcon() {
   document.body.classList.toggle("sidebar-open", open && !isMobileSidebarViewport());
   const icon = els.menuToggle.querySelector("i");
   if (icon) {
-    icon.className = "fa-solid fa-xmark";
+    icon.className = open ? "fa-solid fa-xmark" : "fa-solid fa-bars";
   }
-  els.menuToggle.setAttribute("aria-label", "Fechar menu lateral");
+  els.menuToggle.setAttribute("aria-label", open ? "Fechar menu lateral" : "Abrir menu lateral");
 }
 
 /** Desktop: menu aberto sem véu; mobile: véu ao abrir (comportamento tactil). */
@@ -2674,6 +2675,20 @@ function pubTipoIcon(slug) {
   return "fa-solid fa-scale-balanced";
 }
 
+function bindJumpNav(nav) {
+  if (!nav || nav.dataset.bound === "1") return;
+  nav.dataset.bound = "1";
+  nav.addEventListener("click", (event) => {
+    const btn = event.target.closest(".pub-jump__btn");
+    if (!btn || !nav.contains(btn)) return;
+    if (btn.dataset.target === "top") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    document.getElementById(btn.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function renderPublicacoesPage() {
   if (!els.pubPageContent) return;
   if (state.abaAtual !== "publicacoes") {
@@ -2772,15 +2787,7 @@ function renderPublicacoesPage() {
         <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
         <span>Topo</span>
       </button>`;
-    els.pubJumpNav.querySelectorAll(".pub-jump__btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        if (btn.dataset.target === "top") {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          return;
-        }
-        document.getElementById(btn.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    });
+    bindJumpNav(els.pubJumpNav);
   }
 }
 
@@ -3128,6 +3135,7 @@ async function init() {
         loadAba("publicacoes");
       });
     }
+    bindJumpNav(els.homeJumpNav);
     applySidebarModeForViewport();
     window.addEventListener("resize", () => {
       applySidebarModeForViewport();

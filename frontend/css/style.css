@@ -119,8 +119,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 10px;
 }
 
 .sidebar-brand {
@@ -174,21 +173,12 @@ body {
 }
 
 .menu-toggle {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
   border: 1px solid #d7dbe8;
   background: #fff;
-  color: #4b5568;
+  color: #2f364f;
   border-radius: 8px;
-  font-size: 1.05rem;
-  line-height: 1;
+  padding: 8px 10px;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .menu-abas {
@@ -335,6 +325,7 @@ a.menu-item {
 .content {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .page-intro {
@@ -1655,6 +1646,7 @@ td {
   letter-spacing: -0.02em;
   line-height: 1.12;
   color: #fff;
+  overflow-wrap: anywhere;
 }
 
 .home-landing__lead {
@@ -1902,6 +1894,12 @@ td {
   }
 }
 
+@media (max-width: 1024px) {
+  .home-landing__hero {
+    padding-top: 56px;
+  }
+}
+
 @media (max-width: 980px) {
   .home-landing__hero-grid,
   .home-landing__cards {
@@ -1931,6 +1929,7 @@ td {
   .home-landing__logo,
   .home-landing__logo--ce {
     height: 32px;
+    max-width: min(46vw, 180px);
   }
 
   .home-landing__cards {
@@ -1942,6 +1941,7 @@ td {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-right: 48px;
 }
 
 .home-section__title {
@@ -1950,6 +1950,7 @@ td {
   color: #0f1a44;
   letter-spacing: -0.01em;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .home-section__subtitle {
@@ -2052,6 +2053,7 @@ td {
   font-weight: 800;
   color: #0f1a44;
   line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 .home-kpi-card--saldo.home-kpi-card--pos .home-kpi-card__value {
@@ -2186,10 +2188,26 @@ td {
   color: #dc2626;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 720px) {
   .home-setor__row {
-    grid-template-columns: minmax(88px, 110px) 1fr minmax(4rem, auto);
-    gap: 6px 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name value"
+      "tracks tracks";
+    gap: 6px 8px;
+  }
+
+  .home-setor__name {
+    grid-area: name;
+  }
+
+  .home-setor__tracks {
+    grid-area: tracks;
+  }
+
+  .home-setor__value {
+    grid-area: value;
+    align-self: center;
   }
 }
 
@@ -2855,6 +2873,7 @@ td {
 .home-panorama__tooltip {
   position: absolute;
   transform: translate(-50%, -100%);
+  max-width: min(220px, calc(100vw - 32px));
   background: #0f1a44;
   color: #fff;
   padding: 10px 14px;
@@ -2927,6 +2946,187 @@ td {
   line-height: 1.55;
   color: #2c3660;
   padding-top: 6px;
+}
+
+@media (max-width: 720px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .home-redesign {
+    min-width: 0;
+    gap: 24px;
+    border-radius: 18px;
+    padding: 14px 12px 20px;
+  }
+
+  .home-landing {
+    margin: -14px -12px 4px;
+  }
+
+  .home-landing__hero {
+    padding: 56px 16px 56px;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .home-landing__bar {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .home-landing__logos {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .home-landing__nav {
+    gap: 8px 14px;
+  }
+
+  .home-landing__nav a {
+    font-size: 0.86rem;
+  }
+
+  .home-landing__title {
+    font-size: 1.35rem;
+  }
+
+  .home-landing__lead {
+    font-size: 0.9rem;
+  }
+
+  .home-landing__visual {
+    min-height: 0;
+    justify-content: center;
+  }
+
+  .home-landing__blob {
+    display: none;
+  }
+
+  .home-landing__photo {
+    width: min(100%, 240px);
+    margin: 0 auto;
+  }
+
+  .home-landing__cards {
+    margin: -36px 12px 0;
+    gap: 12px;
+  }
+
+  .home-landing-card {
+    padding: 16px;
+  }
+
+  .home-landing__about {
+    padding: 24px 12px 0;
+  }
+
+  .home-landing__about p {
+    font-size: 0.92rem;
+  }
+
+  .home-landing-bridge {
+    margin: 14px 12px 0;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .home-landing-bridge .program-filter {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    border-radius: 14px;
+    padding: 8px 10px;
+  }
+
+  .home-periodo-filter select {
+    flex: 1 1 7rem;
+    min-width: 0;
+  }
+
+  .home-section {
+    gap: 12px;
+    padding-right: 40px;
+  }
+
+  .home-kpi-card,
+  .home-trend-card,
+  .home-setor,
+  .home-explore-card,
+  .home-program-card,
+  .home-panorama,
+  .home-tendencia-card {
+    padding: 16px 14px;
+    border-radius: 16px;
+  }
+
+  .home-kpi-card__icon {
+    width: 44px;
+    height: 44px;
+    font-size: 1.15rem;
+  }
+
+  .home-kpi-card__value {
+    font-size: 1.4rem;
+  }
+
+  .home-trend-card__chart {
+    min-height: 200px;
+  }
+
+  .home-intermediacao__chart {
+    min-height: 220px;
+  }
+
+  .home-perfil-card {
+    padding: 20px 14px 16px;
+    gap: 14px;
+    border-radius: 16px;
+  }
+
+  .home-perfil-card__chip {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .home-program-kpi__value {
+    white-space: normal;
+    text-align: right;
+  }
+
+  .pub-jump {
+    right: 4px;
+    padding: 6px 4px;
+    gap: 4px;
+  }
+
+  .pub-jump__btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .pub-jump__btn i {
+    width: 40px;
+    font-size: 0.78rem;
+  }
+
+  .pub-jump__btn span {
+    height: 40px;
+  }
+}
+
+@media (max-width: 420px) {
+  .home-section {
+    padding-right: 36px;
+  }
+
+  .home-landing__logo,
+  .home-landing__logo--ce {
+    height: 28px;
+    max-width: 140px;
+  }
 }
 
 .pub-page {
@@ -3216,6 +3416,10 @@ td {
   .pub-page {
     padding-right: 56px;
   }
+
+  .home-section {
+    padding-right: 44px;
+  }
 }
 
 @media (max-width: 700px) {
@@ -3225,6 +3429,20 @@ td {
 
   .pub-block__title::after {
     display: none;
+  }
+
+  .home-section {
+    padding-right: 40px;
+  }
+
+  .pub-page {
+    padding-right: 48px;
+  }
+
+  .pub-jump {
+    right: 4px;
+    padding: 6px 4px;
+    gap: 4px;
   }
 }
 

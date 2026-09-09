@@ -14,18 +14,6 @@
   <div id="menuOverlay" class="menu-overlay"></div>
   <main class="app-layout">
     <aside class="sidebar open" id="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-brand">
-          <span class="sidebar-brand__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
-          <div class="sidebar-brand__text">
-            <h1>Menu Principal</h1>
-            <p>Navegação por abas</p>
-          </div>
-        </div>
-        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Fechar menu lateral">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
       <div class="sidebar-logos" aria-label="Logomarcas institucionais">
         <img
           class="sidebar-logo sidebar-logo--set"
@@ -37,6 +25,18 @@
           src="/static/assets/logo_idt.png"
           alt="Instituto de Desenvolvimento do Trabalho"
         >
+      </div>
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <span class="sidebar-brand__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+          <div class="sidebar-brand__text">
+            <h1>Menu Principal</h1>
+            <p>Navegação por abas</p>
+          </div>
+        </div>
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Fechar menu lateral">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
       <nav id="menuAbas" class="menu-abas"></nav>
       <div class="sidebar-map-links">
@@ -296,6 +296,26 @@
           <h2 class="home-section__title">Tendências</h2>
           <div class="home-tendencias" id="homeTendenciasList"></div>
         </section>
+
+        <nav id="homeJumpNav" class="pub-jump" aria-label="Ir para categoria">
+          <button type="button" class="pub-jump__btn" data-target="homeApresentacao" title="Apresentação">
+            <i class="fa-solid fa-landmark" aria-hidden="true"></i>
+            <span>Apresentação</span>
+          </button>
+          <button type="button" class="pub-jump__btn" data-target="homeKpiSection" title="Emprego formal">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+            <span>Emprego formal</span>
+          </button>
+          <button type="button" class="pub-jump__btn" data-target="homeExploreSection" title="Programas e mapas">
+            <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
+            <span>Programas e mapas</span>
+          </button>
+          <span class="pub-jump__sep" aria-hidden="true"></span>
+          <button type="button" class="pub-jump__btn pub-jump__btn--top" data-target="top" title="Voltar ao topo">
+            <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+            <span>Topo</span>
+          </button>
+        </nav>
       </div>
 
       <div class="section-kpis-header" id="sectionKpisHeader">
