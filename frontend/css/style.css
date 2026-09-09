@@ -2820,36 +2820,50 @@ td {
 }
 
 .pub-jump__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
   width: 38px;
-  min-height: 38px;
+  height: 38px;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   border: none;
   border-radius: 999px;
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  white-space: nowrap;
-  transition: width 0.2s ease, background 0.2s ease, color 0.2s ease;
+  z-index: 1;
 }
 
 .pub-jump__btn i {
+  position: relative;
+  z-index: 2;
   width: 38px;
-  flex-shrink: 0;
   text-align: center;
   font-size: 0.82rem;
   color: var(--primary);
+  pointer-events: none;
 }
 
 .pub-jump__btn span {
-  max-width: 0;
-  opacity: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 42px 0 14px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--text);
   font-size: 0.72rem;
   font-weight: 700;
-  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
 }
 
 .pub-jump__sep {
@@ -2861,19 +2875,15 @@ td {
 
 .pub-jump__btn:hover,
 .pub-jump__btn:focus-visible {
-  width: max-content;
-  padding-right: 12px;
+  z-index: 4;
   background: var(--primary-soft);
-  position: relative;
-  z-index: 3;
-  transform: translateX(calc(38px - 100%));
 }
 
 .pub-jump__btn:hover span,
 .pub-jump__btn:focus-visible span {
-  max-width: 12rem;
   opacity: 1;
-  padding-right: 2px;
+  visibility: visible;
+  transform: none;
 }
 
 .pub-block {
@@ -3062,6 +3072,11 @@ td {
   }
 
   .pub-card:hover {
+    transform: none;
+  }
+
+  .pub-jump__btn span {
+    transition: none;
     transform: none;
   }
 }
