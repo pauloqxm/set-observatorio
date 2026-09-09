@@ -76,19 +76,22 @@ function ceEstatsDestroy(key) {
   ceEstatsCharts[key] = null;
 }
 
+function ceEstatsFmtLabel(val, extra = {}) {
+  if (val == null || val === "") return "";
+  const n = Number(val);
+  if (!Number.isFinite(n)) return "";
+  if (extra.yaxisFmt) return extra.yaxisFmt(n);
+  return ceEstatsFmt(n, extra.format);
+}
+
 function ceEstatsBaseChart(el, options) {
   if (!el || typeof ApexCharts === "undefined") return null;
   const key = el.id;
   ceEstatsDestroy(key);
+  const userChart = options.chart || {};
+  const userDl = options.dataLabels || {};
+  const { chart: _ignoreChart, dataLabels: _ignoreDl, ...rest } = options;
   const chart = new ApexCharts(el, {
-    chart: {
-      toolbar: { show: false },
-      zoom: { enabled: false },
-      fontFamily: "system-ui, Segoe UI, sans-serif",
-      foreColor: "#1f2d78",
-      animations: { speed: 280 },
-      ...options.chart,
-    },
     colors: options.colors || CE_ESTATS_COLORS.palette,
     grid: {
       borderColor: "#e2e8f0",
@@ -101,10 +104,33 @@ function ceEstatsBaseChart(el, options) {
       fontSize: "12px",
       fontWeight: 600,
     },
-    dataLabels: { enabled: false },
     tooltip: { shared: true, intersect: false },
     noData: { text: "Sem dados no filtro" },
-    ...options,
+    ...rest,
+    chart: {
+      fontFamily: "system-ui, Segoe UI, sans-serif",
+      foreColor: "#1f2d78",
+      animations: { speed: 280 },
+      zoom: { enabled: false },
+      ...userChart,
+      toolbar: {
+        show: false,
+        tools: {
+          download: false,
+          selection: false,
+          zoom: false,
+          zoomin: false,
+          zoomout: false,
+          pan: false,
+          reset: false,
+        },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      style: { fontSize: "10px", fontWeight: 700 },
+      ...userDl,
+    },
   });
   chart.render();
   ceEstatsCharts[key] = chart;
@@ -131,6 +157,11 @@ function ceEstatsLine(el, series, categories, extra = {}) {
     tooltip: {
       y: { formatter: (v) => extra.yaxisFmt ? extra.yaxisFmt(v) : ceEstatsFmt(v, extra.format) },
     },
+    dataLabels: {
+      enabled: true,
+      formatter: (v) => ceEstatsFmtLabel(v, extra),
+      background: { enabled: true, foreColor: "#fff", borderRadius: 3, padding: 2, opacity: 0.8 },
+    },
   });
 }
 
@@ -148,6 +179,10 @@ function ceEstatsBarH(el, items, extra = {}) {
       labels: { formatter: (v) => ceEstatsFmt(v, extra.format) },
     },
     tooltip: { y: { formatter: (v) => ceEstatsFmt(v, extra.format) } },
+    dataLabels: {
+      enabled: true,
+      formatter: (v) => ceEstatsFmt(v, extra.format),
+    },
   });
 }
 
@@ -161,6 +196,10 @@ function ceEstatsDonut(el, items, extra = {}) {
     plotOptions: { pie: { donut: { size: "62%" } } },
     legend: { position: "bottom" },
     tooltip: { y: { formatter: (v) => ceEstatsFmt(v) } },
+    dataLabels: {
+      enabled: true,
+      formatter: (v) => ceEstatsFmt(v),
+    },
   });
 }
 
@@ -174,6 +213,10 @@ function ceEstatsGroupedBar(el, block, extra = {}) {
     plotOptions: { bar: { horizontal: extra.horizontal !== false, borderRadius: 3 } },
     xaxis: { categories: labels.length ? labels : ["Sem dados"] },
     tooltip: { y: { formatter: (v) => ceEstatsFmt(v) } },
+    dataLabels: {
+      enabled: true,
+      formatter: (v) => ceEstatsFmt(v),
+    },
   });
 }
 

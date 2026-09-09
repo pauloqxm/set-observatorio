@@ -596,6 +596,11 @@
   width: 100%;
 }
 
+.map-ce-estats .apexcharts-toolbar,
+.map-ce-estats .apexcharts-menu-icon {
+  display: none !important;
+}
+
 .map-ce-estats-seg {
   display: flex;
   flex-wrap: wrap;
