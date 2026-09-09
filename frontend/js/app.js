@@ -2798,7 +2798,7 @@ async function init() {
     }
     if (els.homeHeroCtaObservatorio) {
       els.homeHeroCtaObservatorio.addEventListener("click", () => {
-        document.getElementById("homeExploreSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("homeApresentacao")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
     applySidebarModeForViewport();

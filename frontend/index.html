@@ -108,44 +108,103 @@
       </section>
 
       <div id="homeRedesign" class="home-redesign hidden">
-        <section class="home-hero" id="homeHero" aria-label="Apresentação do Observatório">
-          <div class="home-hero__inner">
-            <h1 class="home-hero__title">Observatório do Mercado de Trabalho do Ceará</h1>
-            <p class="home-hero__subtitle">
-              Uma plataforma inteligente para acompanhar a evolução do emprego, desemprego, programas de
-              qualificação, ocupações, projeções e indicadores do mercado de trabalho cearense.
-            </p>
-            <div class="home-hero__badges">
-              <span class="home-hero__badge">
-                <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-                <span><span id="homeHeroBasesCount">—</span> bases integradas</span>
-              </span>
-              <span class="home-hero__badge">
-                <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
-                <span>Dados atualizados mensalmente</span>
-              </span>
-              <span class="home-hero__badge">
-                <i class="fa-solid fa-landmark" aria-hidden="true"></i>
-                <span>Governo do Estado do Ceará</span>
-              </span>
-            </div>
-            <div class="home-hero__ctas">
-              <button type="button" class="home-hero__btn home-hero__btn--primary" id="homeHeroCtaIndicadores">
-                Explorar Indicadores <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-              </button>
-              <button type="button" class="home-hero__btn home-hero__btn--ghost" id="homeHeroCtaObservatorio">
-                Conhecer o Observatório
-              </button>
+        <section class="home-landing" id="homeLanding" aria-label="Observatório de Políticas Públicas do Trabalho">
+          <div class="home-landing__hero">
+            <header class="home-landing__bar">
+              <div class="home-landing__logos">
+                <img
+                  class="home-landing__logo home-landing__logo--obs"
+                  src="/static/Logo-observatorio.webp"
+                  alt="Observatório de Políticas Públicas do Trabalho"
+                >
+                <img
+                  class="home-landing__logo home-landing__logo--ce"
+                  src="/static/ceara_darkmode_156b65e9_1.webp"
+                  alt="Governo do Estado do Ceará"
+                >
+              </div>
+              <nav class="home-landing__nav" aria-label="Seções institucionais">
+                <a href="#homeLanding" aria-current="page">Início</a>
+                <a href="#homeApresentacao">Publicações</a>
+                <a href="#homeApresentacao">Parcerias Institucionais</a>
+              </nav>
+            </header>
+            <div class="home-landing__hero-grid">
+              <div class="home-landing__copy">
+                <h1 class="home-landing__title">Observatório de Políticas Públicas do Trabalho do Estado do Ceará</h1>
+                <p class="home-landing__lead">
+                  Unindo conhecimento acadêmico à gestão pública, o Observatório realiza análises estatísticas
+                  sobre o mercado de trabalho, emprego e renda no Ceará, utilizando dados do IBGE, MTE e outras
+                  fontes para apoiar políticas públicas eficazes.
+                </p>
+              </div>
+              <div class="home-landing__visual">
+                <span class="home-landing__blob" aria-hidden="true"></span>
+                <img
+                  class="home-landing__photo"
+                  src="/static/Imagem.webp"
+                  alt="Profissional apontando indicadores em um painel digital"
+                >
+              </div>
             </div>
           </div>
-        </section>
 
-        <section id="homePeriodoFiltroTop" class="top-filters hidden" aria-label="Filtro de referência temporal">
-          <div class="program-filter home-periodo-filter">
-            <label for="homeFiltroAno">Referência</label>
-            <select id="homeFiltroAno" aria-label="Ano de referência"></select>
-            <select id="homeFiltroMes" aria-label="Mês de referência"></select>
+          <div class="home-landing__cards" aria-label="Fontes e parcerias de conhecimento">
+            <article class="home-landing-card">
+              <span class="home-landing-card__icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+              <h2>Institutos Oficiais</h2>
+              <p>IBGE e Ministério do Trabalho fornecem dados primários para análises estatísticas sobre emprego e renda.</p>
+            </article>
+            <article class="home-landing-card">
+              <span class="home-landing-card__icon" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></span>
+              <h2>Observatórios Setoriais</h2>
+              <p>Dados complementares de observatórios especializados em áreas relacionadas ao mercado de trabalho.</p>
+            </article>
+            <article class="home-landing-card">
+              <span class="home-landing-card__icon" aria-hidden="true"><i class="fa-solid fa-file-lines"></i></span>
+              <h2>Pesquisas Acadêmicas</h2>
+              <p>Estudos científicos desenvolvidos por universidades e centros de pesquisa parceiros.</p>
+            </article>
           </div>
+
+          <section class="home-landing__about" id="homeApresentacao">
+            <h2 class="home-landing__about-title">Apresentação</h2>
+            <p>
+              O Governo do Ceará criou o Observatório de Políticas Públicas do Trabalho para integrar o
+              conhecimento acadêmico à gestão pública. O objetivo do Observatório é realizar análises
+              estatísticas sobre o mercado de trabalho, emprego e renda no estado, utilizando fontes
+              secundárias como o IBGE e o Ministério do Trabalho (MTE).
+            </p>
+            <p>
+              Uma das principais estratégias do Observatório é a criação de um Banco de Análise de Dados do
+              Trabalho, que permite o monitoramento do mercado pela Secretaria. Além disso, o Observatório
+              apoia os gestores estaduais na formulação de políticas públicas de emprego e na criação de
+              projetos voltados ao desenvolvimento sustentável.
+            </p>
+            <p>
+              A iniciativa faz parte do Programa Cientista Chefe do Trabalho, promovido pela Fundação
+              Cearense de Apoio ao Desenvolvimento Científico e Tecnológico. Esse programa aproxima a
+              pesquisa acadêmica da gestão pública, fornecendo estudos e subsídios para políticas voltadas
+              ao emprego, qualificação profissional e empreendedorismo.
+            </p>
+          </section>
+
+          <section id="homePeriodoFiltroTop" class="home-landing-bridge" aria-label="Filtro de referência temporal">
+            <div class="home-landing-bridge__rail" aria-hidden="true">
+              <span class="home-landing-bridge__node"><i class="fa-solid fa-align-left"></i></span>
+              <span class="home-landing-bridge__track"></span>
+              <span class="home-landing-bridge__node home-landing-bridge__node--data"><i class="fa-solid fa-chart-column"></i></span>
+            </div>
+            <div class="home-landing-bridge__copy">
+              <p class="home-landing-bridge__kicker">Do texto aos dados</p>
+              <p class="home-landing-bridge__text">Os indicadores abaixo acompanham a competência escolhida.</p>
+            </div>
+            <div class="program-filter home-periodo-filter">
+              <label for="homeFiltroAno">Referência</label>
+              <select id="homeFiltroAno" aria-label="Ano de referência"></select>
+              <select id="homeFiltroMes" aria-label="Mês de referência"></select>
+            </div>
+          </section>
         </section>
 
         <section class="home-section" id="homeKpiSection">
