@@ -182,6 +182,7 @@ function ceEstatsBarH(el, items, extra = {}) {
     dataLabels: {
       enabled: true,
       formatter: (v) => ceEstatsFmt(v, extra.format),
+      style: { colors: [extra.labelColor || "#0f172a"], fontSize: "11px", fontWeight: 700 },
     },
   });
 }
@@ -463,10 +464,10 @@ function ceEstatsRankMetric() {
 }
 
 function ceEstatsRankOrder() {
-  return document.querySelector("#segEstatsRankOrder button.active")?.dataset.ordem || "asc";
+  return document.querySelector("#segEstatsRankOrder button.active")?.dataset.ordem || "desc";
 }
 
-function ceEstatsTakeRank(items, { top = 15, order = "asc" } = {}) {
+function ceEstatsTakeRank(items, { top = 15, order = "desc" } = {}) {
   const rows = (items || [])
     .filter((i) => Number.isFinite(Number(i.valor)))
     .map((i) => ({ label: i.label, valor: Number(i.valor) }));
@@ -477,40 +478,56 @@ function ceEstatsTakeRank(items, { top = 15, order = "asc" } = {}) {
 }
 
 function ceEstatsRankMeta() {
+  const metric = ceEstatsRankMetric();
   const map = {
-    admissoes: ["admissoes_municipio", "Admissões", CE_ESTATS_COLORS.adm],
-    demissoes: ["demissoes_municipio", "Desligamentos", CE_ESTATS_COLORS.dem],
-    saldo: ["saldo_municipio", "Saldo", CE_ESTATS_COLORS.saldo],
+    admissoes: {
+      key: "admissoes_municipio",
+      label: "Admissões",
+      mun: "#15803d",
+      reg: "#7c3aed",
+    },
+    demissoes: {
+      key: "demissoes_municipio",
+      label: "Desligamentos",
+      mun: "#c2410c",
+      reg: "#db2777",
+    },
+    saldo: {
+      key: "saldo_municipio",
+      label: "Saldo",
+      mun: "#2563eb",
+      reg: "#0d9488",
+    },
   };
-  return map[ceEstatsRankMetric()] || map.admissoes;
+  return map[metric] || map.admissoes;
 }
 
 function ceEstatsRenderMun() {
   const d = ceEstatsState.data;
   if (!d) return;
-  const [key, label, color] = ceEstatsRankMeta();
+  const meta = ceEstatsRankMeta();
   const order = ceEstatsRankOrder();
   const title = document.getElementById("titleEstatsMunSaldo");
-  if (title) title.textContent = `15 municípios · ${label}`;
+  if (title) title.textContent = `15 municípios · ${meta.label}`;
   ceEstatsBarH(
     document.getElementById("chartEstatsMunSaldo"),
-    ceEstatsTakeRank(d.rankings?.[key] || [], { top: 15, order }),
-    { color, height: 480 }
+    ceEstatsTakeRank(d.rankings?.[meta.key] || [], { top: 15, order }),
+    { color: meta.mun, labelColor: "#0f172a", height: 480 }
   );
 }
 
 function ceEstatsRenderRegiao() {
   const d = ceEstatsState.data;
   if (!d) return;
-  const [key, label, color] = ceEstatsRankMeta();
+  const meta = ceEstatsRankMeta();
   const order = ceEstatsRankOrder();
   const title = document.getElementById("titleEstatsRegiao");
-  if (title) title.textContent = `Regiões · ${label}`;
-  const all = ceEstatsBuildRegiaoRanking(d.rankings?.[key] || []);
+  if (title) title.textContent = `Regiões · ${meta.label}`;
+  const all = ceEstatsBuildRegiaoRanking(d.rankings?.[meta.key] || []);
   ceEstatsBarH(
     document.getElementById("chartEstatsRegiao"),
     ceEstatsTakeRank(all, { top: all.length || 15, order }),
-    { color, height: 480 }
+    { color: meta.reg, labelColor: "#0f172a", height: 480 }
   );
 }
 
