@@ -2183,6 +2183,136 @@ td {
   }
 }
 
+/* ---------- Indicadores do emprego formal (CAGED) ---------- */
+.home-perfil-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 28px 24px 22px;
+  box-shadow: 0 6px 20px rgba(20, 30, 70, 0.07);
+  border: 1px solid #eef0f6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.home-perfil-card__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-perfil-card__title {
+  margin: 0;
+  font-size: clamp(1.05rem, 1.6vw, 1.28rem);
+  font-weight: 800;
+  color: var(--text);
+}
+
+.home-perfil-card__subtitle {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.home-perfil-card__rule {
+  display: block;
+  width: 42px;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: var(--yellow);
+}
+
+.home-perfil-card__filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.home-perfil-card__chip {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #31406a;
+  background: #eef1f6;
+  cursor: pointer;
+}
+
+.home-perfil-card__chip.is-active {
+  background: #2ea44f;
+  color: #fff;
+}
+
+.home-perfil-card__chip:hover:not(.is-active) {
+  background: #e2e7f0;
+}
+
+.home-perfil-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 16px;
+  width: 100%;
+}
+
+.home-perfil-card__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.home-perfil-card__value {
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #e39400;
+  line-height: 1.1;
+}
+
+.home-perfil-card__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #31406a;
+  line-height: 1.35;
+}
+
+.home-perfil-card__hint {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.home-perfil-card__note,
+.home-perfil-card__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 46rem;
+}
+
+.home-perfil-card__metrics > .home-perfil-card__empty {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .home-perfil-card__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .home-perfil-card__metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---------- Explore o Observatório ---------- */
 .home-explore-grid {
   display: grid;

@@ -12,6 +12,7 @@ from .services.sheets import get_indicadores, get_meta, get_sheet_data, get_shee
 from .services.home_qualificacao import get_qualificacao_home_summary
 from .services.caged_estatisticas import opcoes_filtros as caged_estats_opcoes
 from .services.caged_estatisticas import resumo_estatisticas as caged_estats_resumo
+from .services.caged_estatisticas import resumo_perfil_vinculo as caged_perfil_vinculo
 
 app = FastAPI(
     title="Portal de Empregabilidade",
@@ -130,6 +131,17 @@ def api_caged_estatisticas(
             grupamentos=grupamentos,
             agregacoes=agregacoes,
         )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/home/caged-perfil")
+def api_home_caged_perfil(
+    ano: int | None = Query(default=None),
+    mes: int | None = Query(default=None),
+) -> dict:
+    try:
+        return caged_perfil_vinculo(ano=ano, mes=mes)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

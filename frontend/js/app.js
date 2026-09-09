@@ -213,6 +213,9 @@ const state = {
   homeTrendData: { status: "idle", monthly: null },
   /** Cache dos resumos de Ceará Credi, Dinheiro na Mão, Vai Vem e Qualificação para "Outros programas em destaque". */
   homeProgramsData: { status: "idle", data: null },
+  /** Trio CAGED da home (regularidade, razão salarial, pressão de desligamento). */
+  homePerfilData: { status: "idle", key: "", payload: null },
+  homePerfilRecorte: "geral",
   /** Acumulado anual e série mensal da Intermediação de Mão de Obra. */
   homeIntermediacaoData: { status: "idle", data: null }
 };
@@ -259,6 +262,10 @@ const els = {
   homeTrendChart: document.getElementById("homeTrendChart"),
   homeTrendStatus: document.getElementById("homeTrendStatus"),
   homeSetorSection: document.getElementById("homeSetorSection"),
+  homePerfilSubtitle: document.getElementById("homePerfilSubtitle"),
+  homePerfilFilters: document.getElementById("homePerfilFilters"),
+  homePerfilMetrics: document.getElementById("homePerfilMetrics"),
+  homePerfilNote: document.getElementById("homePerfilNote"),
   homeExploreGrid: document.getElementById("homeExploreGrid"),
   homeProgramsGrid: document.getElementById("homeProgramsGrid"),
   homeIntermediacaoSubtitle: document.getElementById("homeIntermediacaoSubtitle"),
@@ -1624,6 +1631,149 @@ function renderHomeSetorSection(rows) {
     .join("");
 }
 
+function homePerfilCompetenciaKey() {
+  const ref = resolveHomeReferencia(state.dadosAba);
+  if (!ref.year || !ref.month) return "";
+  return `${ref.year}-${String(ref.month).padStart(2, "0")}`;
+}
+
+function formatPerfilPct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+function formatPerfilMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 }).format(n);
+}
+
+function formatPerfilMeses(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`;
+}
+
+function renderHomePerfilCard() {
+  if (!els.homePerfilMetrics) return;
+  const recorte = state.homePerfilRecorte || "geral";
+  if (els.homePerfilFilters) {
+    els.homePerfilFilters.querySelectorAll(".home-perfil-card__chip").forEach((btn) => {
+      const on = btn.dataset.recorte === recorte;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+
+  const status = state.homePerfilData.status;
+  const payload = state.homePerfilData.payload;
+  const periodoLabel = payload?.periodo?.label
+    ? `Dados referentes a ${payload.periodo.label}`
+    : formatHomePeriodoLabel(
+        resolveHomeReferencia(state.dadosAba).year,
+        resolveHomeReferencia(state.dadosAba).month
+      );
+
+  if (els.homePerfilSubtitle) {
+    els.homePerfilSubtitle.textContent = periodoLabel
+      ? `${periodoLabel} · CAGED`
+      : "CAGED — competência da página inicial";
+  }
+
+  if (status === "loading" && !payload) {
+    els.homePerfilMetrics.innerHTML = `<p class="home-perfil-card__empty">Carregando indicadores do CAGED…</p>`;
+    if (els.homePerfilNote) els.homePerfilNote.textContent = "";
+    return;
+  }
+  if (status === "error" && !payload) {
+    els.homePerfilMetrics.innerHTML = `<p class="home-perfil-card__empty">Não foi possível carregar os indicadores do emprego formal.</p>`;
+    if (els.homePerfilNote) els.homePerfilNote.textContent = "";
+    return;
+  }
+
+  const bloco = payload?.recortes?.[recorte];
+  if (!bloco) {
+    els.homePerfilMetrics.innerHTML = `<p class="home-perfil-card__empty">Sem movimentação CAGED neste recorte para a competência.</p>`;
+    if (els.homePerfilNote) els.homePerfilNote.textContent = "";
+    return;
+  }
+
+  const metrics = [
+    {
+      value: formatPerfilPct(bloco.regularidade),
+      label: "Grau de regularidade do vínculo",
+      hint: "Admissões sem contrato determinado, intermitente ou parcial"
+    },
+    {
+      value: formatPerfilMoney(bloco.salario_medio),
+      label: "Salário médio",
+      hint: "Média aparada do salário de admissão"
+    },
+    {
+      value: formatPerfilMeses(bloco.permanencia_media),
+      label: "Tempo médio de permanência",
+      hint: "Entre os desligados do período"
+    },
+    {
+      value: formatPerfilPct(bloco.taxa_rotatividade),
+      label: "Taxa de rotatividade",
+      hint: recorte === "geral"
+        ? "min(A, D) / estoque no 1º dia do mês"
+        : "Reposição do recorte sobre o estoque estadual"
+    }
+  ];
+
+  els.homePerfilMetrics.innerHTML = metrics
+    .map(
+      (item) => `
+    <div class="home-perfil-card__metric">
+      <span class="home-perfil-card__value">${escapeHtml(item.value)}</span>
+      <span class="home-perfil-card__label">${escapeHtml(item.label)}</span>
+      <span class="home-perfil-card__hint">${escapeHtml(item.hint)}</span>
+    </div>`
+    )
+    .join("");
+
+  const notas = payload?.notas || {};
+  if (els.homePerfilNote) {
+    els.homePerfilNote.textContent =
+      `Jovens: ${notas.jovens || "18 a 29 anos"}. Negros: ${notas.negros || "preta + parda"}. ` +
+      "Rotatividade: min(A, D) / estoque do Ceará no 1º dia. Permanência compara melhor quem fica mais tempo.";
+  }
+}
+
+function ensureHomePerfilData() {
+  if (state.abaAtual !== "indicadores") return;
+  const key = homePerfilCompetenciaKey();
+  if (!key) return;
+  if (state.homePerfilData.status === "loading" && state.homePerfilData.key === key) return;
+  if (state.homePerfilData.status === "loaded" && state.homePerfilData.key === key && state.homePerfilData.payload) {
+    renderHomePerfilCard();
+    return;
+  }
+
+  const ref = resolveHomeReferencia(state.dadosAba);
+  state.homePerfilData = { status: "loading", key, payload: state.homePerfilData.key === key ? state.homePerfilData.payload : null };
+  renderHomePerfilCard();
+  fetch(`/api/home/caged-perfil?ano=${ref.year}&mes=${ref.month}`, { cache: "no-store" })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then((payload) => {
+      if (homePerfilCompetenciaKey() !== key) return;
+      state.homePerfilData = { status: "loaded", key, payload };
+      renderHomePerfilCard();
+    })
+    .catch((err) => {
+      console.error("[home-perfil]", err);
+      if (homePerfilCompetenciaKey() !== key) return;
+      state.homePerfilData = { status: "error", key, payload: null };
+      renderHomePerfilCard();
+    });
+}
+
 function renderHomeExploreCards() {
   if (!els.homeExploreGrid || els.homeExploreGrid.dataset.rendered === "1") return;
   els.homeExploreGrid.dataset.rendered = "1";
@@ -1973,6 +2123,8 @@ function renderHomeSections(rows) {
   renderHomeHero();
   renderHomeKpiRow(rows);
   renderHomeSetorSection(rows);
+  renderHomePerfilCard();
+  ensureHomePerfilData();
   renderHomeExploreCards();
   renderHomeProgramsSection();
   renderHomeIntermediacaoSection();
@@ -2918,6 +3070,16 @@ async function init() {
           mes: Number(els.homeFiltroMes.value)
         };
         renderAll();
+      });
+    }
+    if (els.homePerfilFilters) {
+      els.homePerfilFilters.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-recorte]");
+        if (!btn || !els.homePerfilFilters.contains(btn)) return;
+        const recorte = btn.dataset.recorte;
+        if (!recorte || recorte === state.homePerfilRecorte) return;
+        state.homePerfilRecorte = recorte;
+        renderHomePerfilCard();
       });
     }
     els.menuToggle.addEventListener("click", toggleMenu);

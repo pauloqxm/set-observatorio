@@ -129,9 +129,38 @@ FAIXAS_TEMPO = (
     ("10+ anos", lambda t: t > 120),
 )
 
+JOVEM_IDADE_MIN = 18
+JOVEM_IDADE_MAX = 29
+TIPO_CONTRATO_DETERMINADO = "25"
+RACA_BRANCA = "1"
+RACA_PRETA = "2"
+RACA_PARDA = "3"
+
 _LOCK = threading.Lock()
 _ROWS: list[tuple] | None = None
 _OPCOES: dict[str, Any] | None = None
+_PERFIL_CACHE: dict[str, dict[str, Any]] = {}
+_ESTOQUE_ENC: dict[str, dict[str, Any]] | None = None
+
+
+def _flag_on(raw: Any) -> bool:
+    s = str(raw or "").strip().replace(",", ".")
+    if not s:
+        return False
+    try:
+        return int(float(s)) == 1
+    except ValueError:
+        return s.lower() in {"s", "sim", "true"}
+
+
+def _tipo_code(raw: Any) -> str:
+    s = str(raw or "").strip().replace(",", ".")
+    if not s:
+        return ""
+    try:
+        return str(int(float(s)))
+    except ValueError:
+        return str(raw or "").strip()
 
 
 def _parse_int(raw: str) -> int | None:
@@ -236,7 +265,7 @@ def _open_caged_csv(path: Path) -> TextIO:
 
 
 def _ensure_loaded() -> None:
-    global _ROWS, _OPCOES
+    global _ROWS, _OPCOES, _ESTOQUE_ENC
     if _ROWS is not None:
         return
     with _LOCK:
@@ -283,6 +312,8 @@ def _ensure_loaded() -> None:
                         str(rec.get("sexo") or "").strip(),
                         str(rec.get("tipomovimentação") or "").strip(),
                         _parse_float(rec.get("salário") or ""),
+                        _flag_on(rec.get("indtrabintermitente")),
+                        _flag_on(rec.get("indtrabparcial")),
                     )
                 )
                 anos.add(comp[:4])
@@ -290,6 +321,7 @@ def _ensure_loaded() -> None:
                 muns[mun] = mun_nome
                 grups.add(grup)
         _ROWS = rows
+        _ESTOQUE_ENC = None
         _OPCOES = {
             "anos": sorted(anos),
             "meses": [
@@ -378,7 +410,9 @@ def _unidade(municipios: list[str], grupamentos: list[str]) -> str:
 
 def _series_mensal(rows: list[tuple]) -> dict[str, dict[str, float]]:
     by: dict[str, dict[str, float]] = {}
-    for comp, _mun, _nome, _secao, _grup, saldo, _cbo, _grau, _idade, _tempo, _raca, _sexo, _tipo, _sal in rows:
+    for row in rows:
+        comp = row[0]
+        saldo = row[5]
         slot = by.setdefault(comp, {"admissoes": 0.0, "desligamentos": 0.0, "saldo": 0.0})
         if saldo > 0:
             slot["admissoes"] += saldo
@@ -527,7 +561,7 @@ def resumo_estatisticas(
     sal_agreg: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
 
     for row in rows:
-        comp, mun, nome, secao, grup, saldo, cbo, grau, idade, tempo, raca, sexo, tipo, salario = row
+        comp, mun, nome, secao, grup, saldo, cbo, grau, idade, tempo, raca, sexo, tipo, salario = row[:14]
         qty = abs(float(saldo))
         tipo_l = TIPO_MOV_LABEL.get(tipo, f"Tipo {tipo or '—'}")
         sexo_l = SEXO_LABEL.get(sexo, "Não informado")
@@ -779,3 +813,177 @@ def resumo_estatisticas(
             "saldo": _items(raca_saldo),
         },
     }
+
+
+def _round_or_none(value: float | None, digits: int = 2) -> float | None:
+    if value is None:
+        return None
+    return round(float(value), digits)
+
+
+def _pct(part: float, whole: float) -> float | None:
+    if whole <= 0:
+        return None
+    return round(100.0 * part / whole, 2)
+
+
+def _taxa_rotatividade(admissoes: float, desligamentos: float, estoque_inicio: float | None) -> float | None:
+    """TR CAGED: min(A, D) / estoque no 1º dia × 100. Sem estoque, reposição do fluxo."""
+    if estoque_inicio and estoque_inicio > 0:
+        return round(100.0 * min(admissoes, desligamentos) / estoque_inicio, 2)
+    meio = (admissoes + desligamentos) / 2.0
+    if meio <= 0:
+        return None
+    return round(100.0 * min(admissoes, desligamentos) / meio, 2)
+
+
+def _estoque_inicio(competencia: str) -> float | None:
+    global _ESTOQUE_ENC
+    _ensure_loaded()
+    if _ESTOQUE_ENC is None:
+        assert _ROWS is not None
+        enc, _ = _encadear_estoque(
+            _series_mensal(_ROWS),
+            estoque_inicial=float(ESTOQUE_BASE_CE_202512),
+            indice_base=float(ESTOQUE_BASE_CE_202512),
+        )
+        _ESTOQUE_ENC = enc
+    slot = (_ESTOQUE_ENC or {}).get(competencia) or {}
+    ini = slot.get("estoque_inicio")
+    if isinstance(ini, (int, float)) and ini > 0:
+        return float(ini)
+    return None
+
+
+def _new_acc() -> dict[str, Any]:
+    return {
+        "admissoes": 0.0,
+        "desligamentos": 0.0,
+        "adm_regulares": 0.0,
+        "salarios": [],
+        "tempos": [],
+    }
+
+
+def _is_jovem(idade: int | None) -> bool:
+    return idade is not None and JOVEM_IDADE_MIN <= idade <= JOVEM_IDADE_MAX
+
+
+def _is_regular(tipo: Any, intermitente: Any, parcial: Any) -> bool:
+    if _tipo_code(tipo) == TIPO_CONTRATO_DETERMINADO:
+        return False
+    if intermitente:
+        return False
+    if parcial:
+        return False
+    return True
+
+
+def _latest_competencia() -> str | None:
+    _ensure_loaded()
+    assert _OPCOES is not None
+    meses = _OPCOES.get("meses") or []
+    if not meses:
+        return None
+    return max((str(item.get("valor") or "") for item in meses), key=_comp_sort)
+
+
+def _bloco_perfil(acc: dict[str, Any], *, estoque_inicio: float | None) -> dict[str, Any]:
+    adm = float(acc["admissoes"])
+    dem = float(acc["desligamentos"])
+    return {
+        "regularidade": _pct(float(acc["adm_regulares"]), adm),
+        "salario_medio": _round_or_none(_trimmed_mean(acc["salarios"], trim=SALARIO_TRIM), 2),
+        "permanencia_media": _round_or_none(_trimmed_mean(acc["tempos"], trim=SALARIO_TRIM), 1),
+        "taxa_rotatividade": _taxa_rotatividade(adm, dem, estoque_inicio),
+        "admissoes": adm,
+        "desligamentos": dem,
+    }
+
+
+def resumo_perfil_vinculo(ano: int | None = None, mes: int | None = None) -> dict[str, Any]:
+    """Trio da home: regularidade, salário, permanência e taxa de rotatividade por recorte."""
+    _ensure_loaded()
+    competencia = ""
+    if ano and mes and 1 <= int(mes) <= 12:
+        competencia = f"{int(ano):04d}{int(mes):02d}"
+    if not competencia:
+        competencia = _latest_competencia() or ""
+    cache_key = f"v3:{competencia}"
+    if cache_key in _PERFIL_CACHE:
+        return _PERFIL_CACHE[cache_key]
+
+    rows = _filter_rows([], [competencia], [], []) if competencia else []
+
+    buckets = {
+        "geral": _new_acc(),
+        "homens": _new_acc(),
+        "mulheres": _new_acc(),
+        "jovens": _new_acc(),
+        "negros": _new_acc(),
+    }
+
+    for row in rows:
+        saldo = row[5]
+        if not saldo:
+            continue
+        idade = row[8]
+        tempo = row[9]
+        raca = str(row[10] or "").strip()
+        sexo = str(row[11] or "").strip()
+        tipo = row[12]
+        salario = row[13]
+        intermitente = bool(row[14]) if len(row) > 14 else False
+        parcial = bool(row[15]) if len(row) > 15 else False
+        qty = abs(float(saldo))
+        admissao = saldo > 0
+        regular = admissao and _is_regular(tipo, intermitente, parcial)
+
+        keys: list[str] = ["geral"]
+        if sexo == "1":
+            keys.append("homens")
+        elif sexo == "3":
+            keys.append("mulheres")
+        if _is_jovem(idade):
+            keys.append("jovens")
+        if raca in {RACA_PRETA, RACA_PARDA}:
+            keys.append("negros")
+
+        for key in keys:
+            acc = buckets[key]
+            if admissao:
+                acc["admissoes"] += qty
+                if regular:
+                    acc["adm_regulares"] += qty
+                if salario is not None and salario > 0:
+                    acc["salarios"].append(float(salario))
+            else:
+                acc["desligamentos"] += qty
+                if tempo is not None and tempo >= 0:
+                    acc["tempos"].append(float(tempo))
+
+    e_ini = _estoque_inicio(competencia) if competencia else None
+    recortes = {nome: _bloco_perfil(acc, estoque_inicio=e_ini) for nome, acc in buckets.items()}
+
+    payload = {
+        "periodo": {
+            "competencia": competencia,
+            "ano": int(competencia[:4]) if len(competencia) == 6 else None,
+            "mes": int(competencia[4:6]) if len(competencia) == 6 else None,
+            "label": _comp_label(competencia) if competencia else "",
+        },
+        "recortes": recortes,
+        "notas": {
+            "fonte": "CAGED microdados (UF Ceará)",
+            "jovens": f"{JOVEM_IDADE_MIN} a {JOVEM_IDADE_MAX} anos",
+            "negros": "Preta + parda (IBGE)",
+            "regularidade": "Percentual de admissões sem contrato determinado, intermitente ou parcial",
+            "salario": "Média aparada 2% do salário de admissão",
+            "permanencia": "Média aparada 2% do tempo de emprego nos desligamentos, em meses",
+            "rotatividade": "min(A, D) / estoque no 1º dia do mês × 100",
+        },
+    }
+    if competencia:
+        _PERFIL_CACHE[cache_key] = payload
+    return payload
+
