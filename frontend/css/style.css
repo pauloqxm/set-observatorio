@@ -437,6 +437,31 @@ a.menu-item {
   cursor: wait;
 }
 
+.acesso-modal__idle {
+  margin: -8px 0 16px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.acesso-aviso {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 85;
+  max-width: min(90vw, 360px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.9rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+}
+
+.acesso-aviso[hidden] {
+  display: none;
+}
+
 .sidebar-map-links,
 .sidebar-map-back {
   margin-top: 16px;

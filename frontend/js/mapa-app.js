@@ -469,6 +469,21 @@ async function loadTab(sheetName) {
 
 async function init() {
   if (window.obsAcesso?.carregar) await window.obsAcesso.carregar();
+  if (window.obsAcesso) {
+    window.obsAcesso.onEncerrar = () => {
+      if (state.abaAtual === "condec" || state.abaAtual === "caged_estatisticas") {
+        state.abaAtual = "dados_caged";
+        const url = new URL(location.href);
+        url.searchParams.set("aba", "dados_caged");
+        history.replaceState(null, "", url);
+        renderMenu();
+        syncPageHeader();
+        syncMapSection();
+        return;
+      }
+      renderMenu();
+    };
+  }
 
   const params   = new URLSearchParams(location.search);
   const abaParam = params.get("aba");

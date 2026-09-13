@@ -10,9 +10,18 @@ window.obsAcesso = (function () {
     caged_estatisticas: "Estatísticas CAGED",
   };
 
-  const estado = { ativo: false, liberado: false };
+  const EVENTOS_ATIVIDADE = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"];
+  const RENOVACAO_MS = 60 * 1000;
+  let idleMinutos = 15;
   let carga = null;
   let modal = null;
+  let aviso = null;
+  let idleTimer = null;
+  let ociosidadeLigada = false;
+  let ultimaRenovacao = 0;
+  let onEncerrar = null;
+
+  const estado = { ativo: false, liberado: false };
 
   function cadeadoHtml(aba) {
     if (!precisaCadeado(aba)) return "";
@@ -30,6 +39,8 @@ window.obsAcesso = (function () {
       .then((dados) => {
         estado.ativo = !!dados.ativo;
         estado.liberado = !!dados.liberado;
+        if (dados.idle_minutos) idleMinutos = dados.idle_minutos;
+        sincronizarOciosidade();
         return estado;
       })
       .catch(() => {
@@ -51,6 +62,7 @@ window.obsAcesso = (function () {
         <span class="acesso-modal__icone" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
         <h2 class="acesso-modal__titulo" id="acessoModalTitulo">Acesso restrito</h2>
         <p class="acesso-modal__texto" id="acessoModalTexto">Esta aba contém dados internos. Digite o código de acesso.</p>
+        <p class="acesso-modal__idle" id="acessoModalIdle"></p>
         <form class="acesso-modal__form" id="acessoModalForm">
           <label class="acesso-modal__rotulo" for="acessoModalToken">Código de acesso</label>
           <input id="acessoModalToken" class="acesso-modal__input" type="password" autocomplete="off" required>
@@ -105,6 +117,7 @@ window.obsAcesso = (function () {
       }
       estado.liberado = true;
       atualizarCadeados();
+      sincronizarOciosidade();
       fecharModal(true);
     } catch {
       erro.textContent = "Não foi possível validar o código. Tente novamente.";
@@ -120,6 +133,8 @@ window.obsAcesso = (function () {
     const texto = modal.querySelector("#acessoModalTexto");
     const nome = ROTULOS[aba] || "esta aba";
     texto.textContent = `${nome} contém dados internos. Digite o código de acesso para liberar o menu.`;
+    const idle = modal.querySelector("#acessoModalIdle");
+    if (idle) idle.textContent = `A sessão encerra após ${idleMinutos} minutos sem mouse ou teclado.`;
     modal.querySelector("#acessoModalErro").hidden = true;
     modal.querySelector("#acessoModalToken").value = "";
     modal.hidden = false;
@@ -160,6 +175,74 @@ window.obsAcesso = (function () {
     atualizarCadeados();
   }
 
+  function marcarAtividade() {
+    if (!estado.ativo || !estado.liberado) return;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(encerrarPorIdle, idleMinutos * 60 * 1000);
+    const agora = Date.now();
+    if (agora - ultimaRenovacao < RENOVACAO_MS) return;
+    ultimaRenovacao = agora;
+    fetch("/api/acesso/renovar", { method: "POST", credentials: "same-origin" }).then((res) => {
+      if (res.status === 401) encerrarPorIdle();
+    }).catch(() => {});
+  }
+
+  function ligarOciosidade() {
+    if (ociosidadeLigada) {
+      marcarAtividade();
+      return;
+    }
+    ociosidadeLigada = true;
+    EVENTOS_ATIVIDADE.forEach((ev) => {
+      window.addEventListener(ev, marcarAtividade, { passive: true });
+    });
+    marcarAtividade();
+  }
+
+  function desligarOciosidade() {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+    if (!ociosidadeLigada) return;
+    EVENTOS_ATIVIDADE.forEach((ev) => {
+      window.removeEventListener(ev, marcarAtividade);
+    });
+    ociosidadeLigada = false;
+  }
+
+  function sincronizarOciosidade() {
+    if (estado.ativo && estado.liberado) ligarOciosidade();
+    else desligarOciosidade();
+  }
+
+  function mostrarAviso() {
+    if (!aviso) {
+      aviso = document.createElement("div");
+      aviso.className = "acesso-aviso";
+      aviso.setAttribute("role", "status");
+      document.body.appendChild(aviso);
+    }
+    aviso.textContent = `Sessão encerrada por inatividade (${idleMinutos} min sem movimento).`;
+    aviso.hidden = false;
+    clearTimeout(mostrarAviso._t);
+    mostrarAviso._t = setTimeout(() => {
+      aviso.hidden = true;
+    }, 6000);
+  }
+
+  async function encerrarPorIdle() {
+    if (!estado.liberado) return;
+    desligarOciosidade();
+    estado.liberado = false;
+    try {
+      await fetch("/api/acesso/sair", { method: "POST", credentials: "same-origin" });
+    } catch {
+      /* o cadeado no menu já volta mesmo se a rede falhar */
+    }
+    atualizarCadeados();
+    mostrarAviso();
+    if (typeof onEncerrar === "function") onEncerrar();
+  }
+
   function iniciarPagina() {
     return carregar().then(() => {
       prenderLinks();
@@ -181,5 +264,11 @@ window.obsAcesso = (function () {
     pedir,
     iniciarPagina,
     atualizarCadeados,
+    get onEncerrar() {
+      return onEncerrar;
+    },
+    set onEncerrar(fn) {
+      onEncerrar = fn;
+    },
   };
 })();

@@ -11,12 +11,12 @@ from pydantic import BaseModel, Field
 
 from .services.acesso import (
     ABAS_RESTRITAS,
-    COOKIE_MAX_AGE,
     COOKIE_NAME,
+    aplicar_cookie,
     caminho_restrito,
-    cookie_para_gravar,
     cookie_valido,
-    cookie_secure,
+    idle_minutos,
+    limpar_cookie,
     token_confere,
     token_configurado,
 )
@@ -127,6 +127,7 @@ def api_acesso_status(request: Request) -> dict:
         "ativo": token_configurado(),
         "liberado": liberado,
         "abas": sorted(ABAS_RESTRITAS),
+        "idle_minutos": idle_minutos(),
     }
 
 
@@ -135,16 +136,23 @@ def api_acesso_entrar(body: AcessoBody, request: Request, response: Response) ->
     if token_configurado() and not token_confere(body.token):
         raise HTTPException(status_code=403, detail="Token inválido")
     if token_configurado():
-        response.set_cookie(
-            key=COOKIE_NAME,
-            value=cookie_para_gravar(),
-            max_age=COOKIE_MAX_AGE,
-            httponly=True,
-            samesite="lax",
-            secure=cookie_secure(request),
-            path="/",
-        )
-    return {"ok": True, "liberado": True, "abas": sorted(ABAS_RESTRITAS)}
+        aplicar_cookie(request, response)
+    return {"ok": True, "liberado": True, "abas": sorted(ABAS_RESTRITAS), "idle_minutos": idle_minutos()}
+
+
+@app.post("/api/acesso/renovar")
+def api_acesso_renovar(request: Request, response: Response) -> dict:
+    if not cookie_valido(request.cookies.get(COOKIE_NAME)):
+        raise HTTPException(status_code=401, detail="acesso restrito")
+    if token_configurado():
+        aplicar_cookie(request, response)
+    return {"ok": True, "liberado": True, "idle_minutos": idle_minutos()}
+
+
+@app.post("/api/acesso/sair")
+def api_acesso_sair(response: Response) -> dict:
+    limpar_cookie(response)
+    return {"ok": True, "liberado": False}
 
 
 @app.get("/api/home/qualificacao")
