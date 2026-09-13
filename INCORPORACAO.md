@@ -261,7 +261,7 @@ Um ponto por protocolo CONDEC. Propriedades típicas: `cnpj`, `unidade`, `munici
 3. **Recorte Incentivadas.** Só `inc = 2`. Filiais em municípios fora do CONDEC permanecem no recorte **Todos**.
 4. **Protocolo ancorado.** Um CNPJ pode ter várias linhas na RAIS (CNAEs diferentes). `pi` só na primeira (`pp = 1`).
 5. **Sem RAIS.** Protocolo sem match entra como linha com `sr = 1`, `v = 0`, `ref = −1`, para não sumir dos KPIs de compromisso nem da tabela.
-6. **Setor.** Incentivada → CNAE 2.0 do protocolo. Demais → CNAE 95 da RAIS (divisões 01/02/05 agro; 10–41 indústria; 45 construção; 50–52 comércio; 55–99 serviços). Classe `99999` → Não identificado.
+6. **Setor.** Incentivada → CNAE 2.0 do protocolo. Demais → CNAE 95 da RAIS (divisões 01/02/05 agro; 10–41 indústria; 45 construção; 50–52 comércio; 55–99 serviços). Classe `99999` (CNAE 2.0 não convertido, rótulo “Cultivo de melão”) → Agropecuária, alinhada ao estoque CAGED do setor.
 7. **Público.** Natureza jurídica 1xxx, empresa pública 201-1, economia mista 203-8, fundações 306-9 / 307-7 / 308-5 → público. Senão privado. Código vazio/0000/9999 → NI.
 8. **Porte do estabelecimento.** Faixa pela `qtd_vinculos` da **linha daquela competência**, não pelo texto do CSV.
 9. **Porte IBGE da empresa.** Soma de vínculos da **raiz** na competência ativa: micro ≤9, pequena 10–49, média 50–249, grande ≥250, sem vínculos.

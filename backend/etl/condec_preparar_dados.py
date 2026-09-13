@@ -35,8 +35,9 @@ S_SERV, S_COM, S_IND, S_CONST, S_AGRO, S_NI = range(6)
 
 PROGRAMAS = ["PROVIN", "PCDM", "PROADE", "PIER"]
 
-# CNAE 95 classe 99999 e um balde de codigos nao convertidos: 1.417 estabelecimentos
-# vem todos rotulados como "Cultivo de melao", inclusive atividades sem relacao alguma.
+# CNAE 95 classe 99999: a RAIS nao converteu o CNAE 2.0 e rotulou tudo como
+# "Cultivo de melao". No Ceara esse balde e o estoque formal agro (CAGED
+# 12/2025 = 28.297 vinculos privados; a RAIS tem ~28.8 mil nesse codigo).
 CNAE95_BALDE = "99999"
 
 csv.field_size_limit(1 << 24)
@@ -251,8 +252,10 @@ def setor_cnae95(codigo):
     Agropecuaria. Divisoes 01-05 cobrem CNAE 95 (01, 02, 05) e CNAE 2.0 (01-03).
     """
     codigo = dig(codigo)
-    if not codigo or codigo == CNAE95_BALDE or codigo.zfill(5) == CNAE95_BALDE:
+    if not codigo:
         return S_NI
+    if codigo == CNAE95_BALDE or codigo.zfill(5) == CNAE95_BALDE:
+        return S_AGRO
     codigo = codigo.zfill(5)
     try:
         div = int(codigo[:2])
@@ -296,8 +299,9 @@ def classificar_setor(codigo95, desc=None, cnae20=None):
 
     Codigos de 5 digitos sem o zero (`11207` = cultivo de algodao, `14222` =
     criacao de equinos, `51187` = pesca) colidem com industria ou comercio.
-    A descricao de producao primaria recupera esses casos; o balde 99999
-    ("Cultivo de melao") continua nao identificado.
+    A descricao de producao primaria recupera esses casos. O balde 99999
+    ("Cultivo de melao") e o estoque agro sem CNAE convertido — no Ceara
+    coincide com o estoque CAGED da Agropecuaria.
     """
     if cnae20:
         setor = setor_cnae20(cnae20)
@@ -307,7 +311,7 @@ def classificar_setor(codigo95, desc=None, cnae20=None):
     if setor == S_AGRO:
         return setor
     codigo = dig(codigo95)
-    if not codigo or codigo == CNAE95_BALDE or codigo.zfill(5) == CNAE95_BALDE:
+    if not codigo:
         return S_NI
     if descricao_e_producao_agro(desc):
         return S_AGRO
