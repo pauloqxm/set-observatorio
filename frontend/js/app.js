@@ -26,6 +26,7 @@ const HIDDEN_MENU_ITEMS = new Set([
   "caged_estatisticas",
   "seguro_desemprego",
   "qualificacao",
+  "condec",
   "series_historicas",
   "programas",
 ]);
@@ -45,6 +46,7 @@ function isHiddenMenuItem(sheetName) {
   if (HIDDEN_MENU_ITEMS.has(sheetName)) return true;
   const key = normalizeMenuKey(sheetName);
   if (HIDDEN_MENU_KEYS.has(key)) return true;
+  if (key.includes("condec")) return true;
   return key.includes("caged") && key.includes("estatistic");
 }
 

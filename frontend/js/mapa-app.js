@@ -2,6 +2,7 @@ const CE_REGIOES_GEO_URL = "/static/geo/ce_regioes.geojson";
 
 const MAP_TABS = {
   dados_caged:      { label: "Dados CAGED",      icon: "fa-solid fa-map-location-dot" },
+  condec:            { label: "RAIS e CONDEC",    icon: "fa-solid fa-file-invoice-dollar" },
   perfil_municipal: { label: "Perfil Municipal", icon: "fa-solid fa-city" },
   perfil_empresas:  { label: "Perfil Empresas",  icon: "fa-solid fa-building" },
   ceara_credi:      { label: "Ceará Credi",      icon: "fa-solid fa-money-bill-transfer" },
@@ -57,6 +58,11 @@ const PAGE_META = {
     title: "Dados CAGED",
     desc: "Painel interativo de monitoramento do mercado formal de trabalho cearense, com dados do CAGED desagregados por município — estoque de empregos, admissões, desligamentos e saldo líquido. Permite filtragem por competência (mês/ano), região administrativa e município, com visualização georreferenciada sobre o mapa do Ceará.",
     status: "Mapa + planilha CAGED",
+  },
+  condec: {
+    title: "RAIS e CONDEC",
+    desc: "Cruzamento dos protocolos de incentivo fiscal do CONDEC com os vínculos declarados na RAIS, pelo CNPJ e consolidando filiais pela raiz de 8 dígitos: vínculos, remuneração média, empregos comprometidos e aderência ao compromisso por município, empresa e programa.",
+    status: "Mapa + RAIS × CONDEC",
   },
   perfil_municipal: {
     title: "Perfil Municipal",
@@ -196,7 +202,7 @@ function syncProfileLayerSelectForMode(sheetName) {
       opt.hidden = true;
       continue;
     }
-    if (sheetName === "qualificacao" || sheetName === "dinheiro_na_mao") {
+    if (sheetName === "qualificacao" || sheetName === "dinheiro_na_mao" || sheetName === "condec") {
       opt.hidden = true;
       continue;
     }
@@ -347,6 +353,7 @@ function syncMapSection() {
   const isCagedEstats   = state.abaAtual === "caged_estatisticas";
   const isSeguroDesemp  = state.abaAtual === "seguro_desemprego";
   const isQualificacao  = state.abaAtual === "qualificacao";
+  const isCondec        = state.abaAtual === "condec";
   const isIntermediacao = state.abaAtual === "series_historicas";
   const isPerfilMode    = isPerfil || isPerfilEmpresas || isCearaCredi || isVaiVem || isIntermediacao;
 
@@ -369,6 +376,7 @@ function syncMapSection() {
   wrap.classList.toggle("section-map-ce--caged-estatisticas", isCagedEstats);
   wrap.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
   wrap.classList.toggle("section-map-ce--qualificacao",   isQualificacao);
+  wrap.classList.toggle("section-map-ce--condec",         isCondec);
   wrap.classList.toggle("section-map-ce--intermediacao",  isIntermediacao);
 
   const filtersTitle = wrap.querySelector(".map-ce-filters-wrap__title");
@@ -413,6 +421,7 @@ function syncMapSection() {
   window.seguroDesempregoApi?.onPageActivate?.();
   window.qualificacaoApi?.onPageActivate?.();
   window.dinheiroNaMaoApi?.onPageActivate?.();
+  window.condecApi?.onPageActivate?.();
 
   if (!isVaiVem) {
     window.vaiVemApi?.restoreFullMunicipioFilter?.();

@@ -17,4 +17,5 @@ run_server_set.bat
 *.qmd
 ce_regioes.geojson
 regiao_planejamento.geojson
+frontend/data/condec
 contexto_cursor_empregabilidade_v2.md

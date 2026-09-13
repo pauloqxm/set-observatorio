@@ -3369,3 +3369,313 @@
   }
 }
 
+/* CONDEC (RAIS x CONDEC)
+   A aba tem filtros proprios, por isso esconde o bloco compartilhado do CAGED.
+   O estilo interno do painel vem de css/condec.css; aqui fica so o encaixe.
+   O painel original media pela janela (ate 1920px); aqui a coluna e a do
+   observatorio (layout menos o menu), entao o recorte precisa acompanhar ela. */
+.map-ce-condec-filters-wrap,
+.map-ce-condec-kpis-wrap,
+.map-ce-condec-wrap {
+  display: none;
+}
+
+.section-map-ce--condec {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  --condec-conteudo: 100%;
+}
+
+.section-map-ce--condec .map-ce-condec-filters-wrap,
+.section-map-ce--condec .map-ce-condec-kpis-wrap,
+.section-map-ce--condec .map-ce-condec-wrap,
+.section-map-ce--condec .condec-filtros,
+.section-map-ce--condec .condec-kpis,
+.section-map-ce--condec .condec-grade,
+.section-map-ce--condec .condec-painel-card,
+.section-map-ce--condec .condec-notas {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.section-map-ce--condec .map-ce-condec-filters-wrap {
+  display: block;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.section-map-ce--condec .map-ce-condec-kpis-wrap {
+  display: block;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.section-map-ce--condec .map-ce-condec-wrap {
+  display: flex;
+  width: 100%;
+  margin-top: 18px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-map-ce--condec .condec-filtros__grupos {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.section-map-ce--condec .condec-filtros__grupo-campos {
+  display: grid;
+  gap: 10px 14px;
+  align-items: start;
+}
+
+.section-map-ce--condec .condec-filtros__grupo--tempo .condec-filtros__grupo-campos {
+  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(0, 1fr));
+}
+
+.section-map-ce--condec .condec-filtros__grupo--territorio .condec-filtros__grupo-campos {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.section-map-ce--condec .condec-filtros__grupo--empresa .condec-filtros__grupo-campos {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.section-map-ce--condec .condec-filtros__grupo--incentivo .condec-filtros__grupo-campos {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.section-map-ce--condec .condec-campo,
+.section-map-ce--condec .condec-campo--busca,
+.section-map-ce--condec .condec-campo--faixa,
+.section-map-ce--condec .condec-campo--seg {
+  flex: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.section-map-ce--condec .condec-campo__rotulo {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  min-height: 2.4em;
+  letter-spacing: 0.03em;
+}
+
+.section-map-ce--condec .condec-faixa {
+  width: 100%;
+}
+
+.section-map-ce--condec .condec-entrada--sel {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.section-map-ce--condec .condec-kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.section-map-ce--condec .condec-grade {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.section-map-ce--condec .condec-comparacao__grade {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.section-map-ce--condec .condec-multi,
+.section-map-ce--condec .condec-multi__botao {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.section-map-ce--condec .condec-seg {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+}
+
+.section-map-ce--condec .condec-seg__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+  text-align: center;
+  font-size: 0.74rem;
+}
+
+.section-map-ce--condec .condec-tabela-envolve,
+.section-map-ce--condec .condec-tabela-rolagem {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.map-ce-condec-filters-wrap .condec-topo__tags {
+  margin: 0 0 12px;
+}
+
+/* `.condec-tag` nasceu sobre a faixa escura do painel; no observatorio o fundo e claro. */
+.map-ce-condec-filters-wrap .condec-tag {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #5c678f;
+}
+
+.map-ce-condec-filters-wrap .condec-tag strong {
+  color: #0f172a;
+}
+
+.map-ce-condec-filters-wrap .condec-tag--verde {
+  background: rgba(5, 150, 105, 0.12);
+  border-color: rgba(5, 150, 105, 0.3);
+}
+
+/* No painel era um overlay de tela cheia; aqui e um aviso no lugar dos KPIs. */
+.section-map-ce--condec .condec-carregando {
+  position: static;
+  inset: auto;
+  background: transparent;
+  backdrop-filter: none;
+  padding: 24px 0;
+}
+
+.section-map-ce--condec .condec-carregando.condec-is-oculto {
+  display: none;
+}
+
+.section-map-ce--condec .map-ce-toolbar--map-only {
+  display: block;
+}
+
+.section-map-ce--condec .map-ce-layer-row__graduated,
+.section-map-ce--condec .map-ce-layer-row__perfil,
+.section-map-ce--condec .map-ce-layer-row__vai-vem,
+.section-map-ce--condec .map-ce-layer-row__caged-grup,
+.section-map-ce--condec .map-ce-layer-row__seguro-desemprego,
+.section-map-ce--condec .map-ce-layer-row__dinheiro-na-mao {
+  display: none;
+}
+
+.map-ce-layer-row__condec {
+  display: none;
+  flex: 1 1 320px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-map-ce--condec .map-ce-layer-row__condec {
+  display: flex;
+}
+
+.map-ce-layer-row__toggle-wrap--condec {
+  display: none;
+}
+
+.section-map-ce--condec .map-ce-layer-row__toggle-wrap--condec {
+  display: flex;
+}
+
+.map-ce-main__condec-ranking {
+  grid-area: kpis;
+  display: none !important;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.section-map-ce--condec .map-ce-main__condec-ranking {
+  display: flex !important;
+}
+
+.section-map-ce--condec .sec.sec-map,
+.section-map-ce--condec .map-ce-main {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.section-map-ce--condec .map-ce-main {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-areas:
+    "map kpis"
+    "legend .";
+}
+
+.map-ce-regioes-foot--condec {
+  display: none;
+}
+
+.section-map-ce--condec .map-ce-regioes-foot--condec {
+  display: block;
+}
+
+.section-map-ce--condec .map-ce-filters-wrap,
+.section-map-ce--condec .map-ce-regioes-foot:not(.map-ce-regioes-foot--condec),
+.section-map-ce--condec .map-ce-main__profile-kpis,
+.section-map-ce--condec .map-ce-main__vai-vem-kpis,
+.section-map-ce--condec .map-ce-main__seguro-desemprego-kpis,
+.section-map-ce--condec .map-ce-main__qualificacao-kpis,
+.section-map-ce--condec .map-ce-main__kpis,
+.section-map-ce--condec .map-ce-estats-wrap,
+.section-map-ce--condec .map-ce-charts-wrap,
+.section-map-ce--condec .map-ce-rankings-wrap,
+.section-map-ce--condec .map-ce-region-charts-wrap,
+.section-map-ce--condec .map-ce-line-wrap,
+.section-map-ce--condec .map-ce-profile-charts-wrap,
+.section-map-ce--condec .map-ce-pib-line-wrap,
+.section-map-ce--condec .map-ce-ceara-cred-line-wrap,
+.section-map-ce--condec .map-ce-intermediacao-line-wrap,
+.section-map-ce--condec .map-ce-profile-line-wrap,
+.section-map-ce--condec .map-ce-vv-charts-wrap,
+.section-map-ce--condec .map-ce-cg-charts-wrap,
+.section-map-ce--condec .map-ce-sd-charts-wrap,
+.section-map-ce--condec .map-ce-qf-charts-wrap,
+.section-map-ce--condec .map-ce-dnm-charts-wrap {
+  display: none !important;
+}
+
+@media (max-width: 960px) {
+  .section-map-ce--condec .map-ce-main {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "map"
+      "kpis"
+      "legend";
+  }
+
+  .section-map-ce--condec .map-ce-main__condec-ranking {
+    height: auto;
+    max-height: 420px;
+  }
+
+  .section-map-ce--condec .condec-filtros__grupos,
+  .section-map-ce--condec .condec-filtros__grupo--tempo .condec-filtros__grupo-campos,
+  .section-map-ce--condec .condec-filtros__grupo--territorio .condec-filtros__grupo-campos,
+  .section-map-ce--condec .condec-filtros__grupo--empresa .condec-filtros__grupo-campos,
+  .section-map-ce--condec .condec-filtros__grupo--incentivo .condec-filtros__grupo-campos {
+    grid-template-columns: 1fr;
+  }
+
+  .section-map-ce--condec .condec-campo__rotulo {
+    min-height: 0;
+  }
+
+  .section-map-ce--condec .condec-seg {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .section-map-ce--condec .condec-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+

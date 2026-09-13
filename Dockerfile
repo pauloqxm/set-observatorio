@@ -13,6 +13,11 @@ COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 COPY caged_base.csv.gz ./caged_base.csv.gz
 
+# Bases do painel CONDEC; o ETL materializa frontend/data/condec/ no build,
+# para o container nao pagar o cruzamento RAIS x CONDEC a cada subida.
+COPY BASE_CONDEC.csv base_rais.csv.gz empresas_enderecos.csv ./
+RUN python3 backend/etl/condec_preparar_dados.py
+
 ENV HOST=0.0.0.0
 ENV PORT=8000
 EXPOSE 8000

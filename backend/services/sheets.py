@@ -21,7 +21,7 @@ WORKBOOK_URL = (
 )
 CACHE_TTL_SECONDS = 300
 
-VIRTUAL_SHEET_NAMES = frozenset({"dados_caged", "ceara_credi", "perfil_empresas", "vai_vem", "caged_grupamentos", "caged_estatisticas", "seguro_desemprego", "qualificacao", "publicacoes"})
+VIRTUAL_SHEET_NAMES = frozenset({"dados_caged", "ceara_credi", "perfil_empresas", "vai_vem", "caged_grupamentos", "caged_estatisticas", "seguro_desemprego", "qualificacao", "condec", "publicacoes"})
 
 _CACHE: dict[str, list[dict[str, Any]]] = {}
 _SHEETS: list[str] = []

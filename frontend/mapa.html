@@ -8,6 +8,7 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="stylesheet" href="/static/css/map.css">
+  <link rel="stylesheet" href="/static/css/condec.css">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
@@ -163,6 +164,160 @@
           <p class="map-ce-filters-wrap__status" id="dnmStatus" hidden></p>
         </div>
 
+        <!-- ================= CONDEC: filtros proprios (referencia da RAIS) ================= -->
+        <div class="map-ce-condec-filters-wrap">
+          <p class="map-ce-filters-wrap__title">Filtros dos dados (RAIS x CONDEC)</p>
+          <div class="condec-topo__tags">
+            <span class="condec-tag">RAIS <strong id="condecTagReferencia">—</strong></span>
+            <span class="condec-tag">Estabelecimentos <strong id="condecTagEstab">—</strong></span>
+            <span class="condec-tag">Protocolos <strong id="condecTagProtocolos">—</strong></span>
+            <span class="condec-tag condec-tag--verde">Empresas incentivadas <strong id="condecTagEmpresas">—</strong></span>
+          </div>
+
+          <section class="condec-painel-card condec-filtros" id="condecFiltros" aria-label="Filtros do painel CONDEC">
+            <div class="condec-filtros__cabeca">
+              <button type="button" class="condec-filtros__toggle" id="condecBtnFiltros" aria-expanded="true" aria-controls="condecFiltrosCorpo">
+                <span class="condec-filtros__seta" aria-hidden="true">▾</span>
+                <span>Filtros</span>
+              </button>
+              <div class="condec-filtros__resumo" id="condecFiltrosResumo" aria-live="polite"></div>
+              <p class="condec-contador" id="condecContadorFiltro">—</p>
+              <button type="button" class="condec-btn condec-btn--limpar" id="condecBtnLimpar">Limpar filtros</button>
+            </div>
+
+            <div class="condec-filtros__corpo" id="condecFiltrosCorpo">
+              <div class="condec-filtros__grupos">
+                <section class="condec-filtros__grupo condec-filtros__grupo--tempo" aria-labelledby="condecFiltroCatTempo">
+                  <h3 class="condec-filtros__grupo-titulo" id="condecFiltroCatTempo">Tempo</h3>
+                  <div class="condec-filtros__grupo-campos">
+                    <div class="condec-campo" data-multi="referencia">
+                      <span class="condec-campo__rotulo">Referência da RAIS</span>
+                      <div class="condec-multi" data-campo="referencia"></div>
+                    </div>
+                    <div class="condec-campo condec-campo--faixa">
+                      <span class="condec-campo__rotulo">Ano de início do incentivo</span>
+                      <div class="condec-faixa">
+                        <select id="condecIniDe" class="condec-entrada condec-entrada--sel" aria-label="Início do incentivo a partir de">
+                          <option value="">de</option>
+                        </select>
+                        <span class="condec-faixa__sep">até</span>
+                        <select id="condecIniAte" class="condec-entrada condec-entrada--sel" aria-label="Início do incentivo até">
+                          <option value="">até</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="condec-campo condec-campo--faixa">
+                      <span class="condec-campo__rotulo">Ano final da vigência</span>
+                      <div class="condec-faixa">
+                        <select id="condecFimDe" class="condec-entrada condec-entrada--sel" aria-label="Vigência a partir de">
+                          <option value="">de</option>
+                        </select>
+                        <span class="condec-faixa__sep">até</span>
+                        <select id="condecFimAte" class="condec-entrada condec-entrada--sel" aria-label="Vigência até">
+                          <option value="">até</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="condec-filtros__grupo condec-filtros__grupo--territorio" aria-labelledby="condecFiltroCatTerritorio">
+                  <h3 class="condec-filtros__grupo-titulo" id="condecFiltroCatTerritorio">Território</h3>
+                  <div class="condec-filtros__grupo-campos">
+                    <div class="condec-campo" data-multi="municipio">
+                      <span class="condec-campo__rotulo">Município</span>
+                      <div class="condec-multi" data-campo="municipio"></div>
+                    </div>
+                    <div class="condec-campo" data-multi="regiao">
+                      <span class="condec-campo__rotulo">Região administrativa</span>
+                      <div class="condec-multi" data-campo="regiao"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="condec-filtros__grupo condec-filtros__grupo--empresa" aria-labelledby="condecFiltroCatEmpresa">
+                  <h3 class="condec-filtros__grupo-titulo" id="condecFiltroCatEmpresa">Estabelecimento</h3>
+                  <div class="condec-filtros__grupo-campos">
+                    <div class="condec-campo condec-campo--busca">
+                      <label class="condec-campo__rotulo" for="condecFiltroBusca">Razão social ou CNPJ</label>
+                      <input type="search" id="condecFiltroBusca" class="condec-entrada" placeholder="carregando…" autocomplete="off" disabled />
+                    </div>
+                    <div class="condec-campo condec-campo--seg">
+                      <span class="condec-campo__rotulo">Público ou privado</span>
+                      <div class="condec-seg condec-seg--sm" id="condecFiltroInstitucional" role="group">
+                        <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="todos">Todos</button>
+                        <button type="button" class="condec-seg__btn" data-valor="priv" title="Empresas e entidades de direito privado">Privado</button>
+                        <button type="button" class="condec-seg__btn" data-valor="pub" title="Administração pública, autarquias, empresas públicas e economia mista">Público</button>
+                      </div>
+                    </div>
+                    <div class="condec-campo" data-multi="setor">
+                      <span class="condec-campo__rotulo">Setor de atividade</span>
+                      <div class="condec-multi" data-campo="setor"></div>
+                    </div>
+                    <div class="condec-campo" data-multi="tamanho">
+                      <span class="condec-campo__rotulo">Tamanho do estabelecimento</span>
+                      <div class="condec-multi" data-campo="tamanho"></div>
+                    </div>
+                    <div class="condec-campo" data-multi="porteIbge">
+                      <span class="condec-campo__rotulo">Porte IBGE da empresa</span>
+                      <div class="condec-multi" data-campo="porteIbge"></div>
+                    </div>
+                    <div class="condec-campo" data-multi="celetista">
+                      <span class="condec-campo__rotulo">Celetista ou estatutário</span>
+                      <div class="condec-multi" data-campo="celetista"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="condec-filtros__grupo condec-filtros__grupo--incentivo" aria-labelledby="condecFiltroCatIncentivo">
+                  <h3 class="condec-filtros__grupo-titulo" id="condecFiltroCatIncentivo">Incentivo</h3>
+                  <div class="condec-filtros__grupo-campos">
+                    <div class="condec-campo condec-campo--seg">
+                      <span class="condec-campo__rotulo">Recorte de incentivo</span>
+                      <div class="condec-seg" id="condecFiltroIncentivo" role="group">
+                        <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="todos">Todos</button>
+                        <button type="button" class="condec-seg__btn" data-valor="inc" title="Somente estabelecimentos com protocolo no CONDEC">Incentivadas</button>
+                        <button type="button" class="condec-seg__btn" data-valor="nao">Não incentivadas</button>
+                      </div>
+                    </div>
+                    <div class="condec-campo" data-multi="programa">
+                      <span class="condec-campo__rotulo">Programa de incentivo</span>
+                      <div class="condec-multi" data-campo="programa"></div>
+                    </div>
+                    <div class="condec-campo condec-campo--seg">
+                      <span class="condec-campo__rotulo">Calçadista</span>
+                      <div class="condec-seg condec-seg--sm" id="condecFiltroCalcadista" role="group">
+                        <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="todos">Todos</button>
+                        <button type="button" class="condec-seg__btn" data-valor="sim">Sim</button>
+                        <button type="button" class="condec-seg__btn" data-valor="nao">Não</button>
+                      </div>
+                    </div>
+                    <div class="condec-campo condec-campo--seg">
+                      <span class="condec-campo__rotulo">Parceira SPE</span>
+                      <div class="condec-seg condec-seg--sm" id="condecFiltroSpe" role="group">
+                        <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="todos">Todos</button>
+                        <button type="button" class="condec-seg__btn" data-valor="sim">Sim</button>
+                        <button type="button" class="condec-seg__btn" data-valor="nao">Não</button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================= CONDEC: indicadores ================= -->
+        <div class="map-ce-condec-kpis-wrap">
+          <div id="condecCarregando" class="condec-carregando">
+            <div class="condec-carregando__caixa">
+              <div class="condec-carregando__spinner" aria-hidden="true"></div>
+              <p class="condec-carregando__texto" id="condecCarregandoTexto">Carregando bases…</p>
+            </div>
+          </div>
+          <section class="condec-kpis" id="condecKpis" aria-label="Indicadores do painel CONDEC"></section>
+        </div>
+
         <div class="sec sec-map">
           <div class="map-ce-toolbar map-ce-toolbar--map-only">
             <div class="map-ce-layer-row">
@@ -272,6 +427,28 @@
                     <option value="concludentes">Concludentes</option>
                   </select>
                 </div>
+              </div>
+              <div class="map-ce-layer-row__condec">
+                <label class="map-ce-filter-label" for="mapCondecMetric">Indicador no mapa e no ranking</label>
+                <select id="mapCondecMetric" class="map-ce-layer-select" aria-label="Indicador graduado do painel CONDEC no mapa">
+                  <option value="vinculos" selected>Vínculos no recorte</option>
+                  <option value="participacao">% do emprego municipal em incentivadas</option>
+                  <option value="rem">Remuneração média no recorte</option>
+                  <option value="pi">Empregos comprometidos</option>
+                </select>
+              </div>
+              <div class="map-ce-layer-row__toggle-wrap map-ce-layer-row__toggle-wrap--condec">
+                <span class="map-ce-filter-label map-ce-filter-label--toggle">Sobrepor</span>
+                <button
+                  type="button"
+                  id="mapToggleCondecUnidades"
+                  class="map-ce-toggle"
+                  aria-pressed="true"
+                  aria-label="Ativar ou desativar os pinos das unidades incentivadas no mapa"
+                >
+                  <span class="map-ce-toggle__track" aria-hidden="true"><span class="map-ce-toggle__thumb"></span></span>
+                  <span class="map-ce-toggle__text">Unidades incentivadas</span>
+                </button>
               </div>
               <div class="map-ce-layer-row__toggle-wrap">
                 <span class="map-ce-filter-label map-ce-filter-label--toggle">Sobrepor região</span>
@@ -1227,11 +1404,24 @@
                 </article>
               </div>
             </aside>
+            <aside class="map-ce-main__condec-ranking condec-ranking" aria-label="Ranking de municípios do recorte CONDEC">
+              <h3 class="condec-ranking__titulo">Ranking do recorte</h3>
+              <p class="condec-ranking__sub" id="condecRankingSub">Municípios ordenados pelo indicador selecionado.</p>
+              <ol class="condec-ranking__lista" id="condecRankingLista"></ol>
+              <div class="condec-ranking__nav">
+                <button type="button" class="condec-btn condec-btn--pg" id="condecRkAnterior" aria-label="15 anteriores">‹</button>
+                <span class="condec-ranking__nav-info" id="condecRkInfo">—</span>
+                <button type="button" class="condec-btn condec-btn--pg" id="condecRkProxima" aria-label="Próximos 15">›</button>
+              </div>
+            </aside>
             <div id="mapCeLegend" class="map-ce-legend map-ce-main__legend" aria-live="polite"></div>
           </div>
 
           <p class="map-ce-regioes-foot">
             Fonte: CAGED | Mês de referência: <span id="mapRefMesAno">—</span>
+          </p>
+          <p class="map-ce-regioes-foot map-ce-regioes-foot--condec" id="condecMapaSub">
+            Clique no município para filtrar o painel inteiro.
           </p>
         </div>
 
@@ -2328,6 +2518,290 @@
             <div id="mapBarSaldoMes" class="map-ce-line-block__chart" aria-label="Gráfico de barras saldo de empregos por mês"></div>
           </div>
         </div>
+
+        <!-- ================= CONDEC: graficos, detalhamento e notas ================= -->
+        <div class="map-ce-condec-wrap">
+          <section class="condec-grade" id="condecGraficos">
+            <article class="condec-painel-card condec-grade__item condec-grade__item--largo">
+              <div class="condec-card__cabeca">
+                <div>
+                  <h3 class="condec-card__titulo">Comportamento por referência</h3>
+                  <p class="condec-card__sub">
+                    Evolução dos vínculos e da remuneração média nas competências marcadas na lista.
+                    Qualquer ano pode ser marcado ou desmarcado; precisa restar pelo menos um. Os demais filtros valem.
+                  </p>
+                </div>
+              </div>
+              <div id="condecGraficoReferencia" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item condec-grade__item--largo">
+              <div class="condec-card__cabeca">
+                <div>
+                  <h3 class="condec-card__titulo">Comparação de salário médio</h3>
+                  <p class="condec-card__sub">
+                    Compare até 6 empresas do recorte. As barras usam a competência ativa e seguem a
+                    classificação das abas; as linhas seguem as referências marcadas nos filtros.
+                  </p>
+                </div>
+                <div class="condec-seg condec-seg--sm" id="condecCompOrdem" role="group" aria-label="Classificação do gráfico de barras">
+                  <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="maiores">Maiores salários</button>
+                  <button type="button" class="condec-seg__btn" data-valor="menores">Menores salários</button>
+                </div>
+              </div>
+              <div class="condec-comparacao">
+                <div class="condec-comparacao__campo" id="condecCompBuscaWrap">
+                  <label class="condec-campo__rotulo" for="condecCompBusca">Buscar empresa ou CNPJ</label>
+                  <input type="search" id="condecCompBusca" class="condec-entrada" placeholder="ex.: GRENDENE, 05438222" autocomplete="off" />
+                  <ul class="condec-comparacao__lista" id="condecCompLista" hidden></ul>
+                </div>
+                <div class="condec-comparacao__chips" id="condecCompChips"></div>
+                <p class="condec-comparacao__nota" id="condecCompNota"></p>
+              </div>
+              <div class="condec-comparacao__grade">
+                <div id="condecGraficoCompBarras" class="condec-grafico"></div>
+                <div id="condecGraficoCompLinhas" class="condec-grafico condec-grafico--alto"></div>
+              </div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item condec-grade__item--largo">
+              <div class="condec-card__cabeca">
+                <div>
+                  <h3 class="condec-card__titulo">Compromisso x emprego observado</h3>
+                  <p class="condec-card__sub">
+                    Cada ponto é uma empresa incentivada. Abaixo da linha de paridade, os vínculos da RAIS
+                    são menores que os empregos comprometidos no protocolo.
+                  </p>
+                  <p class="condec-card__sub condec-card__sub--dica" id="condecDispersaoNota"></p>
+                </div>
+                <div class="condec-seg condec-seg--sm" id="condecDispersaoEscala" role="group">
+                  <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="log">Escala log</button>
+                  <button type="button" class="condec-seg__btn" data-valor="linear">Linear</button>
+                </div>
+              </div>
+              <div id="condecGraficoDispersao" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Aderência global ao compromisso</h3>
+              <p class="condec-card__sub">Vínculos observados sobre empregos comprometidos. Vermelho &lt; 80%, amarelo 80–100%, verde acima de 100%.</p>
+              <div id="condecGraficoGauge" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Ranking de aderência por empresa</h3>
+              <p class="condec-card__sub">As 20 empresas com menor aderência no recorte — lista visual de fiscalização. Vermelho abaixo de 100%.</p>
+              <div id="condecGraficoAderencia" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Composição setorial</h3>
+              <p class="condec-card__sub">Participação de cada setor nos vínculos, comparando incentivadas e o total do estado.</p>
+              <div id="condecGraficoSetor" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Remuneração média por setor</h3>
+              <p class="condec-card__sub">Média ponderada pelo número de vínculos, em reais.</p>
+              <div id="condecGraficoRemSetor" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item" hidden>
+              <h3 class="condec-card__titulo">Dispersão da remuneração por setor</h3>
+              <p class="condec-card__sub">Mediana, quartis e extremos dos estabelecimentos incentivados. A média sozinha esconde salários baixos em empresas menores.</p>
+              <div id="condecGraficoBoxRem" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item condec-grade__item--largo">
+              <h3 class="condec-card__titulo">Município × setor</h3>
+              <p class="condec-card__sub">Vínculos de incentivadas nos 12 municípios com mais emprego incentivado. Células escuras indicam concentração; linha clara sugere dependência de um único setor.</p>
+              <div id="condecGraficoHeatmap" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item condec-grade__item--largo">
+              <h3 class="condec-card__titulo">Maiores municípios por vínculos</h3>
+              <p class="condec-card__sub">Os 15 municípios com mais vínculos de empresas incentivadas, sobre o total municipal.</p>
+              <div id="condecGraficoMunicipios" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <div class="condec-card__cabeca condec-card__cabeca--titulo-abas">
+                <h3 class="condec-card__titulo">Empresas apoiadas por região</h3>
+                <div class="condec-seg condec-seg--sm" id="condecRegioesMetrica" role="group" aria-label="Métrica do gráfico por região">
+                  <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="empresas">Empresas</button>
+                  <button type="button" class="condec-seg__btn" data-valor="vinculos">Vínculos</button>
+                </div>
+              </div>
+              <p class="condec-card__sub">Empresas e vínculos no recorte atual.</p>
+              <div id="condecGraficoRegioes" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Programas de incentivo</h3>
+              <p class="condec-card__sub">Empresas, empregos comprometidos e vínculos por programa.</p>
+              <div id="condecGraficoProgramas" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item condec-grade__item--largo">
+              <h3 class="condec-card__titulo">Empresas por setor e programa</h3>
+              <p class="condec-card__sub">Tamanho das células proporcional aos vínculos na RAIS. Primeiro o setor, depois o programa de incentivo.</p>
+              <div id="condecGraficoTreemap" class="condec-grafico condec-grafico--alto"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Porte dos estabelecimentos</h3>
+              <p class="condec-card__sub">Distribuição dos vínculos pelas faixas reais de tamanho do estabelecimento (1–4, 5–9, …, 1.000 ou mais).</p>
+              <div id="condecGraficoTamanho" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Vínculos por porte da empresa</h3>
+              <p class="condec-card__sub">
+                Total de vínculos e quantidade de empresas (raiz do CNPJ) segundo o porte do IBGE:
+                micro até 9, pequena 10–49, média 50–249 e grande 250 ou mais colaboradores na competência ativa.
+              </p>
+              <div id="condecGraficoPorteIbge" class="condec-grafico condec-grafico--rotulos"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Safras de projetos</h3>
+              <p class="condec-card__sub">Protocolos por ano de início e empregos comprometidos em cada safra.</p>
+              <div id="condecGraficoSafras" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Calendário de vencimento</h3>
+              <p class="condec-card__sub">Protocolos que encerram a vigência em cada ano (2025–2032). Destaque para os que vencem neste ano.</p>
+              <div id="condecGraficoVigencias" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Recorte calçadista</h3>
+              <p class="condec-card__sub">Único setor com marcação própria na RAIS, comparado ao restante.</p>
+              <div id="condecGraficoCalcadista" class="condec-grafico"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Vínculo por regime</h3>
+              <p class="condec-card__sub">Vínculos celetistas e estatutários no recorte selecionado.</p>
+              <div id="condecGraficoRegime" class="condec-grafico condec-grafico--rotulos"></div>
+            </article>
+
+            <article class="condec-painel-card condec-grade__item">
+              <h3 class="condec-card__titulo">Público e privado</h3>
+              <p class="condec-card__sub">Vínculos segundo a natureza jurídica da RAIS: administração pública, empresas públicas e economia mista versus o setor privado.</p>
+              <div id="condecGraficoInstitucional" class="condec-grafico condec-grafico--rotulos"></div>
+            </article>
+          </section>
+
+          <section class="condec-painel-card" id="condecDetalhamento">
+            <div class="condec-card__cabeca">
+              <div>
+                <h3 class="condec-card__titulo">Detalhamento</h3>
+                <p class="condec-card__sub" id="condecTabelaSub">
+                  Agrupado por empresa (raiz do CNPJ). Clique na linha para abrir os estabelecimentos.
+                </p>
+              </div>
+              <div class="condec-card__acoes">
+                <div class="condec-seg condec-seg--sm" id="condecTabelaModo" role="group">
+                  <button type="button" class="condec-seg__btn condec-is-ativo" data-valor="empresa">Por empresa</button>
+                  <button type="button" class="condec-seg__btn" data-valor="estab">Por estabelecimento</button>
+                </div>
+                <button type="button" class="condec-btn condec-btn--exportar" id="condecBtnExportar">Exportar CSV</button>
+              </div>
+            </div>
+
+            <div class="condec-tabela-envolve">
+              <div class="condec-tabela-rolagem" id="condecTabelaRolagem">
+                <table class="condec-tabela" id="condecTabela">
+                  <thead id="condecTabelaCabeca"></thead>
+                  <tbody id="condecTabelaCorpo"></tbody>
+                </table>
+              </div>
+              <p class="condec-tabela-mais" id="condecTabelaMais" hidden>→ mais colunas — deslize para a direita</p>
+            </div>
+
+            <div class="condec-paginacao">
+              <button type="button" class="condec-btn condec-btn--pg" id="condecPgPrimeira" aria-label="Primeira página">«</button>
+              <button type="button" class="condec-btn condec-btn--pg" id="condecPgAnterior" aria-label="Página anterior">‹</button>
+              <span class="condec-paginacao__info" id="condecPgInfo">—</span>
+              <button type="button" class="condec-btn condec-btn--pg" id="condecPgProxima" aria-label="Próxima página">›</button>
+              <button type="button" class="condec-btn condec-btn--pg" id="condecPgUltima" aria-label="Última página">»</button>
+            </div>
+          </section>
+
+          <footer class="condec-notas" id="condecNotas">
+            <h3 class="condec-notas__titulo">Notas metodológicas</h3>
+            <ul>
+              <li>
+                <strong>Chave de cruzamento.</strong> CNPJ reduzido a dígitos e completado com zeros à esquerda
+                até 14 posições nas duas bases. A empresa é a raiz de 8 dígitos, então filiais são somadas.
+                Dos 341 protocolos, <span id="condecNotaMatch">—</span> têm estabelecimento próprio na RAIS.
+                O recorte <em>Incentivadas</em> mostra só o município do protocolo; filiais da mesma empresa
+                em outros municípios (por exemplo Crateús) aparecem no recorte <em>Todos</em>.
+              </li>
+              <li>
+                <strong>Setores.</strong> Para empresas incentivadas usa-se o CNAE 2.0 do protocolo, mais preciso.
+                Para os demais estabelecimentos, a divisão do CNAE 95 da RAIS: divisões 10 a 41 em Indústria
+                (incluindo extrativa e serviços industriais de utilidade pública), 45 em Construção,
+                50 a 52 em Comércio, 55 a 99 em Serviços, 01 a 05 em Agropecuária.
+              </li>
+              <li>
+                <strong>Não identificado.</strong> A classe 99999 da RAIS reúne 1.417 estabelecimentos com rótulo
+                incorreto herdado da conversão de códigos, e por isso não é atribuída a nenhum setor.
+              </li>
+              <li>
+                <strong>Competência da RAIS.</strong> Cada referência (mês/ano) é um estoque de vínculos
+                em 31 de dezembro, não um fluxo. A lista suspensa lê as competências presentes na base:
+                uma competência nova entra sozinha após regenerar os dados. Qualquer ano pode ser
+                marcado ou desmarcado; se nenhum restar, volta a mais nova. Indicadores, mapa e tabela
+                usam a competência mais nova entre as selecionadas, para não somar estoques de anos
+                diferentes. O gráfico de linhas compara os anos marcados.
+              </li>
+              <li>
+                <strong>Remuneração.</strong> Sempre média ponderada pelo número de vínculos, em valores nominais
+                da competência de referência.
+              </li>
+              <li>
+                <strong>Localização das unidades incentivadas.</strong> A cada abertura da aba as coordenadas
+                são lidas de <code>empresas_enderecos.csv</code> (sem cache), cruzadas pelo CNPJ. Empresas novas
+                no arquivo entram no mapa automaticamente. Sem geocodificação válida no Ceará, o protocolo
+                permanece na sede municipal. A camada <em>Unidades do IDT</em> é independente.
+              </li>
+            </ul>
+            <p class="condec-notas__fonte">
+              Fontes: RAIS/MTE, competências <span id="condecNotaReferencia">—</span>, e base de protocolos do CONDEC.
+              Base geográfica do projeto SET Análise Leste. Basemap © OpenStreetMap contributors.
+            </p>
+          </footer>
+
+          <div class="condec-dialogo" id="condecDialogoSemRais" hidden>
+            <div class="condec-dialogo__fundo" data-fechar-sem-rais></div>
+            <div class="condec-dialogo__caixa" role="dialog" aria-modal="true" aria-labelledby="condecDialogoSemRaisTitulo">
+              <div class="condec-dialogo__cabeca">
+                <div>
+                  <h3 class="condec-dialogo__titulo" id="condecDialogoSemRaisTitulo">Empresas sem registro na RAIS</h3>
+                  <p class="condec-dialogo__sub" id="condecDialogoSemRaisSub"></p>
+                </div>
+                <button type="button" class="condec-dialogo__fechar" data-fechar-sem-rais aria-label="Fechar">×</button>
+              </div>
+              <div class="condec-dialogo__corpo">
+                <table class="condec-tabela condec-dialogo__tabela">
+                  <thead>
+                    <tr>
+                      <th>Empresa</th>
+                      <th>CNPJ</th>
+                      <th>Município</th>
+                      <th>Programa</th>
+                      <th class="condec-num">Empregos PI</th>
+                    </tr>
+                  </thead>
+                  <tbody id="condecDialogoSemRaisCorpo"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -2391,6 +2865,10 @@
   <script src="/static/js/seguro-desemprego.js"></script>
   <script src="/static/js/qualificacao.js"></script>
   <script src="/static/js/dinheiro-na-mao.js"></script>
+  <script src="/static/js/condec-dados.js"></script>
+  <script src="/static/js/condec-graficos.js"></script>
+  <script src="/static/js/condec-mapa.js"></script>
+  <script src="/static/js/condec.js"></script>
   <script src="/static/js/mapa-app.js"></script>
 </body>
 </html>

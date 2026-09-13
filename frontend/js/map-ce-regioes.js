@@ -163,6 +163,29 @@ const CE_QF_CURSOS_ICON_ID = "ce-qf-graduation-cap";
 const CE_QF_CURSOS_FA_GLYPH = "\uf19d";
 const CE_QF_CURSOS_POINT_COLOR = "#2563eb";
 const CE_QF_CURSOS_POINT_STROKE = "#ffffff";
+
+/* ----------------------------- CONDEC (RAIS x CONDEC) ----------------------------- */
+const CE_CONDEC_PROP = "condec_metric";
+const CE_CONDEC_COLORS = ["#e8faf0", "#9ae6b4", "#48bb78", "#00a859", "#006837"];
+/** Métricas do mapa CONDEC; `field` casa com o contexto montado em condec.js. */
+const CE_CONDEC_LAYER_CONFIG = {
+  vinculos: { legendTitle: "Vínculos no recorte", field: "vinculos", format: "int" },
+  participacao: {
+    legendTitle: "% do emprego municipal em incentivadas",
+    field: "participacao",
+    format: "pct",
+  },
+  rem: { legendTitle: "Remuneração média no recorte", field: "rem", format: "currency" },
+  pi: { legendTitle: "Empregos comprometidos", field: "pi", format: "int" },
+};
+const CE_CONDEC_UNIDADES_SOURCE_ID = "ce-condec-unidades";
+const CE_CONDEC_UNIDADES_SYMBOL_LAYER_ID = "ce-condec-unidades-symbol";
+const CE_CONDEC_UNIDADES_CIRCLE_LAYER_ID = "ce-condec-unidades-circle";
+const CE_CONDEC_UNIDADES_ICON_ID = "ce-condec-office";
+/** Glifo `fa-solid fa-industry`, rasterizado no canvas como os pinos da Qualificação. */
+const CE_CONDEC_FA_GLYPH = "\uf275";
+const CE_CONDEC_POINT_COLOR = "#1d4ed8";
+const CE_CONDEC_POINT_STROKE = "#ffffff";
 const CE_PROFILE_LAYER_SOURCE_BASE_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRY77niZrgeJpcmKNv8BWEUyetRRYARaBk-nRzUFqSvJbTF1OdkneesuAJOHWSg0FVwamjEBJsviFJz/pub?output=csv&single=true&gid=";
 
@@ -907,6 +930,12 @@ const ceMapRuntime = {
   /** Locais dos cursos (Qualificação) — pontos filtrados */
   /** @type {GeoJSON.FeatureCollection} */
   qualificacaoCursosGeoJson: { type: "FeatureCollection", features: [] },
+  /** Unidades incentivadas (CONDEC) — pinos do recorte */
+  /** @type {GeoJSON.FeatureCollection} */
+  condecUnidadesGeoJson: { type: "FeatureCollection", features: [] },
+  /** @type {Map<number, object>} agregado municipal do recorte CONDEC */
+  condecAggByCod: new Map(),
+  condecMetricKey: "vinculos",
   /** @type {maplibregl.Marker[]} marcadores HTML com nomes de municípios */
   sedeLabelMarkers: [],
   /** População municipal (sedes / CE_bacia_populacao.geojson), chave = código IBGE normalizado como no CSV */
@@ -2228,6 +2257,298 @@ function ceApplyQualificacaoCursosPoints(geojson) {
   }
 }
 
+/* ----------------------------- CONDEC: coropleta e pinos ----------------------------- */
+
+function ceGetSelectedCondecLayerKey() {
+  const value = document.getElementById("mapCondecMetric")?.value || "vinculos";
+  return Object.prototype.hasOwnProperty.call(CE_CONDEC_LAYER_CONFIG, value) ? value : "vinculos";
+}
+
+function ceGetCondecMetricField(metricKey) {
+  return CE_CONDEC_LAYER_CONFIG[metricKey]?.field || "vinculos";
+}
+
+function ceFormatCondecMetricValue(metricKey, value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const format = CE_CONDEC_LAYER_CONFIG[metricKey]?.format;
+  if (format === "currency") return ceFormatCurrencyPt(n);
+  if (format === "pct") return ceFormatPercentPt(n);
+  return ceFormatIntPt(n);
+}
+
+function ceIsCondecMode() {
+  const root = document.getElementById("secaoMapaCe");
+  return root?.classList.contains("section-map-ce--condec") === true;
+}
+
+function ceIsCondecUnidadesOverlayOn() {
+  const btn = document.getElementById("mapToggleCondecUnidades");
+  return btn?.getAttribute("aria-pressed") === "true";
+}
+
+function ceGetCondecUnidadesLayerId(map) {
+  if (map?.getLayer(CE_CONDEC_UNIDADES_SYMBOL_LAYER_ID)) return CE_CONDEC_UNIDADES_SYMBOL_LAYER_ID;
+  if (map?.getLayer(CE_CONDEC_UNIDADES_CIRCLE_LAYER_ID)) return CE_CONDEC_UNIDADES_CIRCLE_LAYER_ID;
+  return null;
+}
+
+/**
+ * Rasteriza o glifo Font Awesome do CONDEC (industry) para o pino do MapLibre,
+ * no mesmo esquema usado pelos pontos de cursos da Qualificação.
+ */
+function ceBuildCondecIconImageData(size = 96) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const r = Math.round(size * 0.28);
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(0, 0, size, size, r);
+  } else {
+    ctx.moveTo(r, 0);
+    ctx.arcTo(size, 0, size, size, r);
+    ctx.arcTo(size, size, 0, size, r);
+    ctx.arcTo(0, size, 0, 0, r);
+    ctx.arcTo(0, 0, size, 0, r);
+    ctx.closePath();
+  }
+  const grd = ctx.createLinearGradient(0, 0, size, size);
+  grd.addColorStop(0, "#60a5fa");
+  grd.addColorStop(0.45, "#2563eb");
+  grd.addColorStop(1, "#1e3a8a");
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `900 ${Math.round(size * 0.46)}px "Font Awesome 6 Free"`;
+  ctx.fillText(CE_CONDEC_FA_GLYPH, size / 2, size / 2 + size * 0.02);
+  return ctx.getImageData(0, 0, size, size);
+}
+
+async function ceEnsureCondecIcon(map) {
+  if (!map) return false;
+  if (map.hasImage(CE_CONDEC_UNIDADES_ICON_ID)) return true;
+  try {
+    if (document.fonts?.load) {
+      await document.fonts.load(`900 48px "Font Awesome 6 Free"`);
+    } else if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+  } catch (_) {}
+  const imageData = ceBuildCondecIconImageData(96);
+  if (!imageData) return false;
+  try {
+    map.addImage(CE_CONDEC_UNIDADES_ICON_ID, imageData);
+    return true;
+  } catch (err) {
+    console.warn("Ícone CONDEC não carregado:", err);
+    return false;
+  }
+}
+
+function ceMergeCondecIntoGeojson(geojson, aggByCod, metricKey) {
+  const field = ceGetCondecMetricField(metricKey);
+  return {
+    type: "FeatureCollection",
+    features: (geojson.features || []).map((f) => {
+      const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+      const agg = cod != null ? aggByCod.get(cod) : null;
+      const raw = agg ? agg[field] : null;
+      const num = Number(raw);
+      /* Zero vira "sem dado": município fora do recorte não deve competir na quantização. */
+      const val = agg != null && Number.isFinite(num) && num > 0 ? num : null;
+      return {
+        ...f,
+        properties: {
+          ...(f.properties || {}),
+          [CE_CONDEC_PROP]: val,
+        },
+      };
+    }),
+  };
+}
+
+function ceApplyCondecMapFillPaint() {
+  const map = ceMapRuntime.map;
+  if (!map?.getLayer("ce-regioes-fill")) return false;
+
+  const stats = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_CONDEC_PROP, {});
+  const activeIdx = ceMapRuntime.activeLegendClass;
+
+  map.setPaintProperty(
+    "ce-regioes-fill",
+    "fill-color",
+    ceBuildNumericFillExpr(CE_CONDEC_PROP, stats?.thresholds || [], CE_CONDEC_COLORS, activeIdx)
+  );
+  map.setPaintProperty("ce-regioes-fill", "fill-opacity", 0.78);
+  return true;
+}
+
+function ceApplyCondecLayer(aggByCod, metricKey) {
+  const map = ceMapRuntime.map;
+  if (!map?.getSource?.("ce-regioes") || !ceMapRuntime.geoJsonBase) return;
+
+  ceMapRuntime.condecAggByCod = aggByCod instanceof Map ? aggByCod : new Map();
+  ceMapRuntime.condecMetricKey = metricKey || ceGetSelectedCondecLayerKey();
+  const merged = ceMergeCondecIntoGeojson(
+    ceMapRuntime.geoJsonBase,
+    ceMapRuntime.condecAggByCod,
+    ceMapRuntime.condecMetricKey
+  );
+  ceMapRuntime.currentMergedGeoJson = merged;
+  try {
+    map.getSource("ce-regioes").setData(merged);
+    ceScheduleMapVisualizationRefresh();
+  } catch (e) {
+    console.warn("Atualizar mapa CONDEC:", e);
+  }
+}
+
+function ceSetCondecUnidadesVisibility(map) {
+  if (!map) return;
+  const layerId = ceGetCondecUnidadesLayerId(map);
+  if (!layerId) return;
+  const on = ceIsCondecMode() && ceIsCondecUnidadesOverlayOn();
+  map.setLayoutProperty(layerId, "visibility", on ? "visible" : "none");
+}
+
+function ceApplyCondecPoints(geojson) {
+  const fc =
+    geojson && geojson.type === "FeatureCollection"
+      ? geojson
+      : { type: "FeatureCollection", features: [] };
+  ceMapRuntime.condecUnidadesGeoJson = fc;
+  const map = ceMapRuntime.map;
+  const src = map?.getSource?.(CE_CONDEC_UNIDADES_SOURCE_ID);
+  if (!src) return;
+  try {
+    src.setData(fc);
+    ceSetCondecUnidadesVisibility(map);
+  } catch (e) {
+    console.warn("Atualizar pinos CONDEC:", e);
+  }
+}
+
+function ceBuildCondecPopupHtml({ municipio, regiao, agg, accentColor }) {
+  const int = (v) => (Number.isFinite(Number(v)) ? ceFormatIntPt(Number(v)) : "—");
+  const rows = agg
+    ? [
+        ["fa-users", "Vínculos no recorte", int(agg.vinculos)],
+        ["fa-award", "Vínculos de incentivadas", int(agg.vinculosInc)],
+        ["fa-city", "Emprego total do município", int(agg.vinculosTotal)],
+        ["fa-percent", "Participação", ceFormatPercentPt(Number(agg.participacao) || 0)],
+        ["fa-industry", "Estabelecimentos incentivados", int(agg.estabInc)],
+        ["fa-handshake", "Empregos comprometidos", int(agg.pi)],
+        [
+          "fa-money-bill-wave",
+          "Remuneração média",
+          Number(agg.rem) > 0 ? ceFormatCurrencyPt(Number(agg.rem)) : "—",
+        ],
+      ]
+    : [];
+  const fieldRows = rows
+    .map(
+      ([icon, label, value]) => `
+        <div class="map-ce-popup__row">
+          <span class="map-ce-popup__label">
+            <span class="map-ce-popup__icon map-ce-popup__icon--label" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
+            ${ceEscapeHtml(label)}
+          </span>
+          <strong class="map-ce-popup__value map-ce-popup__value--metric">${ceEscapeHtml(String(value))}</strong>
+        </div>`
+    )
+    .join("");
+
+  const empresas = (agg?.empresas || []).slice(0, 8);
+  const listaHtml = empresas.length
+    ? `<p class="map-ce-popup__list-title">${empresas.length === (agg?.empresas || []).length ? empresas.length : (agg?.empresas || []).length} empresa(s) incentivada(s) no recorte</p>
+       <ul class="map-ce-popup__list">${empresas
+         .map(
+           (e) =>
+             `<li><span class="map-ce-popup__list-name" title="${ceEscapeHtml(e.nome)}">${ceEscapeHtml(e.nome)}</span><span>${int(e.vinculos)} vínc.</span></li>`
+         )
+         .join("")}${
+        (agg?.empresas || []).length > 8
+          ? `<li class="map-ce-popup__list-more">e mais ${(agg?.empresas || []).length - 8}</li>`
+          : ""
+      }</ul>`
+    : "";
+
+  return `
+    <section class="map-ce-popup" style="--map-popup-accent:${ceEscapeHtml(accentColor || "#2563eb")}" role="group" aria-label="Detalhes do CONDEC">
+      <header class="map-ce-popup__head">
+        <h4 class="map-ce-popup__title">
+          <span class="map-ce-popup__icon" aria-hidden="true"><i class="fa-solid fa-industry"></i></span>
+          ${ceEscapeHtml(municipio || "Município")}
+        </h4>
+        ${regiao ? `<p class="map-ce-popup__subtitle">${ceEscapeHtml(regiao)}</p>` : ""}
+      </header>
+      <div class="map-ce-popup__grid">
+        ${
+          fieldRows ||
+          `<p class="map-ce-popup__empty">Sem estabelecimentos no recorte ativo para este município.</p>`
+        }
+      </div>
+      ${listaHtml}
+    </section>
+  `;
+}
+
+function ceBuildCondecUnidadePopupHtml(props) {
+  const p = props || {};
+  const naRais = !(p.na_rais === false || p.na_rais === "false");
+  const pi = Number(p.pi) || 0;
+  const vinculos = Number(p.vinculos) || 0;
+  const rem = Number(p.rem) || 0;
+  const aderencia = pi ? (vinculos / pi) * 100 : 0;
+  const rows = [
+    ["fa-city", "Município", ceEscapeHtml(p.municipio || "—")],
+    ["fa-file-contract", "Programa", ceEscapeHtml(p.programa || "—")],
+    ["fa-diagram-project", "Setor", ceEscapeHtml(p.setor || "—")],
+    ["fa-handshake", "Empregos comprometidos", ceFormatIntPt(pi)],
+    ["fa-users", "Vínculos na RAIS", naRais ? ceFormatIntPt(vinculos) : "sem registro"],
+    ["fa-percent", "Aderência", pi && naRais ? ceFormatPercentPt(aderencia) : "—"],
+    ["fa-money-bill-wave", "Remuneração média", rem > 0 ? ceFormatCurrencyPt(rem) : "—"],
+    ["fa-calendar", "Vigência", `${p.inicio || "—"} a ${p.vigencia || "—"}`],
+    ["fa-handshake-angle", "Parceira SPE", ceEscapeHtml(p.spe || "—")],
+  ];
+  const n = Number(p.n) || 1;
+
+  return `
+    <section class="map-ce-popup" style="--map-popup-accent:${CE_CONDEC_POINT_COLOR}" role="group" aria-label="Empresa incentivada">
+      <header class="map-ce-popup__head">
+        <h4 class="map-ce-popup__title">
+          <span class="map-ce-popup__icon" aria-hidden="true"><i class="fa-solid fa-industry"></i></span>
+          ${ceEscapeHtml(p.unidade || "Empresa incentivada")}
+        </h4>
+        <p class="map-ce-popup__subtitle">${
+          n > 1 ? `Maior unidade entre ${ceFormatIntPt(n)} protocolos neste ponto` : "Empresa incentivada pelo CONDEC"
+        }</p>
+      </header>
+      <div class="map-ce-popup__grid">
+        ${rows
+          .map(
+            ([icon, label, value]) => `
+        <div class="map-ce-popup__row">
+          <span class="map-ce-popup__label">
+            <span class="map-ce-popup__icon map-ce-popup__icon--label" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
+            ${ceEscapeHtml(label)}
+          </span>
+          <strong class="map-ce-popup__value map-ce-popup__value--metric">${value}</strong>
+        </div>`
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function ceBuildQualificacaoCursoPopupHtml(props) {
   const p = props || {};
   const fmt = (v) => (Number.isFinite(Number(v)) ? ceFormatIntPt(Number(v)) : "");
@@ -3538,6 +3859,22 @@ function ceRenderFullLegend(metricKey) {
       st.min,
       st.max
     );
+  } else if (ceIsCondecMode()) {
+    const layerKey = ceMapRuntime.condecMetricKey || ceGetSelectedCondecLayerKey();
+    const cfg = CE_CONDEC_LAYER_CONFIG[layerKey] || CE_CONDEC_LAYER_CONFIG.vinculos;
+    const st = ceComputePropStats(ceMapRuntime.currentMergedGeoJson, CE_CONDEC_PROP, {});
+    ceUpdateLegendNumericGeneric(
+      el,
+      {
+        prop: CE_CONDEC_PROP,
+        colors: CE_CONDEC_COLORS,
+        legendTitle: cfg.legendTitle,
+        formatValue: (value) => ceFormatCondecMetricValue(layerKey, value),
+      },
+      st.thresholds,
+      st.min,
+      st.max
+    );
   } else if (ceIsPerfilMunicipalMode()) {
     const cfg = ceGetActiveProfileLayerConfig();
     const st = ceComputePropStats(
@@ -3761,6 +4098,7 @@ function ceApplyPageModeClasses(sheetName) {
   const isSeguroDesemp = sheetName === "seguro_desemprego";
   const isDinheiroNaMao = sheetName === "dinheiro_na_mao";
   const isQualificacao = sheetName === "qualificacao";
+  const isCondec = sheetName === "condec";
   const isPerfilMode = ceIsProfileMapPageMode(sheetName);
   root.classList.toggle("section-map-ce--perfil", isPerfilMode);
   root.classList.toggle("section-map-ce--intermediacao", isIntermediacao);
@@ -3772,6 +4110,7 @@ function ceApplyPageModeClasses(sheetName) {
   root.classList.toggle("section-map-ce--seguro-desemprego", isSeguroDesemp);
   root.classList.toggle("section-map-ce--dinheiro-na-mao", isDinheiroNaMao);
   root.classList.toggle("section-map-ce--qualificacao", isQualificacao);
+  root.classList.toggle("section-map-ce--condec", isCondec);
   if (!isQualificacao) ceResetQualificacaoCursoToggles();
 }
 
@@ -3972,6 +4311,8 @@ function ceApplyVisualization() {
       ceApplyDinheiroNaMaoMapFillPaint();
     } else if (ceIsQualificacaoMode()) {
       ceApplyQualificacaoMapFillPaint();
+    } else if (ceIsCondecMode()) {
+      ceApplyCondecMapFillPaint();
     } else if (isPerfil) {
       ceApplyProfileMapFillPaint();
     } else {
@@ -4015,6 +4356,8 @@ function ceApplyVisualization() {
     if (qfCursosLayerId || map.getLayer(CE_QF_CURSOS_HEAT_LAYER_ID)) {
       ceSetQualificacaoCursosOverlaysVisibility(map);
     }
+
+    ceSetCondecUnidadesVisibility(map);
 
     ceSetSedesLayersVisibility(map, ceIsSedesOverlayOn());
     ceRenderFullLegend(mode);
@@ -8283,6 +8626,11 @@ function ceApplyMapFilters() {
     return;
   }
 
+  if (ceIsCondecMode()) {
+    window.condecApi?.refresh?.();
+    return;
+  }
+
   if (ceIsPerfilMunicipalMode()) {
     ceSyncProfileLayerUi();
     const { aggByLayer, filteredByLayer } = ceBuildProfileAggByLayer(mesSel, munSel, regSel, anoSel);
@@ -8886,6 +9234,8 @@ function ceDestroyMap() {
   cePendingPageMode = null;
   ceMapRuntime.unidadesGeoJson = { type: "FeatureCollection", features: [] };
   ceMapRuntime.qualificacaoCursosGeoJson = { type: "FeatureCollection", features: [] };
+  ceMapRuntime.condecUnidadesGeoJson = { type: "FeatureCollection", features: [] };
+  ceMapRuntime.condecAggByCod = new Map();
   ceMapRuntime.sedeLabelMarkers.forEach((m) => m.remove());
   ceMapRuntime.sedeLabelMarkers = [];
   ceMapRuntime.populacaoByCodigo = new Map();
@@ -9054,6 +9404,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           ceMapRuntime.regiaoToCodigos = new Map();
           ceMapRuntime.unidadesGeoJson = { type: "FeatureCollection", features: [] };
           ceMapRuntime.qualificacaoCursosGeoJson = { type: "FeatureCollection", features: [] };
+          ceMapRuntime.condecUnidadesGeoJson = { type: "FeatureCollection", features: [] };
           ceMapRuntime.profileRowsByLayer = {};
           ceMapRuntime.populacaoByCodigo = new Map();
           ceMapRuntime.currentMergedGeoJson = { type: "FeatureCollection", features: [] };
@@ -9072,6 +9423,10 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
         map.addSource(CE_QF_CURSOS_SOURCE_ID, {
           type: "geojson",
           data: ceMapRuntime.qualificacaoCursosGeoJson,
+        });
+        map.addSource(CE_CONDEC_UNIDADES_SOURCE_ID, {
+          type: "geojson",
+          data: ceMapRuntime.condecUnidadesGeoJson,
         });
         map.addSource("ce-sedes-municipais", {
           type: "geojson",
@@ -9318,6 +9673,47 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           });
         }
 
+        const condecIconLoaded = await ceEnsureCondecIcon(map);
+        if (condecIconLoaded) {
+          map.addLayer({
+            id: CE_CONDEC_UNIDADES_SYMBOL_LAYER_ID,
+            type: "symbol",
+            source: CE_CONDEC_UNIDADES_SOURCE_ID,
+            layout: {
+              visibility: "none",
+              "icon-image": CE_CONDEC_UNIDADES_ICON_ID,
+              "icon-size": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                5, 0.18,
+                8, 0.22,
+                11, 0.28,
+              ],
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true,
+              "icon-anchor": "center",
+            },
+          });
+        } else {
+          map.addLayer({
+            id: CE_CONDEC_UNIDADES_CIRCLE_LAYER_ID,
+            type: "circle",
+            source: CE_CONDEC_UNIDADES_SOURCE_ID,
+            layout: { visibility: "none" },
+            paint: {
+              "circle-radius": [
+                "interpolate", ["linear"], ["zoom"],
+                5, 4, 8, 5.5, 11, 7,
+              ],
+              "circle-color": CE_CONDEC_POINT_COLOR,
+              "circle-stroke-color": CE_CONDEC_POINT_STROKE,
+              "circle-stroke-width": 2,
+              "circle-opacity": 0.92,
+            },
+          });
+        }
+
         map.addLayer({
           id: CE_SEDE_LAYER_ID,
           type: "circle",
@@ -9337,7 +9733,7 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
 
         ceBuildSedeLabelMarkers(map, sedesFc);
 
-        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos" || cePendingPageMode === "seguro_desemprego" || cePendingPageMode === "dinheiro_na_mao" || cePendingPageMode === "qualificacao")) {
+        if (cePendingPageMode && (ceIsProfileMapPageMode(cePendingPageMode) || cePendingPageMode === "caged_grupamentos" || cePendingPageMode === "seguro_desemprego" || cePendingPageMode === "dinheiro_na_mao" || cePendingPageMode === "qualificacao" || cePendingPageMode === "condec")) {
           ceSetPageMode(cePendingPageMode);
         } else if (ceIsPerfilMunicipalMode()) {
           let mode = "perfil_municipal";
@@ -9375,6 +9771,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           if (ceIsQualificacaoMode() && qfCursosLayerId) {
             const qfHits = map.queryRenderedFeatures(e.point, { layers: [qfCursosLayerId] });
             if (qfHits && qfHits.length) return;
+          }
+          const condecPinLayerId = ceGetCondecUnidadesLayerId(map);
+          if (ceIsCondecMode() && condecPinLayerId) {
+            const condecHits = map.queryRenderedFeatures(e.point, { layers: [condecPinLayerId] });
+            if (condecHits && condecHits.length) return;
           }
           if (map.getLayer(CE_SEDE_LAYER_ID)) {
             const sedeHits = map.queryRenderedFeatures(e.point, { layers: [CE_SEDE_LAYER_ID] });
@@ -9420,6 +9821,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             const agg = cod != null ? ceMapRuntime.qualificacaoAggByCod?.get(cod) : null;
             accentColor = CE_QF_COLORS[Math.min(3, CE_QF_COLORS.length - 1)];
             popupHtml = ceBuildQualificacaoPopupHtml({ municipio, regiao, agg, accentColor });
+          } else if (ceIsCondecMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            const agg = cod != null ? ceMapRuntime.condecAggByCod?.get(cod) : null;
+            accentColor = CE_CONDEC_COLORS[Math.min(3, CE_CONDEC_COLORS.length - 1)];
+            popupHtml = ceBuildCondecPopupHtml({ municipio, regiao, agg, accentColor });
           } else {
           const isPerfil = ceIsPerfilMunicipalMode();
           let indicador = "";
@@ -9484,6 +9890,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             const qfHits = map.queryRenderedFeatures(e.point, { layers: [qfCursosLayerId] });
             if (qfHits && qfHits.length) return;
           }
+          const condecLayerId = ceGetCondecUnidadesLayerId(map);
+          if (ceIsCondecMode() && condecLayerId) {
+            const condecHits = map.queryRenderedFeatures(e.point, { layers: [condecLayerId] });
+            if (condecHits && condecHits.length) return;
+          }
           const f = e.features && e.features[0];
           if (!f) return;
           if (ceIsVaiVemMode()) {
@@ -9511,6 +9922,11 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
             window.qualificacaoApi?.selectSingleMunicipioFromMap?.(cod);
             return;
           }
+          if (ceIsCondecMode()) {
+            const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
+            window.condecApi?.filtrarMunicipio?.(cod);
+            return;
+          }
           const cod = ceGeoCodiToCodigoMunicipio(f.properties?.GEO_CODI);
           ceSelectSingleMunicipioFromMap(cod);
         };
@@ -9524,6 +9940,8 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
           if (idtLayerId) layers.push(idtLayerId);
           const qfCursosLayerId = ceGetQualificacaoCursosLayerId(map);
           if (ceIsQualificacaoMode() && qfCursosLayerId) layers.push(qfCursosLayerId);
+          const condecPinLayerId = ceGetCondecUnidadesLayerId(map);
+          if (ceIsCondecMode() && condecPinLayerId) layers.push(condecPinLayerId);
           if (map.getLayer(CE_SEDE_LAYER_ID)) layers.push(CE_SEDE_LAYER_ID);
           const hits = map.queryRenderedFeatures(e.point, {
             layers,
@@ -9622,6 +10040,26 @@ function ceEnsureRegioesMap(containerEl, geoUrl, legendEl = null) {
               .addTo(map);
             const tip = unitPopup.getElement()?.querySelector(".maplibregl-popup-tip");
             if (tip) tip.style.borderTopColor = CE_QF_CURSOS_POINT_COLOR;
+          });
+        }
+
+        const condecUnidadesLayerId = ceGetCondecUnidadesLayerId(map);
+        if (condecUnidadesLayerId) {
+          map.on("mouseenter", condecUnidadesLayerId, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", condecUnidadesLayerId, () => {
+            map.getCanvas().style.cursor = "";
+          });
+          map.on("click", condecUnidadesLayerId, (e) => {
+            const f = e.features && e.features[0];
+            if (!f) return;
+            unitPopup
+              .setLngLat(e.lngLat)
+              .setHTML(ceBuildCondecUnidadePopupHtml(f.properties || {}))
+              .addTo(map);
+            const tip = unitPopup.getElement()?.querySelector(".maplibregl-popup-tip");
+            if (tip) tip.style.borderTopColor = CE_CONDEC_POINT_COLOR;
           });
         }
 
@@ -9731,6 +10169,8 @@ function ceSetPageMode(sheetName) {
     window.qualificacaoApi?.syncTemporalFilters?.();
   } else if (sheetName === "dinheiro_na_mao") {
     window.dinheiroNaMaoApi?.syncTemporalFilters?.();
+  } else if (sheetName === "condec") {
+    /* CONDEC tem filtros próprios (referência da RAIS), não usa ano/mês do CAGED. */
   } else {
     ceSyncTemporalFiltersForCurrentMode();
   }
@@ -9749,6 +10189,8 @@ window.ceRegioesMapApi = {
   applyDinheiroNaMaoLayer: ceApplyDinheiroNaMaoLayer,
   applyQualificacaoLayer: ceApplyQualificacaoLayer,
   applyQualificacaoCursosPoints: ceApplyQualificacaoCursosPoints,
+  applyCondecLayer: ceApplyCondecLayer,
+  applyCondecPoints: ceApplyCondecPoints,
   normMunKey: ceNormMunKey,
   rebuildAllMunicipios: ceRebuildMunicipioOptions,
   getRegiaoToCodigos: () => ceMapRuntime.regiaoToCodigos,
