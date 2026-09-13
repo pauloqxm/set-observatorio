@@ -212,16 +212,53 @@ def classe_tamanho(vinculos):
     return 9
 
 
+# Producao primaria agro. Nao inclui comercio, fabricacao ou maquinas agricolas.
+_AGRO_DESC_EXCLUI = (
+    "COMERCIO", "FABRICACAO", "MANUTENCAO", "REPARACAO",
+    "MAQUINAS", "APARELHOS", "ARTEFATOS", "ATACADISTA", "VAREJISTA",
+)
+_AGRO_DESC_INCLUI = (
+    "CULTIVO DE",
+    "CRIACAO DE",
+    "HORTICULTURA",
+    "SILVICULTURA",
+    "AQUICULTURA",
+    "PESCA DE",
+    "COLETA DE PRODUTOS",
+    "ATIVIDADES DE APOIO A PECUARIA",
+    "ATIVIDADES DE APOIO A AGRICULTURA",
+    "ATIVIDADES DE APOIO A PRODUCAO FLORESTAL",
+    "PRODUCAO FLORESTAL",
+    "EXPLORACAO FLORESTAL",
+)
+
+
+def descricao_e_producao_agro(desc):
+    """True se a descricao e atividade primaria agro (nao comercio/industria)."""
+    d = sem_acento(desc)
+    if not d:
+        return False
+    if any(p in d for p in _AGRO_DESC_EXCLUI):
+        return False
+    return any(p in d for p in _AGRO_DESC_INCLUI)
+
+
 def setor_cnae95(codigo):
-    """Classe CNAE 95/1.0 com 5 digitos -> indice de setor."""
-    codigo = (codigo or "").strip()
-    if codigo == CNAE95_BALDE:
+    """Classe CNAE 95/1.0 com 5 digitos -> indice de setor.
+
+    A RAIS frequentemente entrega o codigo sem o zero a esquerda (`1414` em vez
+    de `01414`). Sem completar, a divisao vira 14 (industria) e some a
+    Agropecuaria. Divisoes 01-05 cobrem CNAE 95 (01, 02, 05) e CNAE 2.0 (01-03).
+    """
+    codigo = dig(codigo)
+    if not codigo or codigo == CNAE95_BALDE or codigo.zfill(5) == CNAE95_BALDE:
         return S_NI
+    codigo = codigo.zfill(5)
     try:
         div = int(codigo[:2])
     except ValueError:
         return S_NI
-    if div in (1, 2, 5):
+    if 1 <= div <= 5:
         return S_AGRO
     if 10 <= div <= 37 or div in (40, 41):
         return S_IND
@@ -239,6 +276,7 @@ def setor_cnae20(codigo):
     codigo = dig(codigo)
     if len(codigo) < 2:
         return S_NI
+    codigo = codigo.zfill(7)
     div = int(codigo[:2])
     if 1 <= div <= 3:
         return S_AGRO
@@ -251,6 +289,29 @@ def setor_cnae20(codigo):
     if 49 <= div <= 97:
         return S_SERV
     return S_NI
+
+
+def classificar_setor(codigo95, desc=None, cnae20=None):
+    """Setor do estabelecimento: CNAE 2.0 do protocolo, senao CNAE 95 + descricao.
+
+    Codigos de 5 digitos sem o zero (`11207` = cultivo de algodao, `14222` =
+    criacao de equinos, `51187` = pesca) colidem com industria ou comercio.
+    A descricao de producao primaria recupera esses casos; o balde 99999
+    ("Cultivo de melao") continua nao identificado.
+    """
+    if cnae20:
+        setor = setor_cnae20(cnae20)
+        if setor != S_NI:
+            return setor
+    setor = setor_cnae95(codigo95)
+    if setor == S_AGRO:
+        return setor
+    codigo = dig(codigo95)
+    if not codigo or codigo == CNAE95_BALDE or codigo.zfill(5) == CNAE95_BALDE:
+        return S_NI
+    if descricao_e_producao_agro(desc):
+        return S_AGRO
+    return setor
 
 
 def carregar_geografia():
@@ -383,12 +444,18 @@ def main():
             i_mun = mun_idx.get(cod_mun, -1)
 
             cnae_cod = (linha["CNAE 95 Classe - Código"] or "").strip()
+            cnae_desc = (linha["CNAE 95 Classe - Descrição"] or "").strip()
             i_cnae = indice(
                 cnae_idx, cnaes, cnae_cod,
-                {"cod": cnae_cod, "desc": (linha["CNAE 95 Classe - Descrição"] or "").strip()},
+                {"cod": cnae_cod, "desc": cnae_desc},
             )
-            # Protocolo tem CNAE 2.0, mais preciso; filial sem protocolo fica com o CNAE 95.
-            setor = setor_cnae20(proto["cnae20"]) if proto and proto["cnae20"] else setor_cnae95(cnae_cod)
+            # Protocolo tem CNAE 2.0, mais preciso; filial sem protocolo fica com
+            # o CNAE 95, completado e conferido pela descricao de producao agro.
+            setor = classificar_setor(
+                cnae_cod,
+                desc=cnae_desc,
+                cnae20=proto["cnae20"] if proto else None,
+            )
 
             vinculos = int(num(linha["qtd_vinculos"]))
             rem = num(linha["Vl Rem Média Nom"])
