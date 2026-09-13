@@ -247,6 +247,7 @@ function renderMenu() {
     <button type="button" class="menu-item ${state.abaAtual === sheetName ? "active" : ""}" data-aba="${sheetName}">
       <i class="${meta.icon}"></i>
       <span>${meta.label}</span>
+      ${window.obsAcesso?.cadeadoHtml?.(sheetName) || ""}
     </button>`;
       }
 
@@ -269,6 +270,7 @@ function renderMenu() {
       <button type="button" class="menu-item menu-item--sub ${state.abaAtual === child ? "active" : ""}" data-aba="${child}">
         <i class="${cm.icon || "fa-solid fa-circle"}"></i>
         <span>${cl}</span>
+        ${window.obsAcesso?.cadeadoHtml?.(child) || ""}
       </button>`;
         })
         .join("");
@@ -285,9 +287,9 @@ function renderMenu() {
     .join("");
   els.menuAbas.innerHTML = html;
   els.menuAbas.querySelectorAll(".menu-item").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      loadTab(btn.dataset.aba);
-      if (window.innerWidth <= 1024) closeMenu();
+    btn.addEventListener("click", async () => {
+      const ok = await loadTab(btn.dataset.aba);
+      if (ok && window.innerWidth <= 1024) closeMenu();
     });
   });
 }
@@ -449,8 +451,12 @@ function syncMapSection() {
     });
 }
 
-function loadTab(sheetName) {
-  if (!MAP_TABS[sheetName]) return;
+async function loadTab(sheetName) {
+  if (!MAP_TABS[sheetName]) return false;
+  if (window.obsAcesso?.precisaCadeado?.(sheetName)) {
+    const liberou = await window.obsAcesso.pedir(sheetName);
+    if (!liberou) return false;
+  }
   state.abaAtual = sheetName;
   const url = new URL(location.href);
   url.searchParams.set("aba", sheetName);
@@ -458,12 +464,16 @@ function loadTab(sheetName) {
   renderMenu();
   syncPageHeader();
   syncMapSection();
+  return true;
 }
 
-function init() {
+async function init() {
+  if (window.obsAcesso?.carregar) await window.obsAcesso.carregar();
+
   const params   = new URLSearchParams(location.search);
   const abaParam = params.get("aba");
-  if (abaParam && MAP_TABS[abaParam]) state.abaAtual = abaParam;
+  const abaRestrita = abaParam && window.obsAcesso?.precisaCadeado?.(abaParam);
+  if (abaParam && MAP_TABS[abaParam] && !abaRestrita) state.abaAtual = abaParam;
 
   if (els.menuToggle)  els.menuToggle.addEventListener("click", toggleMenu);
   if (els.menuEdgeOpen) els.menuEdgeOpen.addEventListener("click", openMenu);
@@ -479,6 +489,15 @@ function init() {
   renderMenu();
   syncPageHeader();
   syncMapSection();
+
+  if (abaRestrita && MAP_TABS[abaParam]) {
+    const ok = await loadTab(abaParam);
+    if (!ok) {
+      const url = new URL(location.href);
+      url.searchParams.set("aba", state.abaAtual);
+      history.replaceState(null, "", url);
+    }
+  }
 }
 
 init();

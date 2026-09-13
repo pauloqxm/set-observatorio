@@ -296,6 +296,147 @@ a.menu-item {
   width: 100%;
 }
 
+.menu-item__cadeado {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.menu-item__cadeado[hidden] {
+  display: none;
+}
+
+.menu-item__cadeado i {
+  width: auto;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.menu-item:hover .menu-item__cadeado i {
+  transform: none;
+  color: #64748b;
+}
+
+.menu-item.active .menu-item__cadeado i {
+  color: #fff;
+}
+
+.acesso-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.acesso-modal[hidden] {
+  display: none;
+}
+
+.acesso-modal__fundo {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.acesso-modal__caixa {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 400px);
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 24px 22px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
+}
+
+.acesso-modal__icone {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fff1f0;
+  color: #f25d53;
+  font-size: 1.1rem;
+  margin-bottom: 14px;
+}
+
+.acesso-modal__titulo {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  color: #1e293b;
+}
+
+.acesso-modal__texto {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.acesso-modal__rotulo {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.acesso-modal__input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d8e2f5;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 1rem;
+}
+
+.acesso-modal__input:focus {
+  outline: 2px solid #93c5fd;
+  border-color: #3b82f6;
+}
+
+.acesso-modal__erro {
+  margin: 8px 0 0;
+  color: #dc2626;
+  font-size: 0.88rem;
+}
+
+.acesso-modal__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.acesso-modal__btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.acesso-modal__btn--ghost {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.acesso-modal__btn--ok {
+  background: linear-gradient(135deg, #ff7167 0%, #f04f50 100%);
+  color: #fff;
+}
+
+.acesso-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .sidebar-map-links,
 .sidebar-map-back {
   margin-top: 16px;

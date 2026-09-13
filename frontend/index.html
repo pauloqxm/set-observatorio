@@ -48,13 +48,15 @@
             <a href="/mapa?aba=caged_grupamentos" class="menu-item menu-item--sub">
               <i class="fa-solid fa-industry"></i><span>Por grupamento</span>
             </a>
-            <a href="/mapa?aba=caged_estatisticas" class="menu-item menu-item--sub">
+            <a href="/mapa?aba=caged_estatisticas" class="menu-item menu-item--sub" data-aba-restrita="caged_estatisticas">
               <i class="fa-solid fa-chart-pie"></i><span>Estatísticas</span>
+              <span class="menu-item__cadeado" hidden title="Acesso restrito"><i class="fa-solid fa-lock"></i></span>
             </a>
           </div>
         </div>
-        <a href="/mapa?aba=condec" class="menu-item">
+        <a href="/mapa?aba=condec" class="menu-item" data-aba-restrita="condec">
           <i class="fa-solid fa-file-invoice-dollar"></i><span>RAIS e CONDEC</span>
+          <span class="menu-item__cadeado" hidden title="Acesso restrito"><i class="fa-solid fa-lock"></i></span>
         </a>
         <a href="/mapa?aba=perfil_municipal" class="menu-item">
           <i class="fa-solid fa-city"></i><span>Perfil Municipal</span>
@@ -419,6 +421,7 @@
   <script src="/static/js/home-panorama.js"></script>
   <script src="/static/js/home-programs.js"></script>
   <script src="/static/js/home-intermediacao.js"></script>
+  <script src="/static/js/acesso.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

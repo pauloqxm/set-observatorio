@@ -3,11 +3,23 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
+from .services.acesso import (
+    ABAS_RESTRITAS,
+    COOKIE_MAX_AGE,
+    COOKIE_NAME,
+    caminho_restrito,
+    cookie_para_gravar,
+    cookie_valido,
+    cookie_secure,
+    token_confere,
+    token_configurado,
+)
 from .services.sheets import get_indicadores, get_meta, get_sheet_data, get_sheet_names
 from .services.home_qualificacao import get_qualificacao_home_summary
 from .services.caged_estatisticas import opcoes_filtros as caged_estats_opcoes
@@ -29,6 +41,19 @@ app.add_middleware(
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 logger = logging.getLogger(__name__)
+
+
+class AcessoBody(BaseModel):
+    token: str = Field(default="", max_length=200)
+
+
+@app.middleware("http")
+async def restringir_dados_internos(request: Request, call_next):
+    if not caminho_restrito(request.url.path):
+        return await call_next(request)
+    if cookie_valido(request.cookies.get(COOKIE_NAME)):
+        return await call_next(request)
+    return JSONResponse({"detail": "acesso restrito"}, status_code=401)
 
 
 @app.on_event("startup")
@@ -93,6 +118,33 @@ def api_abas() -> dict:
 @app.get("/api/meta")
 def api_meta() -> dict:
     return get_meta()
+
+
+@app.get("/api/acesso")
+def api_acesso_status(request: Request) -> dict:
+    liberado = cookie_valido(request.cookies.get(COOKIE_NAME))
+    return {
+        "ativo": token_configurado(),
+        "liberado": liberado,
+        "abas": sorted(ABAS_RESTRITAS),
+    }
+
+
+@app.post("/api/acesso")
+def api_acesso_entrar(body: AcessoBody, request: Request, response: Response) -> dict:
+    if token_configurado() and not token_confere(body.token):
+        raise HTTPException(status_code=403, detail="Token inválido")
+    if token_configurado():
+        response.set_cookie(
+            key=COOKIE_NAME,
+            value=cookie_para_gravar(),
+            max_age=COOKIE_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            secure=cookie_secure(request),
+            path="/",
+        )
+    return {"ok": True, "liberado": True, "abas": sorted(ABAS_RESTRITAS)}
 
 
 @app.get("/api/home/qualificacao")
