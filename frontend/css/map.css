@@ -3510,6 +3510,15 @@
   font-size: 0.74rem;
 }
 
+.section-map-ce--condec .condec-card__acoes {
+  justify-content: flex-end;
+}
+
+.section-map-ce--condec .condec-card__acoes .condec-seg {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 .section-map-ce--condec .condec-tabela-envolve,
 .section-map-ce--condec .condec-tabela-rolagem {
   max-width: 100%;

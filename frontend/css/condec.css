@@ -311,7 +311,27 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  align-items: center;
+  align-items: flex-end;
+}
+
+.condec-tabela-busca {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min(100%, 240px);
+}
+
+.condec-tabela-busca__rotulo {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--condec-tinta-suave);
+}
+
+.condec-tabela-busca .condec-entrada {
+  width: min(100%, 280px);
+  height: 36px;
 }
 
 /* ---------------- condec-filtros ---------------- */

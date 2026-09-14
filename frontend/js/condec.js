@@ -7,7 +7,7 @@
  */
 /**
  * Orquestração do painel: monta os filtros, dispara o recálculo e desenha
- * indicadores, tabela com drill-down e exportação.
+ * indicadores, tabela com drill-down e busca por nome ou CNPJ.
  *
  * A tabela ordena índices e só materializa objetos para a página visível, porque
  * o recorte sem filtro tem quase 100 mil empresas e 112 mil estabelecimentos.
@@ -317,11 +317,22 @@
       };
     };
 
-    const buscar = debounce(() => {
-      D.estado.busca = el("condecFiltroBusca").value;
+    const camposBusca = ["condecFiltroBusca", "condecTabelaBusca"];
+    const buscar = debounce((origem) => {
+      const valor = origem && origem.value != null
+        ? origem.value
+        : (el("condecTabelaBusca") || el("condecFiltroBusca")).value;
+      camposBusca.forEach((id) => {
+        const campo = el(id);
+        if (campo && campo !== origem) campo.value = valor;
+      });
+      D.estado.busca = valor;
       aoAlterarFiltro();
     }, 280);
-    el("condecFiltroBusca").addEventListener("input", buscar);
+    camposBusca.forEach((id) => {
+      const campo = el(id);
+      if (campo) campo.addEventListener("input", () => buscar(campo));
+    });
 
     montarFaixasAno();
 
@@ -338,6 +349,7 @@
     el("condecBtnLimpar").addEventListener("click", () => {
       D.limparEstado();
       el("condecFiltroBusca").value = "";
+      if (el("condecTabelaBusca")) el("condecTabelaBusca").value = "";
       faixas.forEach((id) => (el(id).value = ""));
       ["condecFiltroIncentivo", "condecFiltroCalcadista", "condecFiltroSpe", "condecFiltroInstitucional"].forEach((id) => {
         el(id)
@@ -355,7 +367,6 @@
     });
     alternarFiltros(localStorage.getItem(CHAVE_RECOLHIDO) === "1");
 
-    el("condecBtnExportar").addEventListener("click", exportarCsv);
     el("condecPgPrimeira").addEventListener("click", () => irParaPagina(0));
     el("condecPgAnterior").addEventListener("click", () => irParaPagina(vista.pagina - 1));
     el("condecPgProxima").addEventListener("click", () => irParaPagina(vista.pagina + 1));
@@ -1373,41 +1384,6 @@
     });
   }
 
-  // ---------------------------------------------------------------- exportação
-
-  function exportarCsv() {
-    if (!D.texto) return;
-    const cols = colunas();
-    const linhas = ordenarLinhas();
-    const semTags = (v) => String(v === null || v === undefined ? "" : v).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    const escapar = (v) => {
-      const t = semTags(v);
-      return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-    };
-
-    const saida = [cols.map((c) => escapar(c.rotulo)).join(";")];
-    linhas.forEach((linha) => {
-      const dados = vista.modo === "empresa" ? dadosGrupo(linha) : dadosEstab(linha);
-      saida.push(
-        cols
-          .map((c) => {
-            const valor = dados[c.chave];
-            if (typeof valor === "number") return String(valor).replace(".", ",");
-            return escapar(valor);
-          })
-          .join(";")
-      );
-    });
-
-    const blob = new Blob(["\uFEFF" + saida.join("\r\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `painel-rais-condec-${vista.modo}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   // ------------------------------------------------------------------ arranque
 
   function preencherCabecalho() {
@@ -1458,8 +1434,12 @@
 
       // A razão social é o arquivo mais pesado e só a tabela e a busca dependem dela.
       await D.carregarTexto();
-      el("condecFiltroBusca").disabled = false;
-      el("condecFiltroBusca").placeholder = "ex.: AERIS, 12528708";
+      ["condecFiltroBusca", "condecTabelaBusca"].forEach((id) => {
+        const campo = el(id);
+        if (!campo) return;
+        campo.disabled = false;
+        campo.placeholder = "Nome ou CNPJ";
+      });
       renderTabela();
       atualizarComparacao();
     } catch (erro) {
