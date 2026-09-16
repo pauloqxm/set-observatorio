@@ -11,7 +11,6 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
-COPY caged_base.csv.gz ./caged_base.csv.gz
 
 # Bases do painel CONDEC; o ETL materializa frontend/data/condec/ no build,
 # para o container nao pagar o cruzamento RAIS x CONDEC a cada subida.

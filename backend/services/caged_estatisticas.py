@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import csv
 import gzip
+import io
 import logging
+import os
 import threading
+import urllib.error
+import urllib.request
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from statistics import mean
-from typing import Any, TextIO
+from typing import Any, Iterator, TextIO
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +20,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 CSV_GZ_PATH = ROOT_DIR / "caged_base.csv.gz"
 CSV_PATH = ROOT_DIR / "caged_base.csv"
 DADOS_CAGED_PATH = ROOT_DIR / "frontend" / "data" / "dados_caged.csv"
+CAGED_API_URL_PADRAO = "https://sistemas2.idt.org.br/api_observatorio_set/api/dados-caged"
 
 ESTOQUE_BASE_CE_202512 = 1_374_628
 SALARIO_TRIM = 0.02
@@ -270,18 +276,124 @@ def _items(counter: dict[str, float], *, sort_abs: bool = True, top: int | None 
     return rows
 
 
-def _resolve_csv_path() -> Path:
+def _caged_api_key() -> str:
+    return (os.environ.get("CAGED_API_KEY") or "").strip()
+
+
+def _caged_api_url() -> str:
+    return (os.environ.get("CAGED_API_URL") or CAGED_API_URL_PADRAO).strip()
+
+
+def _resolve_csv_path() -> Path | None:
     if CSV_GZ_PATH.exists():
         return CSV_GZ_PATH
     if CSV_PATH.exists():
         return CSV_PATH
-    raise FileNotFoundError(f"Arquivo CAGED não encontrado: {CSV_GZ_PATH} ou {CSV_PATH}")
+    return None
 
 
 def _open_caged_csv(path: Path) -> TextIO:
     if path.name.endswith(".gz"):
         return gzip.open(path, "rt", encoding="utf-8-sig", newline="")
     return path.open("r", encoding="utf-8-sig", newline="")
+
+
+@contextmanager
+def _abrir_fonte_caged() -> Iterator[tuple[TextIO, str, str]]:
+    """API (CAGED_API_KEY) ou, se a chave nao existir, CSV local de desenvolvimento."""
+    key = _caged_api_key()
+    if key:
+        url = _caged_api_url()
+        logger.info("Carregando CAGED da API")
+        req = urllib.request.Request(
+            url,
+            headers={
+                "x-api-key": key,
+                "Accept": "text/csv",
+                "User-Agent": "set-observatorio",
+            },
+        )
+        try:
+            raw = urllib.request.urlopen(req, timeout=300)
+        except urllib.error.HTTPError as exc:
+            detalhe = ""
+            try:
+                detalhe = exc.read(200).decode("utf-8", "replace")
+            except Exception:
+                detalhe = str(exc.reason or "")
+            raise FileNotFoundError(
+                f"API CAGED recusou a leitura (HTTP {exc.code}). Confira CAGED_API_KEY."
+                + (f" {detalhe.strip()[:160]}" if detalhe.strip() else "")
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise FileNotFoundError(f"API CAGED indisponivel: {exc.reason}") from exc
+        fh = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
+        try:
+            yield fh, ",", url
+        finally:
+            fh.close()
+        return
+
+    path = _resolve_csv_path()
+    if path is None:
+        raise FileNotFoundError(
+            "CAGED_API_KEY nao configurada e nao ha caged_base.csv.gz na raiz."
+        )
+    logger.info("Carregando CAGED de %s (sem CAGED_API_KEY)", path.name)
+    fh = _open_caged_csv(path)
+    try:
+        yield fh, ";", str(path)
+    finally:
+        fh.close()
+
+
+def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set[str], dict[str, str], set[str]]:
+    rows: list[tuple] = []
+    anos: set[str] = set()
+    comps: set[str] = set()
+    muns: dict[str, str] = {}
+    grups: set[str] = set()
+    for rec in reader:
+        comp = "".join(ch for ch in str(rec.get("competênciamov") or "") if ch.isdigit())
+        if len(comp) != 6:
+            continue
+        mun = _norm_mun(rec.get("município") or "")
+        if not mun:
+            continue
+        secao = str(rec.get("seção") or "").strip().upper()
+        origem = str(rec.get("origem_caged") or "mov").strip().lower()
+        saldo = _parse_int(rec.get("saldomovimentação") or "0") or 0
+        if origem == "exc":
+            saldo = -saldo
+        if saldo == 0:
+            continue
+        grup = _secao_grup(secao)
+        mun_nome = str(rec.get("municipio_nome") or "").strip() or f"Código {mun}"
+        rows.append(
+            (
+                comp,
+                mun,
+                mun_nome,
+                secao,
+                grup,
+                saldo,
+                str(rec.get("cbo_descricao") or "").strip() or "Não informado",
+                str(rec.get("graudeinstrução") or "").strip(),
+                _parse_int(rec.get("idade") or ""),
+                _parse_float(rec.get("tempoemprego") or ""),
+                str(rec.get("raçacor") or "").strip(),
+                str(rec.get("sexo") or "").strip(),
+                str(rec.get("tipomovimentação") or "").strip(),
+                _parse_float(rec.get("salário") or ""),
+                _flag_on(rec.get("indtrabintermitente")),
+                _flag_on(rec.get("indtrabparcial")),
+            )
+        )
+        anos.add(comp[:4])
+        comps.add(comp)
+        muns[mun] = mun_nome
+        grups.add(grup)
+    return rows, anos, comps, muns, grups
 
 
 def _ensure_loaded() -> None:
@@ -291,55 +403,10 @@ def _ensure_loaded() -> None:
     with _LOCK:
         if _ROWS is not None:
             return
-        source = _resolve_csv_path()
-        logger.info("Carregando %s", source)
-        rows: list[tuple] = []
-        anos: set[str] = set()
-        comps: set[str] = set()
-        muns: dict[str, str] = {}
-        grups: set[str] = set()
-        with _open_caged_csv(source) as fh:
-            reader = csv.DictReader(fh, delimiter=";")
-            for rec in reader:
-                comp = "".join(ch for ch in str(rec.get("competênciamov") or "") if ch.isdigit())
-                if len(comp) != 6:
-                    continue
-                mun = _norm_mun(rec.get("município") or "")
-                if not mun:
-                    continue
-                secao = str(rec.get("seção") or "").strip().upper()
-                origem = str(rec.get("origem_caged") or "mov").strip().lower()
-                saldo = _parse_int(rec.get("saldomovimentação") or "0") or 0
-                if origem == "exc":
-                    saldo = -saldo
-                if saldo == 0:
-                    continue
-                grup = _secao_grup(secao)
-                mun_nome = str(rec.get("municipio_nome") or "").strip() or f"Código {mun}"
-                rows.append(
-                    (
-                        comp,
-                        mun,
-                        mun_nome,
-                        secao,
-                        grup,
-                        saldo,
-                        str(rec.get("cbo_descricao") or "").strip() or "Não informado",
-                        str(rec.get("graudeinstrução") or "").strip(),
-                        _parse_int(rec.get("idade") or ""),
-                        _parse_float(rec.get("tempoemprego") or ""),
-                        str(rec.get("raçacor") or "").strip(),
-                        str(rec.get("sexo") or "").strip(),
-                        str(rec.get("tipomovimentação") or "").strip(),
-                        _parse_float(rec.get("salário") or ""),
-                        _flag_on(rec.get("indtrabintermitente")),
-                        _flag_on(rec.get("indtrabparcial")),
-                    )
-                )
-                anos.add(comp[:4])
-                comps.add(comp)
-                muns[mun] = mun_nome
-                grups.add(grup)
+        with _abrir_fonte_caged() as (fh, delim, origem):
+            reader = csv.DictReader(fh, delimiter=delim)
+            rows, anos, comps, muns, grups = _ingestir_reader(reader)
+        nome = "api-dados-caged" if origem.startswith("http") else Path(origem).name
         _ROWS = rows
         _OPCOES = {
             "anos": sorted(anos),
@@ -350,11 +417,11 @@ def _ensure_loaded() -> None:
                 {"valor": cod, "label": muns[cod]} for cod in sorted(muns, key=lambda k: muns[k])
             ],
             "grupamentos": [{"valor": g, "label": g} for g in GRUPAMENTOS if g in grups or True],
-            "arquivo": str(source),
-            "arquivo_nome": source.name,
+            "arquivo": origem,
+            "arquivo_nome": nome,
             "total_linhas": len(rows),
         }
-        logger.info("CAGED estatísticas: %s linhas", f"{len(rows):,}")
+        logger.info("CAGED estatísticas: %s linhas (%s)", f"{len(rows):,}", nome)
 
 
 def opcoes_filtros() -> dict[str, Any]:
@@ -773,10 +840,12 @@ def resumo_estatisticas(
         else "—"
     )
 
+    fonte = (_OPCOES or {}).get("arquivo") or ""
+    fonte_nome = (_OPCOES or {}).get("arquivo_nome") or "dados-caged"
     return {
-        "arquivo": str(_resolve_csv_path()),
-        "arquivo_nome": _resolve_csv_path().name,
-        "arquivo_ativo": _resolve_csv_path().name,
+        "arquivo": fonte,
+        "arquivo_nome": fonte_nome,
+        "arquivo_ativo": fonte_nome,
         "unidade": _unidade(mun_list, grup_list),
         "total_linhas": len(rows),
         "filtros": {
