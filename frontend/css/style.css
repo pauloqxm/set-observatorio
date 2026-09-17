@@ -90,6 +90,7 @@ body {
 }
 
 .sidebar-logos {
+  position: relative;
   display: grid;
   gap: 12px;
   justify-items: center;
@@ -173,12 +174,33 @@ body {
 }
 
 .menu-toggle {
-  border: 1px solid #d7dbe8;
-  background: #fff;
-  color: #2f364f;
-  border-radius: 8px;
-  padding: 8px 10px;
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1;
   cursor: pointer;
+  opacity: 0.72;
+}
+
+.menu-toggle:hover,
+.menu-toggle:focus-visible {
+  opacity: 1;
+  background: rgba(47, 54, 79, 0.08);
+  color: #334155;
+  outline: none;
 }
 
 .menu-abas {
@@ -1454,7 +1476,8 @@ td {
   }
 
   .menu-toggle {
-    margin: 4px auto 8px;
+    top: 4px;
+    right: 4px;
   }
 
   .menu-abas {
