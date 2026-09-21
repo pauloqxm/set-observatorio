@@ -932,6 +932,10 @@ def resumo_estatisticas(
             "saldo_sexo": _items(sexo_saldo, sort_abs=False),
             "admissoes_faixa": [{"label": lab, "valor": faixa_adm.get(lab, 0.0)} for lab, _ in FAIXAS_IDADE],
             "desligamentos_faixa": [{"label": lab, "valor": faixa_dem.get(lab, 0.0)} for lab, _ in FAIXAS_IDADE],
+            "saldo_faixa": [
+                {"label": lab, "valor": faixa_adm.get(lab, 0.0) - faixa_dem.get(lab, 0.0)}
+                for lab, _ in FAIXAS_IDADE
+            ],
             "admissoes_sexo_faixa": _sexo_faixa_block(sexo_faixa_adm),
             "desligamentos_sexo_faixa": _sexo_faixa_block(sexo_faixa_dem),
         },

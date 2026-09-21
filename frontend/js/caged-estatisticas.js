@@ -401,6 +401,7 @@ function ceEstatsRenderCharts(d) {
   ceEstatsBarH(document.getElementById("chartEstatsSaldoSexo"), demo.saldo_sexo, { color: CE_ESTATS_COLORS.saldo, height: 280 });
   ceEstatsBarH(document.getElementById("chartEstatsAdmFaixa"), demo.admissoes_faixa, { color: CE_ESTATS_COLORS.adm, height: 340 });
   ceEstatsBarH(document.getElementById("chartEstatsDemFaixa"), demo.desligamentos_faixa, { color: CE_ESTATS_COLORS.dem, height: 340 });
+  ceEstatsBarH(document.getElementById("chartEstatsSaldoFaixa"), demo.saldo_faixa, { color: CE_ESTATS_COLORS.saldo, height: 340 });
   ceEstatsGroupedBar(document.getElementById("chartEstatsAdmSexoFaixa"), demo.admissoes_sexo_faixa, { height: 380 });
   ceEstatsGroupedBar(document.getElementById("chartEstatsDemSexoFaixa"), demo.desligamentos_sexo_faixa, { height: 380 });
 

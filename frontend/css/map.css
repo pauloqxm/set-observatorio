@@ -559,6 +559,14 @@
   gap: 14px;
 }
 
+.map-ce-estats-faixa-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
 .map-ce-estats-card {
   padding: 14px;
   border-radius: 14px;
@@ -633,7 +641,8 @@
   }
 
   .map-ce-estats-grid,
-  .map-ce-estats-rank__grid {
+  .map-ce-estats-rank__grid,
+  .map-ce-estats-faixa-row {
     grid-template-columns: 1fr;
   }
 }
