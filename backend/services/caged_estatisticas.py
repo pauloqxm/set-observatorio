@@ -287,14 +287,37 @@ def _norm_header(name: str) -> str:
     return "".join(ch for ch in s.lower() if ch.isalnum())
 
 
-def _cell(rec: dict[str | None, str | None], *aliases: str) -> str:
-    wanted = {_norm_header(a) for a in aliases}
-    for key, val in rec.items():
-        if key is None:
-            continue
-        if _norm_header(str(key)) in wanted:
-            return "" if val is None else str(val)
-    return ""
+COLUNAS_CAGED: dict[str, tuple[str, ...]] = {
+    "competencia": ("competênciamov", "competenciamov", "competencia", "anomes", "aaaamm", "periodo"),
+    "municipio": ("município", "municipio", "municipio_id", "codigoibge", "cod_ibge"),
+    "municipio_nome": ("municipio_nome", "municipionome"),
+    "secao": ("seção", "secao"),
+    "origem": ("origem_caged", "origemcaged", "origem"),
+    "saldo": ("saldomovimentação", "saldomovimentacao", "saldo"),
+    "cbo": ("cbo_descricao", "cbodescricao"),
+    "grau": ("graudeinstrução", "graudeinstrucao"),
+    "idade": ("idade",),
+    "tempo": ("tempoemprego",),
+    "raca": ("raçacor", "racacor"),
+    "sexo": ("sexo",),
+    "tipo": ("tipomovimentação", "tipomovimentacao"),
+    "salario": ("salário", "salario"),
+    "intermitente": ("indtrabintermitente",),
+    "parcial": ("indtrabparcial",),
+}
+
+
+def _mapear_colunas(header: list[str]) -> dict[str, int]:
+    """Resolve os apelidos de cada coluna uma vez, antes de varrer as linhas."""
+    posicao = {_norm_header(h): i for i, h in enumerate(header) if h}
+    indices: dict[str, int] = {}
+    for campo, aliases in COLUNAS_CAGED.items():
+        for alias in aliases:
+            i = posicao.get(_norm_header(alias))
+            if i is not None:
+                indices[campo] = i
+                break
+    return indices
 
 
 def _parse_competencia(raw: str) -> str:
@@ -392,7 +415,9 @@ def _abrir_fonte_caged() -> Iterator[tuple[TextIO, str, str]]:
         )
 
 
-def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set[str], dict[str, str], set[str]]:
+def _ingestir_reader(
+    reader: Iterator[list[str]],
+) -> tuple[list[tuple], set[str], set[str], dict[str, str], set[str]]:
     rows: list[tuple] = []
     anos: set[str] = set()
     comps: set[str] = set()
@@ -400,47 +425,98 @@ def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set
     grups: set[str] = set()
     skip_comp = skip_mun = skip_saldo = 0
     por_comp: Counter[str] = Counter()
-    headers = [_norm_header(h) for h in (reader.fieldnames or []) if h]
+    try:
+        header = next(reader)
+    except StopIteration:
+        header = []
+    headers = [_norm_header(h) for h in header if h]
     logger.info("CAGED colunas: %s", ", ".join(headers[:24]) or "(sem cabeçalho)")
-    for rec in reader:
-        comp = _parse_competencia(
-            _cell(rec, "competênciamov", "competenciamov", "competencia", "anomes", "aaaamm", "periodo")
+    idx = _mapear_colunas(header)
+    faltando = [c for c in ("competencia", "municipio", "saldo") if c not in idx]
+    if faltando:
+        raise FileNotFoundError(f"CSV do CAGED sem as colunas: {', '.join(faltando)}.")
+
+    i_comp = idx["competencia"]
+    i_mun = idx["municipio"]
+    i_saldo = idx["saldo"]
+    (
+        i_nome,
+        i_secao,
+        i_origem,
+        i_cbo,
+        i_grau,
+        i_idade,
+        i_tempo,
+        i_raca,
+        i_sexo,
+        i_tipo,
+        i_salario,
+        i_inter,
+        i_parcial,
+    ) = (
+        idx.get(campo, -1)
+        for campo in (
+            "municipio_nome",
+            "secao",
+            "origem",
+            "cbo",
+            "grau",
+            "idade",
+            "tempo",
+            "raca",
+            "sexo",
+            "tipo",
+            "salario",
+            "intermitente",
+            "parcial",
         )
+    )
+    unicos: dict[str, str] = {}
+
+    def campo(linha: list[str], i: int) -> str:
+        return linha[i] if 0 <= i < len(linha) else ""
+
+    def unico(valor: str) -> str:
+        """Compartilha um único objeto por texto repetido, para não estourar a memória."""
+        return unicos.setdefault(valor, valor)
+
+    for linha in reader:
+        comp = _parse_competencia(campo(linha, i_comp))
         if not comp:
             skip_comp += 1
             continue
-        mun = _norm_mun(_cell(rec, "município", "municipio", "municipio_id", "codigoibge", "cod_ibge"))
+        mun = _norm_mun(campo(linha, i_mun))
         if not mun:
             skip_mun += 1
             continue
-        secao = _cell(rec, "seção", "secao").strip().upper()
-        origem = _cell(rec, "origem_caged", "origemcaged", "origem").strip().lower() or "mov"
-        saldo = _parse_int(_cell(rec, "saldomovimentação", "saldomovimentacao", "saldo") or "0") or 0
+        secao = campo(linha, i_secao).strip().upper()
+        origem = campo(linha, i_origem).strip().lower() or "mov"
+        saldo = _parse_int(campo(linha, i_saldo) or "0") or 0
         if origem == "exc":
             saldo = -saldo
         if saldo == 0:
             skip_saldo += 1
             continue
         grup = _secao_grup(secao)
-        mun_nome = _cell(rec, "municipio_nome", "municipionome").strip() or f"Código {mun}"
+        mun_nome = campo(linha, i_nome).strip() or f"Código {mun}"
         rows.append(
             (
-                comp,
-                mun,
-                mun_nome,
-                secao,
+                unico(comp),
+                unico(mun),
+                unico(mun_nome),
+                unico(secao),
                 grup,
                 saldo,
-                _cell(rec, "cbo_descricao", "cbodescricao").strip() or "Não informado",
-                _cell(rec, "graudeinstrução", "graudeinstrucao").strip(),
-                _parse_int(_cell(rec, "idade")),
-                _parse_float(_cell(rec, "tempoemprego")),
-                _cell(rec, "raçacor", "racacor").strip(),
-                _cell(rec, "sexo").strip(),
-                _cell(rec, "tipomovimentação", "tipomovimentacao").strip(),
-                _parse_float(_cell(rec, "salário", "salario")),
-                _flag_on(_cell(rec, "indtrabintermitente")),
-                _flag_on(_cell(rec, "indtrabparcial")),
+                unico(campo(linha, i_cbo).strip() or "Não informado"),
+                unico(campo(linha, i_grau).strip()),
+                _parse_int(campo(linha, i_idade)),
+                _parse_float(campo(linha, i_tempo)),
+                unico(campo(linha, i_raca).strip()),
+                unico(campo(linha, i_sexo).strip()),
+                unico(campo(linha, i_tipo).strip()),
+                _parse_float(campo(linha, i_salario)),
+                _flag_on(campo(linha, i_inter)),
+                _flag_on(campo(linha, i_parcial)),
             )
         )
         anos.add(comp[:4])
@@ -486,7 +562,7 @@ def _ensure_loaded() -> None:
             first = fh.readline()
             delim = _csv_delimiter(first) if first else delim_hint
             logger.info("CAGED fonte=%s delim=%r", origem, delim)
-            reader = csv.DictReader(itertools.chain([first], fh), delimiter=delim)
+            reader = csv.reader(itertools.chain([first], fh), delimiter=delim)
             rows, anos, comps, muns, grups = _ingestir_reader(reader)
         nome = "api-dados-caged" if origem.startswith("http") else Path(origem).name
         meses = [{"valor": c, "label": _comp_label(c)} for c in sorted(comps, key=_comp_sort)]
