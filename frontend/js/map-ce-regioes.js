@@ -8497,6 +8497,10 @@ function ceSyncTemporalFiltersForCurrentMode() {
     window.qualificacaoApi?.syncTemporalFilters?.();
     return;
   }
+  if (ceIsCagedEstatisticasMode() || cePendingPageMode === "caged_estatisticas") {
+    window.cagedEstatisticasApi?.syncTemporalFilters?.();
+    return;
+  }
   const anoEl = document.getElementById("mapFilterAno");
   const mesEl = document.getElementById("mapFilterMes");
   const prevAno = new Set(Array.from(anoEl?.selectedOptions || []).map((o) => o.value));
@@ -8984,7 +8988,8 @@ function ceWireMapFiltersDelegation() {
       window.vaiVemApi?.syncMunicipiosFromRegiao?.();
     }
     if (t.id === "mapFilterAno" && !ceIsQualificacaoMode() && !ceIsDinheiroNaMaoMode()) {
-      ceRefreshMesOptionsFromAnoFilter();
+      if (ceIsCagedEstatisticasMode()) window.cagedEstatisticasApi?.syncTemporalFilters?.();
+      else ceRefreshMesOptionsFromAnoFilter();
     }
     if (t.id === "mapFilterMes" || t.id === "mapFilterAno" || t.id === "mapFilterMunicipio" || t.id === "mapFilterRegiao" || t.id === "mapFilterVaiVemRegiao" || t.id === "mapFilterEstatsGrup") {
       ceMapRuntime.activeLegendClass = null;

@@ -3,12 +3,14 @@ from __future__ import annotations
 import csv
 import gzip
 import io
+import itertools
 import logging
 import os
 import threading
+import unicodedata
 import urllib.error
 import urllib.request
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from statistics import mean
@@ -18,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CSV_GZ_PATH = ROOT_DIR / "caged_base.csv.gz"
+CSV_GZ_PATH_ALT = ROOT_DIR / "caged_base1.csv.gz"
 CSV_PATH = ROOT_DIR / "caged_base.csv"
 DADOS_CAGED_PATH = ROOT_DIR / "frontend" / "data" / "dados_caged.csv"
 CAGED_API_URL_PADRAO = "https://sistemas2.idt.org.br/api_observatorio_set/api/dados-caged"
@@ -276,6 +279,40 @@ def _items(counter: dict[str, float], *, sort_abs: bool = True, top: int | None 
     return rows
 
 
+def _norm_header(name: str) -> str:
+    s = unicodedata.normalize("NFKD", str(name or ""))
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
+def _cell(rec: dict[str | None, str | None], *aliases: str) -> str:
+    wanted = {_norm_header(a) for a in aliases}
+    for key, val in rec.items():
+        if key is None:
+            continue
+        if _norm_header(str(key)) in wanted:
+            return "" if val is None else str(val)
+    return ""
+
+
+def _parse_competencia(raw: str) -> str:
+    """Aceita 202608, 2026-08, 2026-08-01, 08/2026 e equivalentes."""
+    digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
+    if len(digits) >= 6:
+        year, month = int(digits[:4]), int(digits[4:6])
+        if 1990 <= year <= 2100 and 1 <= month <= 12:
+            return f"{year:04d}{month:02d}"
+    if len(digits) == 6:
+        month, year = int(digits[:2]), int(digits[2:])
+        if 1 <= month <= 12 and 1990 <= year <= 2100:
+            return f"{year:04d}{month:02d}"
+    return ""
+
+
+def _csv_delimiter(header: str) -> str:
+    return ";" if header.count(";") > header.count(",") else ","
+
+
 def _caged_api_key() -> str:
     return (os.environ.get("CAGED_API_KEY") or "").strip()
 
@@ -285,10 +322,9 @@ def _caged_api_url() -> str:
 
 
 def _resolve_csv_path() -> Path | None:
-    if CSV_GZ_PATH.exists():
-        return CSV_GZ_PATH
-    if CSV_PATH.exists():
-        return CSV_PATH
+    for path in (CSV_GZ_PATH, CSV_GZ_PATH_ALT, CSV_PATH):
+        if path.exists() and path.stat().st_size > 1024:
+            return path
     return None
 
 
@@ -314,7 +350,7 @@ def _abrir_fonte_caged() -> Iterator[tuple[TextIO, str, str]]:
             },
         )
         try:
-            raw = urllib.request.urlopen(req, timeout=300)
+            raw = urllib.request.urlopen(req, timeout=600)
         except urllib.error.HTTPError as exc:
             detalhe = ""
             try:
@@ -353,22 +389,31 @@ def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set
     comps: set[str] = set()
     muns: dict[str, str] = {}
     grups: set[str] = set()
+    skip_comp = skip_mun = skip_saldo = 0
+    por_comp: Counter[str] = Counter()
+    headers = [_norm_header(h) for h in (reader.fieldnames or []) if h]
+    logger.info("CAGED colunas: %s", ", ".join(headers[:24]) or "(sem cabeçalho)")
     for rec in reader:
-        comp = "".join(ch for ch in str(rec.get("competênciamov") or "") if ch.isdigit())
-        if len(comp) != 6:
+        comp = _parse_competencia(
+            _cell(rec, "competênciamov", "competenciamov", "competencia", "anomes", "aaaamm", "periodo")
+        )
+        if not comp:
+            skip_comp += 1
             continue
-        mun = _norm_mun(rec.get("município") or "")
+        mun = _norm_mun(_cell(rec, "município", "municipio", "municipio_id", "codigoibge", "cod_ibge"))
         if not mun:
+            skip_mun += 1
             continue
-        secao = str(rec.get("seção") or "").strip().upper()
-        origem = str(rec.get("origem_caged") or "mov").strip().lower()
-        saldo = _parse_int(rec.get("saldomovimentação") or "0") or 0
+        secao = _cell(rec, "seção", "secao").strip().upper()
+        origem = _cell(rec, "origem_caged", "origemcaged", "origem").strip().lower() or "mov"
+        saldo = _parse_int(_cell(rec, "saldomovimentação", "saldomovimentacao", "saldo") or "0") or 0
         if origem == "exc":
             saldo = -saldo
         if saldo == 0:
+            skip_saldo += 1
             continue
         grup = _secao_grup(secao)
-        mun_nome = str(rec.get("municipio_nome") or "").strip() or f"Código {mun}"
+        mun_nome = _cell(rec, "municipio_nome", "municipionome").strip() or f"Código {mun}"
         rows.append(
             (
                 comp,
@@ -377,22 +422,35 @@ def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set
                 secao,
                 grup,
                 saldo,
-                str(rec.get("cbo_descricao") or "").strip() or "Não informado",
-                str(rec.get("graudeinstrução") or "").strip(),
-                _parse_int(rec.get("idade") or ""),
-                _parse_float(rec.get("tempoemprego") or ""),
-                str(rec.get("raçacor") or "").strip(),
-                str(rec.get("sexo") or "").strip(),
-                str(rec.get("tipomovimentação") or "").strip(),
-                _parse_float(rec.get("salário") or ""),
-                _flag_on(rec.get("indtrabintermitente")),
-                _flag_on(rec.get("indtrabparcial")),
+                _cell(rec, "cbo_descricao", "cbodescricao").strip() or "Não informado",
+                _cell(rec, "graudeinstrução", "graudeinstrucao").strip(),
+                _parse_int(_cell(rec, "idade")),
+                _parse_float(_cell(rec, "tempoemprego")),
+                _cell(rec, "raçacor", "racacor").strip(),
+                _cell(rec, "sexo").strip(),
+                _cell(rec, "tipomovimentação", "tipomovimentacao").strip(),
+                _parse_float(_cell(rec, "salário", "salario")),
+                _flag_on(_cell(rec, "indtrabintermitente")),
+                _flag_on(_cell(rec, "indtrabparcial")),
             )
         )
         anos.add(comp[:4])
         comps.add(comp)
+        por_comp[comp] += 1
         muns[mun] = mun_nome
         grups.add(grup)
+    ordem = sorted(por_comp, key=_comp_sort)
+    ultimas = ", ".join(f"{c}={por_comp[c]:,}" for c in ordem[-4:])
+    logger.info(
+        "CAGED ingest: %s linhas, competências %s–%s [%s]; ignoradas competencia=%s mun=%s saldo0=%s",
+        f"{len(rows):,}",
+        ordem[0] if ordem else "—",
+        ordem[-1] if ordem else "—",
+        ultimas or "—",
+        f"{skip_comp:,}",
+        f"{skip_mun:,}",
+        f"{skip_saldo:,}",
+    )
     return rows, anos, comps, muns, grups
 
 
@@ -403,16 +461,18 @@ def _ensure_loaded() -> None:
     with _LOCK:
         if _ROWS is not None:
             return
-        with _abrir_fonte_caged() as (fh, delim, origem):
-            reader = csv.DictReader(fh, delimiter=delim)
+        with _abrir_fonte_caged() as (fh, delim_hint, origem):
+            first = fh.readline()
+            delim = _csv_delimiter(first) if first else delim_hint
+            logger.info("CAGED fonte=%s delim=%r", origem, delim)
+            reader = csv.DictReader(itertools.chain([first], fh), delimiter=delim)
             rows, anos, comps, muns, grups = _ingestir_reader(reader)
         nome = "api-dados-caged" if origem.startswith("http") else Path(origem).name
+        meses = [{"valor": c, "label": _comp_label(c)} for c in sorted(comps, key=_comp_sort)]
         _ROWS = rows
         _OPCOES = {
             "anos": sorted(anos),
-            "meses": [
-                {"valor": c, "label": _comp_label(c)} for c in sorted(comps, key=_comp_sort)
-            ],
+            "meses": meses,
             "municipios": [
                 {"valor": cod, "label": muns[cod]} for cod in sorted(muns, key=lambda k: muns[k])
             ],
@@ -420,6 +480,7 @@ def _ensure_loaded() -> None:
             "arquivo": origem,
             "arquivo_nome": nome,
             "total_linhas": len(rows),
+            "competencia_max": meses[-1]["valor"] if meses else "",
         }
         logger.info("CAGED estatísticas: %s linhas (%s)", f"{len(rows):,}", nome)
 
@@ -867,6 +928,7 @@ def resumo_estatisticas(
             "indice_emprego_periodo": indice_periodo,
             "n_meses": len(display_comps),
             "label": periodo_label,
+            "competencia_max": (_OPCOES or {}).get("competencia_max") or last,
             "salario_medio": salario_periodo,
         },
         "estoque_base": {

@@ -24,6 +24,8 @@ const ceEstatsFmtCur = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 
+let ceEstatsOpcoes = null;
+
 function ceEstatsIsActive() {
   return document.getElementById("secaoMapaCe")?.classList.contains("section-map-ce--caged-estatisticas") === true;
 }
@@ -70,6 +72,49 @@ function ceEstatsQuery() {
   if (regioes.length) q.set("regioes", regioes.join(","));
   if (grupamentos.length) q.set("grupamentos", grupamentos.join(","));
   return q.toString();
+}
+
+async function ceEstatsEnsureOpcoes() {
+  if (ceEstatsOpcoes) return ceEstatsOpcoes;
+  const res = await fetch("/api/caged/estatisticas/opcoes", { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  ceEstatsOpcoes = await res.json();
+  return ceEstatsOpcoes;
+}
+
+function ceEstatsSyncTemporalFilters() {
+  const op = ceEstatsOpcoes;
+  if (!op) return;
+  const anoEl = document.getElementById("mapFilterAno");
+  const mesEl = document.getElementById("mapFilterMes");
+  const prevAno = new Set(ceEstatsSelectedValues("mapFilterAno"));
+  const prevMes = new Set(ceEstatsSelectedValues("mapFilterMes"));
+  const anos = Array.isArray(op.anos) ? op.anos : [];
+  const meses = Array.isArray(op.meses) ? op.meses : [];
+  if (anoEl) {
+    anoEl.innerHTML = "";
+    for (const y of anos) {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = String(y);
+      opt.selected = prevAno.has(String(y));
+      anoEl.appendChild(opt);
+    }
+  }
+  const anoSel = new Set(ceEstatsSelectedValues("mapFilterAno"));
+  if (mesEl) {
+    mesEl.innerHTML = "";
+    for (const item of meses) {
+      const valor = String(item?.valor || "");
+      if (valor.length < 6) continue;
+      if (anoSel.size && !anoSel.has(valor.slice(0, 4))) continue;
+      const opt = document.createElement("option");
+      opt.value = `${valor.slice(0, 4)}-${valor.slice(4, 6)}`;
+      opt.textContent = item.label || opt.value;
+      opt.selected = prevMes.has(opt.value);
+      mesEl.appendChild(opt);
+    }
+  }
 }
 
 function ceEstatsDestroy(key) {
@@ -608,7 +653,15 @@ async function ceEstatsLoad() {
 
 function ceEstatsOnPageActivate() {
   if (!ceEstatsIsActive()) return;
-  void ceEstatsLoad();
+  void (async () => {
+    try {
+      await ceEstatsEnsureOpcoes();
+      ceEstatsSyncTemporalFilters();
+    } catch (err) {
+      console.warn("[caged-estatisticas] opções temporais", err);
+    }
+    await ceEstatsLoad();
+  })();
 }
 
 function ceEstatsBind() {
@@ -649,4 +702,5 @@ ceEstatsBind();
 window.cagedEstatisticasApi = {
   onPageActivate: ceEstatsOnPageActivate,
   refresh: ceEstatsLoad,
+  syncTemporalFilters: ceEstatsSyncTemporalFilters,
 };
