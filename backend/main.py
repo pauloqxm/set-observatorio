@@ -27,6 +27,7 @@ from .services.caged_estatisticas import iniciar_warmup_em_background
 from .services.caged_estatisticas import opcoes_filtros as caged_estats_opcoes
 from .services.caged_estatisticas import resumo_estatisticas as caged_estats_resumo
 from .services.caged_estatisticas import resumo_perfil_vinculo as caged_perfil_vinculo
+from .services.caged_estatisticas import status_ingestao as caged_estats_status
 
 app = FastAPI(
     title="Portal de Empregabilidade",
@@ -166,6 +167,11 @@ def api_home_qualificacao() -> dict:
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
+
+
+@app.get("/api/caged/estatisticas/status")
+def api_caged_estatisticas_status() -> dict:
+    return caged_estats_status()
 
 
 @app.get("/api/caged/estatisticas/opcoes")

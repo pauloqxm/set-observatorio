@@ -148,6 +148,7 @@ _OPCOES: dict[str, Any] | None = None
 _PERFIL_CACHE: dict[str, dict[str, Any]] = {}
 _ESTOQUE_MUN_ROWS: list[tuple[str, str, str, float]] | None = None
 _LOAD_ERROR: BaseException | None = None
+_INGEST_INFO: dict[str, Any] = {}
 
 
 class CagedCarregando(Exception):
@@ -297,10 +298,14 @@ def _cell(rec: dict[str | None, str | None], *aliases: str) -> str:
 
 
 def _parse_competencia(raw: str) -> str:
-    """Aceita 202608, 2026-08, 2026-08-01, 08/2026 e equivalentes."""
+    """Aceita 202608, 2026-08, 2026-08-01, 01/08/2026, 08/2026 e equivalentes."""
     digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
     if len(digits) >= 6:
         year, month = int(digits[:4]), int(digits[4:6])
+        if 1990 <= year <= 2100 and 1 <= month <= 12:
+            return f"{year:04d}{month:02d}"
+    if len(digits) == 8:
+        year, month = int(digits[4:8]), int(digits[2:4])
         if 1990 <= year <= 2100 and 1 <= month <= 12:
             return f"{year:04d}{month:02d}"
     if len(digits) == 6:
@@ -320,6 +325,25 @@ def _caged_api_key() -> str:
 
 def _caged_api_url() -> str:
     return (os.environ.get("CAGED_API_URL") or CAGED_API_URL_PADRAO).strip()
+
+
+class _StreamContado(io.RawIOBase):
+    """Conta os bytes lidos para detectar download interrompido no meio do CSV."""
+
+    def __init__(self, raw: Any) -> None:
+        self._raw = raw
+        self.lidos = 0
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, buf: Any) -> int:
+        chunk = self._raw.read(len(buf))
+        if not chunk:
+            return 0
+        buf[: len(chunk)] = chunk
+        self.lidos += len(chunk)
+        return len(chunk)
 
 
 @contextmanager
@@ -352,11 +376,20 @@ def _abrir_fonte_caged() -> Iterator[tuple[TextIO, str, str]]:
         ) from exc
     except urllib.error.URLError as exc:
         raise FileNotFoundError(f"API CAGED indisponivel: {exc.reason}") from exc
-    fh = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
+    esperado = str(raw.headers.get("Content-Length") or "").strip()
+    contador = _StreamContado(raw)
+    fh = io.TextIOWrapper(io.BufferedReader(contador, 1 << 20), encoding="utf-8-sig", newline="")
     try:
         yield fh, ",", url
     finally:
         fh.close()
+    _INGEST_INFO["bytes_lidos"] = contador.lidos
+    _INGEST_INFO["bytes_esperados"] = int(esperado) if esperado.isdigit() else None
+    if esperado.isdigit() and contador.lidos < int(esperado):
+        raise FileNotFoundError(
+            "Download do CAGED veio incompleto: "
+            f"{contador.lidos:,} de {int(esperado):,} bytes. Nada foi cacheado."
+        )
 
 
 def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set[str], dict[str, str], set[str]]:
@@ -417,6 +450,18 @@ def _ingestir_reader(reader: csv.DictReader) -> tuple[list[tuple], set[str], set
         grups.add(grup)
     ordem = sorted(por_comp, key=_comp_sort)
     ultimas = ", ".join(f"{c}={por_comp[c]:,}" for c in ordem[-4:])
+    _INGEST_INFO.update(
+        {
+            "colunas": headers,
+            "linhas_uteis": len(rows),
+            "por_competencia": {c: por_comp[c] for c in ordem},
+            "ignoradas": {
+                "competencia_invalida": skip_comp,
+                "municipio_invalido": skip_mun,
+                "saldo_zero": skip_saldo,
+            },
+        }
+    )
     logger.info(
         "CAGED ingest: %s linhas, competências %s–%s [%s]; ignoradas competencia=%s mun=%s saldo0=%s",
         f"{len(rows):,}",
@@ -471,6 +516,21 @@ def iniciar_warmup_em_background() -> None:
             logger.exception("Falha ao carregar CAGED da API")
 
     threading.Thread(target=_run, name="caged-api-warmup", daemon=True).start()
+
+
+def status_ingestao() -> dict[str, Any]:
+    """Diagnóstico da carga: até que competência o microdado da API chegou."""
+    pronto = _ROWS is not None
+    opcoes = _OPCOES or {}
+    return {
+        "pronto": pronto,
+        "carregando": not pronto and _LOAD_ERROR is None,
+        "erro": str(_LOAD_ERROR) if _LOAD_ERROR is not None else "",
+        "fonte": opcoes.get("arquivo_nome", ""),
+        "competencia_max": opcoes.get("competencia_max", ""),
+        "total_linhas": opcoes.get("total_linhas", 0),
+        **_INGEST_INFO,
+    }
 
 
 def _exigir_pronto() -> None:
