@@ -22,6 +22,8 @@ from .services.acesso import (
 )
 from .services.sheets import get_indicadores, get_meta, get_sheet_data, get_sheet_names
 from .services.home_qualificacao import get_qualificacao_home_summary
+from .services.caged_estatisticas import CagedCarregando
+from .services.caged_estatisticas import iniciar_warmup_em_background
 from .services.caged_estatisticas import opcoes_filtros as caged_estats_opcoes
 from .services.caged_estatisticas import resumo_estatisticas as caged_estats_resumo
 from .services.caged_estatisticas import resumo_perfil_vinculo as caged_perfil_vinculo
@@ -41,6 +43,7 @@ app.add_middleware(
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 class AcessoBody(BaseModel):
@@ -58,10 +61,7 @@ async def restringir_dados_internos(request: Request, call_next):
 
 @app.on_event("startup")
 def _warmup_caged_estatisticas() -> None:
-    try:
-        caged_estats_opcoes()
-    except Exception as exc:
-        logger.warning("Warmup das estatísticas CAGED ignorado: %s", exc)
+    iniciar_warmup_em_background()
 
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
@@ -163,10 +163,17 @@ def api_home_qualificacao() -> dict:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+@app.get("/health")
+def health() -> dict:
+    return {"ok": True}
+
+
 @app.get("/api/caged/estatisticas/opcoes")
 def api_caged_estatisticas_opcoes() -> dict:
     try:
         return caged_estats_opcoes()
+    except CagedCarregando:
+        raise HTTPException(status_code=503, detail="Carregando microdados CAGED da API.") from None
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -191,6 +198,8 @@ def api_caged_estatisticas(
             grupamentos=grupamentos,
             agregacoes=agregacoes,
         )
+    except CagedCarregando:
+        raise HTTPException(status_code=503, detail="Carregando microdados CAGED da API.") from None
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -203,6 +212,8 @@ def api_home_caged_perfil(
 ) -> dict:
     try:
         return caged_perfil_vinculo(ano=ano, mes=mes, janela=janela)
+    except CagedCarregando:
+        raise HTTPException(status_code=503, detail="Carregando microdados CAGED da API.") from None
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

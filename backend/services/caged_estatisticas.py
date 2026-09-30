@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import gzip
 import io
 import itertools
 import logging
@@ -19,9 +18,6 @@ from typing import Any, Iterator, TextIO
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-CSV_GZ_PATH = ROOT_DIR / "caged_base.csv.gz"
-CSV_GZ_PATH_ALT = ROOT_DIR / "caged_base1.csv.gz"
-CSV_PATH = ROOT_DIR / "caged_base.csv"
 DADOS_CAGED_PATH = ROOT_DIR / "frontend" / "data" / "dados_caged.csv"
 CAGED_API_URL_PADRAO = "https://sistemas2.idt.org.br/api_observatorio_set/api/dados-caged"
 
@@ -151,6 +147,11 @@ _ROWS: list[tuple] | None = None
 _OPCOES: dict[str, Any] | None = None
 _PERFIL_CACHE: dict[str, dict[str, Any]] = {}
 _ESTOQUE_MUN_ROWS: list[tuple[str, str, str, float]] | None = None
+_LOAD_ERROR: BaseException | None = None
+
+
+class CagedCarregando(Exception):
+    """Microdado da API ainda está sendo lido em segundo plano."""
 
 
 def _flag_on(raw: Any) -> bool:
@@ -321,64 +322,39 @@ def _caged_api_url() -> str:
     return (os.environ.get("CAGED_API_URL") or CAGED_API_URL_PADRAO).strip()
 
 
-def _resolve_csv_path() -> Path | None:
-    for path in (CSV_GZ_PATH, CSV_GZ_PATH_ALT, CSV_PATH):
-        if path.exists() and path.stat().st_size > 1024:
-            return path
-    return None
-
-
-def _open_caged_csv(path: Path) -> TextIO:
-    if path.name.endswith(".gz"):
-        return gzip.open(path, "rt", encoding="utf-8-sig", newline="")
-    return path.open("r", encoding="utf-8-sig", newline="")
-
-
 @contextmanager
 def _abrir_fonte_caged() -> Iterator[tuple[TextIO, str, str]]:
-    """API (CAGED_API_KEY) ou, se a chave nao existir, CSV local de desenvolvimento."""
+    """Somente a API do IDT (`CAGED_API_KEY`)."""
     key = _caged_api_key()
-    if key:
-        url = _caged_api_url()
-        logger.info("Carregando CAGED da API")
-        req = urllib.request.Request(
-            url,
-            headers={
-                "x-api-key": key,
-                "Accept": "text/csv",
-                "User-Agent": "set-observatorio",
-            },
-        )
-        try:
-            raw = urllib.request.urlopen(req, timeout=600)
-        except urllib.error.HTTPError as exc:
-            detalhe = ""
-            try:
-                detalhe = exc.read(200).decode("utf-8", "replace")
-            except Exception:
-                detalhe = str(exc.reason or "")
-            raise FileNotFoundError(
-                f"API CAGED recusou a leitura (HTTP {exc.code}). Confira CAGED_API_KEY."
-                + (f" {detalhe.strip()[:160]}" if detalhe.strip() else "")
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise FileNotFoundError(f"API CAGED indisponivel: {exc.reason}") from exc
-        fh = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
-        try:
-            yield fh, ",", url
-        finally:
-            fh.close()
-        return
-
-    path = _resolve_csv_path()
-    if path is None:
-        raise FileNotFoundError(
-            "CAGED_API_KEY nao configurada e nao ha caged_base.csv.gz na raiz."
-        )
-    logger.info("Carregando CAGED de %s (sem CAGED_API_KEY)", path.name)
-    fh = _open_caged_csv(path)
+    if not key:
+        raise FileNotFoundError("CAGED_API_KEY não configurada.")
+    url = _caged_api_url()
+    logger.info("Carregando CAGED da API")
+    req = urllib.request.Request(
+        url,
+        headers={
+            "x-api-key": key,
+            "Accept": "text/csv",
+            "User-Agent": "set-observatorio",
+        },
+    )
     try:
-        yield fh, ";", str(path)
+        raw = urllib.request.urlopen(req, timeout=600)
+    except urllib.error.HTTPError as exc:
+        detalhe = ""
+        try:
+            detalhe = exc.read(200).decode("utf-8", "replace")
+        except Exception:
+            detalhe = str(exc.reason or "")
+        raise FileNotFoundError(
+            f"API CAGED recusou a leitura (HTTP {exc.code}). Confira CAGED_API_KEY."
+            + (f" {detalhe.strip()[:160]}" if detalhe.strip() else "")
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise FileNotFoundError(f"API CAGED indisponivel: {exc.reason}") from exc
+    fh = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
+    try:
+        yield fh, ",", url
     finally:
         fh.close()
 
@@ -485,8 +461,28 @@ def _ensure_loaded() -> None:
         logger.info("CAGED estatísticas: %s linhas (%s)", f"{len(rows):,}", nome)
 
 
+def iniciar_warmup_em_background() -> None:
+    def _run() -> None:
+        global _LOAD_ERROR
+        try:
+            _ensure_loaded()
+        except Exception as exc:
+            _LOAD_ERROR = exc
+            logger.exception("Falha ao carregar CAGED da API")
+
+    threading.Thread(target=_run, name="caged-api-warmup", daemon=True).start()
+
+
+def _exigir_pronto() -> None:
+    if _ROWS is not None:
+        return
+    if _LOAD_ERROR is not None:
+        raise FileNotFoundError(str(_LOAD_ERROR)) from _LOAD_ERROR
+    raise CagedCarregando()
+
+
 def opcoes_filtros() -> dict[str, Any]:
-    _ensure_loaded()
+    _exigir_pronto()
     assert _OPCOES is not None
     return dict(_OPCOES)
 
@@ -577,7 +573,7 @@ def _filter_rows(
     *,
     ignore_time: bool = False,
 ) -> list[tuple]:
-    _ensure_loaded()
+    _exigir_pronto()
     assert _ROWS is not None
     ano_set = {a.strip() for a in anos if a.strip()}
     comp_set = {_norm_comp_param(c) for c in competencias if c.strip()}
@@ -1069,7 +1065,7 @@ def _is_regular(tipo: Any, intermitente: Any, parcial: Any) -> bool:
 
 
 def _latest_competencia() -> str | None:
-    _ensure_loaded()
+    _exigir_pronto()
     assert _OPCOES is not None
     meses = _OPCOES.get("meses") or []
     if not meses:
@@ -1094,7 +1090,7 @@ def resumo_perfil_vinculo(
     janela: int = 1,
 ) -> dict[str, Any]:
     """Indicadores da home: regularidade, salário e permanência por recorte."""
-    _ensure_loaded()
+    _exigir_pronto()
     competencia = ""
     if ano and mes and 1 <= int(mes) <= 12:
         competencia = f"{int(ano):04d}{int(mes):02d}"

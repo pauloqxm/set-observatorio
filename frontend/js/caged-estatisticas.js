@@ -77,6 +77,11 @@ function ceEstatsQuery() {
 async function ceEstatsEnsureOpcoes() {
   if (ceEstatsOpcoes) return ceEstatsOpcoes;
   const res = await fetch("/api/caged/estatisticas/opcoes", { cache: "no-store" });
+  if (res.status === 503) {
+    const err = new Error("carregando");
+    err.ceEstatsCarregando = true;
+    throw err;
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   ceEstatsOpcoes = await res.json();
   return ceEstatsOpcoes;
@@ -616,6 +621,14 @@ function ceEstatsSetProgress(show, pct, etapa) {
   if (etapaEl) etapaEl.textContent = etapa || "";
 }
 
+function ceEstatsRetryLater() {
+  ceEstatsSetStatus("Carregando microdados CAGED da API…");
+  ceEstatsSetProgress(true, 35, "Aguardando a API…");
+  setTimeout(() => {
+    if (ceEstatsIsActive()) void ceEstatsOnPageActivate();
+  }, 4000);
+}
+
 async function ceEstatsLoad() {
   if (!ceEstatsIsActive()) return;
   ceEstatsState.loading = true;
@@ -624,6 +637,10 @@ async function ceEstatsLoad() {
   try {
     const qs = ceEstatsQuery();
     const res = await fetch(`/api/caged/estatisticas${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+    if (res.status === 503) {
+      ceEstatsRetryLater();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     ceEstatsSetProgress(true, 72, "Montando indicadores…");
     const data = await res.json();
@@ -658,6 +675,10 @@ function ceEstatsOnPageActivate() {
       await ceEstatsEnsureOpcoes();
       ceEstatsSyncTemporalFilters();
     } catch (err) {
+      if (err?.ceEstatsCarregando) {
+        ceEstatsRetryLater();
+        return;
+      }
       console.warn("[caged-estatisticas] opções temporais", err);
     }
     await ceEstatsLoad();
