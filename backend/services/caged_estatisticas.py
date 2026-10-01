@@ -415,6 +415,162 @@ def _abrir_fonte_caged() -> Iterator[tuple[TextIO, str, str]]:
         )
 
 
+def _e_fracao_decimal(tok: str) -> bool:
+    return tok.isdigit() and 1 <= len(tok) <= 2
+
+
+def _e_nit(tok: str) -> bool:
+    return tok.isdigit() and 10 <= len(tok) <= 12
+
+
+def _linha_ja_alinhada(nomes: list[str], row: list[str]) -> bool:
+    """Julho vem com decimais entre aspas. Agosto não, e a vírgula vira coluna extra."""
+    pos = {nome: i for i, nome in enumerate(nomes)}
+    i_sexo, i_tipo, i_sal = pos.get("sexo"), pos.get("tipomovimentacao"), pos.get("salario")
+    if i_sexo is None or i_sal is None or i_sexo >= len(row) or i_sal >= len(row):
+        return True
+    sexo_ok = row[i_sexo] in {"1", "3"}
+    if sexo_ok and (_parse_float(row[i_sal]) or 0) >= 100:
+        return True
+    return bool(
+        sexo_ok
+        and i_tipo is not None
+        and i_tipo < len(row)
+        and row[i_tipo] in TIPO_MOV_LABEL
+    )
+
+
+def _escolher_quebras(nomes: list[str], row: list[str]) -> dict[str, int] | None:
+    """Descobre quantos tokens cada decimal ocupa (1, ou 2 se a vírgula separou os centavos)."""
+    i_horas = next((i for i, nome in enumerate(nomes) if nome == "horascontratuais"), None)
+    if i_horas is None:
+        return None
+    for horas_n in (1, 2):
+        if horas_n == 2 and (
+            i_horas + 1 >= len(row) or not _e_fracao_decimal(row[i_horas + 1])
+        ):
+            continue
+        for tempo_n in (1, 2):
+            i_tempo = i_horas + horas_n
+            if tempo_n == 2 and (
+                i_tempo + 1 >= len(row) or not _e_fracao_decimal(row[i_tempo + 1])
+            ):
+                continue
+            i_sexo = i_horas + horas_n + tempo_n + 1
+            i_tipo = i_sexo + 3
+            if i_tipo >= len(row) or row[i_sexo] not in {"1", "3"}:
+                continue
+            if row[i_tipo] not in TIPO_MOV_LABEL:
+                continue
+            i_sal = i_tipo + 4
+            cents = 0
+            for extra in (1, 0):
+                if extra == 1 and (
+                    i_sal + 1 >= len(row) or not _e_fracao_decimal(row[i_sal + 1])
+                ):
+                    continue
+                i_nit = i_sal + 4 + extra
+                if i_nit < len(row) and _e_nit(row[i_nit]):
+                    cents = extra
+                    break
+            else:
+                if (
+                    i_sal < len(row)
+                    and row[i_sal].isdigit()
+                    and int(row[i_sal]) >= 100
+                    and i_sal + 1 < len(row)
+                    and _e_fracao_decimal(row[i_sal + 1])
+                ):
+                    cents = 1
+            return {
+                "horascontratuais": horas_n,
+                "tempoemprego": tempo_n,
+                "salario": 1 + cents,
+            }
+    return None
+
+
+def _aplicar_quebras(nomes: list[str], row: list[str], quebras: dict[str, int]) -> list[str]:
+    out: list[str] = []
+    i = 0
+    origens = {"mov", "for", "exc"}
+    for nome in nomes:
+        n = quebras.get(nome, 1)
+        if nome == "valorsalariofixo" and i < len(row):
+            if (
+                i + 2 < len(row)
+                and _e_fracao_decimal(row[i + 1])
+                and row[i + 2].strip().lower() in origens
+            ):
+                n = 2
+            elif i + 1 < len(row) and row[i + 1].strip().lower() in origens:
+                n = 1
+        if i >= len(row):
+            out.append("")
+            continue
+        if n == 2 and i + 1 < len(row):
+            out.append(f"{row[i]},{row[i + 1]}")
+            i += 2
+        else:
+            out.append(row[i])
+            i += 1
+    return out
+
+
+def _ancorar_sexo_salario(nomes: list[str], row: list[str]) -> list[str] | None:
+    """Último recurso: a descrição da ocupação também veio com vírgula e deslocou o resto."""
+    candidatos: list[tuple[int, int]] = []
+    limite = len(row) - 7
+    for i in range(12, max(12, limite)):
+        if row[i] not in {"1", "3"} or row[i + 3] not in TIPO_MOV_LABEL:
+            continue
+        bruto = row[i + 7]
+        if not bruto.isdigit() or int(bruto) < 100:
+            continue
+        candidatos.append((abs(i - 18), i))
+    if not candidatos:
+        return None
+    i = min(candidatos)[1]
+    out = list(row)
+    if len(out) < len(nomes):
+        out.extend([""] * (len(nomes) - len(out)))
+    pos = {nome: idx for idx, nome in enumerate(nomes)}
+
+    def por(nome: str, token: int, extra: int = 0) -> None:
+        destino = pos.get(nome)
+        if destino is None or token >= len(row):
+            return
+        if extra and token + 1 < len(row):
+            out[destino] = f"{row[token]},{row[token + 1]}"
+        else:
+            out[destino] = row[token]
+
+    por("racacor", i - 1)
+    por("sexo", i)
+    por("tipomovimentacao", i + 3)
+    por("indtrabintermitente", i + 5)
+    por("indtrabparcial", i + 6)
+    extra = 0
+    if i + 8 < len(row) and _e_fracao_decimal(row[i + 8]) and _e_nit(row[i + 12] if i + 12 < len(row) else ""):
+        extra = 1
+    por("salario", i + 7, extra=extra)
+    if row and row[-1].strip().lower() in {"mov", "for", "exc"}:
+        destino = pos.get("origemcaged")
+        if destino is not None and destino < len(out):
+            out[destino] = row[-1].strip().lower()
+    return out
+
+
+def _realinhar_linha(nomes: list[str], row: list[str]) -> list[str]:
+    if _linha_ja_alinhada(nomes, row):
+        return row
+    quebras = _escolher_quebras(nomes, row)
+    if quebras:
+        return _aplicar_quebras(nomes, row, quebras)
+    ancorada = _ancorar_sexo_salario(nomes, row)
+    return ancorada if ancorada is not None else row
+
+
 def _ingestir_reader(
     reader: Iterator[list[str]],
 ) -> tuple[list[tuple], set[str], set[str], dict[str, str], set[str]]:
@@ -423,13 +579,14 @@ def _ingestir_reader(
     comps: set[str] = set()
     muns: dict[str, str] = {}
     grups: set[str] = set()
-    skip_comp = skip_mun = skip_saldo = 0
+    skip_comp = skip_mun = skip_saldo = realinhadas = 0
     por_comp: Counter[str] = Counter()
     try:
         header = next(reader)
     except StopIteration:
         header = []
-    headers = [_norm_header(h) for h in header if h]
+    nomes = [_norm_header(h) for h in header]
+    headers = [h for h in nomes if h]
     logger.info("CAGED colunas: %s", ", ".join(headers[:24]) or "(sem cabeçalho)")
     idx = _mapear_colunas(header)
     faltando = [c for c in ("competencia", "municipio", "saldo") if c not in idx]
@@ -480,7 +637,10 @@ def _ingestir_reader(
         """Compartilha um único objeto por texto repetido, para não estourar a memória."""
         return unicos.setdefault(valor, valor)
 
-    for linha in reader:
+    for bruta in reader:
+        linha = _realinhar_linha(nomes, bruta)
+        if linha is not bruta:
+            realinhadas += 1
         comp = _parse_competencia(campo(linha, i_comp))
         if not comp:
             skip_comp += 1
@@ -531,6 +691,7 @@ def _ingestir_reader(
             "colunas": headers,
             "linhas_uteis": len(rows),
             "por_competencia": {c: por_comp[c] for c in ordem},
+            "linhas_realinhadas": realinhadas,
             "ignoradas": {
                 "competencia_invalida": skip_comp,
                 "municipio_invalido": skip_mun,
@@ -539,11 +700,12 @@ def _ingestir_reader(
         }
     )
     logger.info(
-        "CAGED ingest: %s linhas, competências %s–%s [%s]; ignoradas competencia=%s mun=%s saldo0=%s",
+        "CAGED ingest: %s linhas, competências %s–%s [%s]; realinhadas=%s; ignoradas competencia=%s mun=%s saldo0=%s",
         f"{len(rows):,}",
         ordem[0] if ordem else "—",
         ordem[-1] if ordem else "—",
         ultimas or "—",
+        f"{realinhadas:,}",
         f"{skip_comp:,}",
         f"{skip_mun:,}",
         f"{skip_saldo:,}",
